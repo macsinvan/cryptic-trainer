@@ -1,0 +1,8 @@
+{
+  "name": "Cryptic Trainer",
+  "description": "Master the art of cryptic crosswords by analyzing the unique styles of famous setters like Paul and Araucaria.",
+  "version": "RESTORE_POINT_APPROVED_WORKFLOW_V1",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

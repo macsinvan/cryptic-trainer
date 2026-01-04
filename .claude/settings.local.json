@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(/usr/local/bin/npm install)",
+      "Bash(/usr/local/bin/npm run dev)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(lsof:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:timesforthetimes.co.uk)",
+      "Bash(__NEW_LINE__ grep -E \"entertains|houses|recounted\" /Users/andrewmackenzie/Desktop/cryptic-trainer/services/clueParser.ts)",
+      "WebFetch(domain:www.timesforthetimes.co.uk)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(xargs cat:*)",
+      "Bash(find:*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

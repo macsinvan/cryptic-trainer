@@ -1,0 +1,2901 @@
+
+import { PatternInstance } from '../types';
+import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS } from '../data/synonymDictionary';
+
+// --- INDICATOR DICTIONARIES ---
+// Each entry: indicator word/phrase -> { type, position_hint, letter_operation }
+
+type OperationType = 'deletion_first' | 'deletion_last' | 'anagram' | 'reversal' | 'hidden' | 'container' | 'charade' | 'homophone' | 'double_def' | 'acrostic' | 'synonym' | 'substitution' | 'letter_movement';
+
+interface IndicatorEntry {
+    type: OperationType;
+    synonymRequired?: boolean;  // Does fodder typically need synonym first?
+    letterOp?: 'first' | 'last' | 'ends' | 'middle';  // For extractions
+    definitionAtEnd?: boolean;  // Indicator suggests definition is at the other end
+}
+
+const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
+    // --- DELETION (First Letter) ---
+    'beheaded': { type: 'deletion_first' },
+    'headless': { type: 'deletion_first' },
+    'heading away': { type: 'deletion_first', synonymRequired: true },
+    'heading away from': { type: 'deletion_first', synonymRequired: true },
+    'topless': { type: 'deletion_first' },
+    'after decapitation': { type: 'deletion_first' },
+    'loses head': { type: 'deletion_first' },
+    'losing head': { type: 'deletion_first' },
+    'losing its head': { type: 'deletion_first' },
+    'conceding header': { type: 'deletion_first', synonymRequired: true },
+    'after conceding header': { type: 'deletion_first', synonymRequired: true },
+
+    // --- DELETION (Last Letter) ---
+    'nearly': { type: 'deletion_last' },
+    'almost': { type: 'deletion_last' },
+    'most of': { type: 'deletion_last' },
+    'not quite': { type: 'deletion_last' },
+    'unfinished': { type: 'deletion_last' },
+    'endless': { type: 'deletion_last' },
+    'endlessly': { type: 'deletion_last' },
+    'no end': { type: 'deletion_last' },
+    'curtailed': { type: 'deletion_last' },
+    'snubbed': { type: 'deletion_last', synonymRequired: true },
+    'cut short': { type: 'deletion_last' },
+    'cut': { type: 'deletion_last' },
+    'short': { type: 'deletion_last', synonymRequired: true },
+    'shortened': { type: 'deletion_last', synonymRequired: true },
+    'incomplete': { type: 'deletion_last' },
+    'without': { type: 'deletion_last' },
+    'lacking': { type: 'deletion_last' },
+    'dropped': { type: 'deletion_last' },
+
+    // --- DELETION (Middle - heartless) ---
+    'heartless': { type: 'deletion_first', letterOp: 'middle' },  // Remove middle letters
+    'gutted': { type: 'deletion_first', letterOp: 'middle' },
+    'disembowelled': { type: 'deletion_first', letterOp: 'middle' },
+    'hollow': { type: 'deletion_first', letterOp: 'middle' },
+    'emptied': { type: 'deletion_first', letterOp: 'middle' },
+
+    // --- LETTER SELECTION ---
+    'end of': { type: 'deletion_last', letterOp: 'last' },
+    'start of': { type: 'deletion_first', letterOp: 'first' },
+    'head of': { type: 'deletion_first', letterOp: 'first' },
+    'tail of': { type: 'deletion_last', letterOp: 'last' },
+    'finally': { type: 'deletion_last', letterOp: 'last' },
+    'ultimately': { type: 'deletion_last', letterOp: 'last' },
+    'at the end': { type: 'deletion_last', letterOp: 'last' },
+    'at the end of': { type: 'deletion_last', letterOp: 'last' },
+    'ends of': { type: 'deletion_last', letterOp: 'last' },
+    'initially': { type: 'deletion_first', letterOp: 'first' },
+    'at first': { type: 'deletion_first', letterOp: 'first' },
+    'opener': { type: 'deletion_first', letterOp: 'first' },
+    'opening': { type: 'deletion_first', letterOp: 'first' },
+    'leader': { type: 'deletion_first', letterOp: 'first' },
+    'first of': { type: 'deletion_first', letterOp: 'first' },
+    'primarily': { type: 'deletion_first', letterOp: 'first' },
+    'to start with': { type: 'deletion_first', letterOp: 'first' },
+    'last of': { type: 'deletion_last', letterOp: 'last' },
+    'at end': { type: 'deletion_last', letterOp: 'last' },
+    'heart of': { type: 'deletion_first', letterOp: 'middle' },
+    'centre of': { type: 'deletion_first', letterOp: 'middle' },
+    'center of': { type: 'deletion_first', letterOp: 'middle' },
+    'middle of': { type: 'deletion_first', letterOp: 'middle' },
+    'missing': { type: 'deletion_last' },
+    'dropping': { type: 'deletion_last' },
+    'losing': { type: 'deletion_last' },
+    'stunted': { type: 'deletion_last' },
+    'docked': { type: 'deletion_last' },
+    'clipped': { type: 'deletion_last' },
+    'trimmed': { type: 'deletion_last' },
+    'half': { type: 'deletion_last' },
+    'half of': { type: 'deletion_last' },
+    'halved': { type: 'deletion_last' },
+
+    // --- OUTER LETTERS (ends) ---
+    'extremely': { type: 'deletion_first', letterOp: 'ends' },
+    'wings of': { type: 'deletion_first', letterOp: 'ends' },
+    'cases of': { type: 'deletion_first', letterOp: 'ends' },
+    'outsides of': { type: 'deletion_first', letterOp: 'ends' },
+    'borders of': { type: 'deletion_first', letterOp: 'ends' },
+    'edges of': { type: 'deletion_first', letterOp: 'ends' },
+
+    // --- ANAGRAM ---
+    'mixed': { type: 'anagram' },
+    'broken': { type: 'anagram' },
+    'crazy': { type: 'anagram' },
+    'wild': { type: 'anagram' },
+    'rocky': { type: 'anagram' },
+    'rough': { type: 'anagram' },
+    'shaky': { type: 'anagram' },
+    'unstable': { type: 'anagram' },
+    'mad': { type: 'anagram' },
+    'confused': { type: 'anagram' },
+    'muddled': { type: 'anagram' },
+    'scrambled': { type: 'anagram' },
+    'shuffled': { type: 'anagram' },
+    'twisted': { type: 'anagram' },
+    'mangled': { type: 'anagram' },
+    'ruined': { type: 'anagram' },
+    'destroyed': { type: 'anagram' },
+    'wrecked': { type: 'anagram' },
+    'damaged': { type: 'anagram' },
+    'messy': { type: 'anagram' },
+    'drunk': { type: 'anagram' },
+    'smashed': { type: 'anagram' },
+    'out of order': { type: 'anagram' },
+    'rearranged': { type: 'anagram' },
+    'reformed': { type: 'anagram' },
+    'remodelled': { type: 'anagram' },
+    'new': { type: 'anagram' },
+    'novel': { type: 'anagram' },
+    'unusual': { type: 'anagram' },
+    'strange': { type: 'anagram' },
+    'oddly': { type: 'anagram' },
+    'badly': { type: 'anagram' },
+    'poorly': { type: 'anagram' },
+    'cooked': { type: 'anagram' },
+    'bananas': { type: 'anagram' },
+    'washed': { type: 'anagram' },
+    'misguided': { type: 'anagram' },
+    'desecrated': { type: 'anagram' },
+    'deviant': { type: 'anagram' },
+    'off': { type: 'anagram' },
+    'running': { type: 'anagram' },
+    'racing': { type: 'anagram' },
+    'moving': { type: 'anagram' },
+    'roaming': { type: 'anagram' },
+    'wandering': { type: 'anagram' },
+    // More anagram indicators
+    'awful': { type: 'anagram' },
+    'chaotic': { type: 'anagram' },
+    'scattered': { type: 'anagram' },
+    'disturbed': { type: 'anagram' },
+    'upset': { type: 'anagram' },
+    'disrupted': { type: 'anagram' },
+    'reshaped': { type: 'anagram' },
+    'transformed': { type: 'anagram' },
+    'changed': { type: 'anagram' },
+    'altered': { type: 'anagram' },
+    'modified': { type: 'anagram' },
+    'adapted': { type: 'anagram' },
+    'revised': { type: 'anagram' },
+    'edited': { type: 'anagram' },
+    'fixed': { type: 'anagram' },
+    'mended': { type: 'anagram' },
+    'repaired': { type: 'anagram' },
+    'adjusted': { type: 'anagram' },
+    'developed': { type: 'anagram' },
+    'evolved': { type: 'anagram' },
+    'converted': { type: 'anagram' },
+    'translated': { type: 'anagram' },
+    'mutated': { type: 'anagram' },
+    'corrupted': { type: 'anagram' },
+    'spoiled': { type: 'anagram' },
+    'rotten': { type: 'anagram' },
+    'decayed': { type: 'anagram' },
+    'decomposed': { type: 'anagram' },
+    'crumbling': { type: 'anagram' },
+    'falling apart': { type: 'anagram' },
+    'disintegrating': { type: 'anagram' },
+    'exploding': { type: 'anagram' },
+    'erupting': { type: 'anagram' },
+    'volatile': { type: 'anagram' },
+    'turbulent': { type: 'anagram' },
+    'stormy': { type: 'anagram' },
+    'tempestuous': { type: 'anagram' },
+    'wayward': { type: 'anagram' },
+    'erratic': { type: 'anagram' },
+    'irregular': { type: 'anagram' },
+    'random': { type: 'anagram' },
+    'haphazard': { type: 'anagram' },
+    'disorderly': { type: 'anagram' },
+    'untidy': { type: 'anagram' },
+    'sloppy': { type: 'anagram' },
+    'careless': { type: 'anagram' },
+    'clumsy': { type: 'anagram' },
+    'awkward': { type: 'anagram' },
+    'bungling': { type: 'anagram' },
+    'inept': { type: 'anagram' },
+    'wrong': { type: 'anagram' },
+    'mistaken': { type: 'anagram' },
+    'faulty': { type: 'anagram' },
+    'flawed': { type: 'anagram' },
+    'imperfect': { type: 'anagram' },
+    'defective': { type: 'anagram' },
+    'working': { type: 'anagram' },
+    'playing': { type: 'anagram' },
+    'dancing': { type: 'anagram' },
+    'spinning': { type: 'anagram' },
+    'whirling': { type: 'anagram' },
+    'swirling': { type: 'anagram' },
+    'churning': { type: 'anagram' },
+    'mixing': { type: 'anagram' },
+    'blending': { type: 'anagram' },
+    'stirring': { type: 'anagram' },
+    'shaking': { type: 'anagram' },
+    'vibrating': { type: 'anagram' },
+    'trembling': { type: 'anagram' },
+    'quivering': { type: 'anagram' },
+    'wobbling': { type: 'anagram' },
+    'tottering': { type: 'anagram' },
+    'staggering': { type: 'anagram' },
+    'reeling': { type: 'anagram' },
+    'swimming': { type: 'anagram' },
+    'floating': { type: 'anagram' },
+    'drifting': { type: 'anagram' },
+    'shifting': { type: 'anagram' },
+    'sliding': { type: 'anagram' },
+    'slipping': { type: 'anagram' },
+    'tumbling': { type: 'anagram' },
+    'rolling': { type: 'anagram' },
+    'bouncing': { type: 'anagram' },
+    'jumping': { type: 'anagram' },
+    'leaping': { type: 'anagram' },
+    'bounding': { type: 'anagram' },
+    'springing': { type: 'anagram' },
+    'flying': { type: 'anagram' },
+    'soaring': { type: 'anagram' },
+    'dashing': { type: 'anagram' },
+    'rushing': { type: 'anagram' },
+    'hurrying': { type: 'anagram' },
+    'scurrying': { type: 'anagram' },
+    'bustling': { type: 'anagram' },
+    'frantic': { type: 'anagram' },
+    'frenzied': { type: 'anagram' },
+    'manic': { type: 'anagram' },
+    'hectic': { type: 'anagram' },
+    'excited': { type: 'anagram' },
+    'agitated': { type: 'anagram' },
+    'nervous': { type: 'anagram' },
+    'anxious': { type: 'anagram' },
+    'worried': { type: 'anagram' },
+    'troubled': { type: 'anagram' },
+    'distressed': { type: 'anagram' },
+    'distraught': { type: 'anagram' },
+    'deranged': { type: 'anagram' },
+    'unhinged': { type: 'anagram' },
+    'unsettled': { type: 'anagram' },
+    'unbalanced': { type: 'anagram' },
+    'unstuck': { type: 'anagram' },
+    'undone': { type: 'anagram' },
+    'unravelled': { type: 'anagram' },
+    'unwound': { type: 'anagram' },
+    'untangled': { type: 'anagram' },
+    'unknotted': { type: 'anagram' },
+    'loosened': { type: 'anagram' },
+    'released': { type: 'anagram' },
+    'freed': { type: 'anagram' },
+    'liberated': { type: 'anagram' },
+    'organised': { type: 'anagram' },
+    'organized': { type: 'anagram' },
+    'arranged': { type: 'anagram' },
+    'sorted': { type: 'anagram' },
+    'ordered': { type: 'anagram' },
+    'designed': { type: 'anagram' },
+    'engineered': { type: 'anagram' },
+    'constructed': { type: 'anagram' },
+    'assembled': { type: 'anagram' },
+    'built': { type: 'anagram' },
+    'made': { type: 'anagram' },
+    'created': { type: 'anagram' },
+    'produced': { type: 'anagram' },
+    'generated': { type: 'anagram' },
+    'devised': { type: 'anagram' },
+    'concocted': { type: 'anagram' },
+    'brewed': { type: 'anagram' },
+    'baked': { type: 'anagram' },
+    'cooked up': { type: 'anagram' },
+    'doctored': { type: 'anagram' },
+    'treated': { type: 'anagram' },
+    'processed': { type: 'anagram' },
+    'worked on': { type: 'anagram' },
+    'hammered': { type: 'anagram' },
+    'pounded': { type: 'anagram' },
+    'beaten': { type: 'anagram' },
+    'battered': { type: 'anagram' },
+    'crushed': { type: 'anagram' },
+    'ground': { type: 'anagram' },
+    'mashed': { type: 'anagram' },
+    'pulped': { type: 'anagram' },
+    'squashed': { type: 'anagram' },
+    'flattened': { type: 'anagram' },
+    'spread': { type: 'anagram' },
+    'distributed': { type: 'anagram' },
+    'dispersed': { type: 'anagram' },
+    'sprinkled': { type: 'anagram' },
+    'strewn': { type: 'anagram' },
+    'thrown': { type: 'anagram' },
+    'tossed': { type: 'anagram' },
+    'flung': { type: 'anagram' },
+    'hurled': { type: 'anagram' },
+    'cast': { type: 'anagram' },
+    'spun': { type: 'anagram' },
+    'wound': { type: 'anagram' },
+    'tangled': { type: 'anagram' },
+    'knotted': { type: 'anagram' },
+    'tied': { type: 'anagram' },
+    'bound': { type: 'anagram' },
+    'wrapped': { type: 'anagram' },
+    'covered': { type: 'anagram' },
+    'hidden': { type: 'anagram' },
+    'obscured': { type: 'anagram' },
+    'disguised': { type: 'anagram' },
+    'camouflaged': { type: 'anagram' },
+    'masked': { type: 'anagram' },
+    'veiled': { type: 'anagram' },
+    'cloaked': { type: 'anagram' },
+    'shrouded': { type: 'anagram' },
+    'enshrouded': { type: 'anagram' },
+    'enveloped': { type: 'anagram' },
+    'surrounded': { type: 'anagram' },
+    'encircled': { type: 'anagram' },
+    'ringed': { type: 'anagram' },
+    'circled': { type: 'anagram' },
+    'rounded': { type: 'anagram' },
+    'curved': { type: 'anagram' },
+    'bent': { type: 'anagram' },
+    'warped': { type: 'anagram' },
+    'distorted': { type: 'anagram' },
+    'contorted': { type: 'anagram' },
+    'wrenched': { type: 'anagram' },
+    'yanked': { type: 'anagram' },
+    'pulled': { type: 'anagram' },
+    'dragged': { type: 'anagram' },
+    'hauled': { type: 'anagram' },
+    'tugged': { type: 'anagram' },
+    'jerked': { type: 'anagram' },
+    'jolted': { type: 'anagram' },
+    'shocked': { type: 'anagram' },
+    'startled': { type: 'anagram' },
+    'surprised': { type: 'anagram' },
+    'amazed': { type: 'anagram' },
+    'astonished': { type: 'anagram' },
+    'astounded': { type: 'anagram' },
+    'stunned': { type: 'anagram' },
+    'dazed': { type: 'anagram' },
+    'bewildered': { type: 'anagram' },
+    'baffled': { type: 'anagram' },
+    'puzzled': { type: 'anagram' },
+    'perplexed': { type: 'anagram' },
+    'mystified': { type: 'anagram' },
+    'confounded': { type: 'anagram' },
+    'flummoxed': { type: 'anagram' },
+    'stumped': { type: 'anagram' },
+    'stuck': { type: 'anagram' },
+    'stymied': { type: 'anagram' },
+    'thwarted': { type: 'anagram' },
+    'foiled': { type: 'anagram' },
+    'frustrated': { type: 'anagram' },
+    'annoyed': { type: 'anagram' },
+    'irritated': { type: 'anagram' },
+    'vexed': { type: 'anagram' },
+    'ruffled': { type: 'anagram' },
+    'flustered': { type: 'anagram' },
+    'rattled': { type: 'anagram' },
+    'shaken': { type: 'anagram' },
+    'stirred up': { type: 'anagram' },
+    'wound up': { type: 'anagram' },
+    'worked up': { type: 'anagram' },
+    'fired up': { type: 'anagram' },
+    'heated': { type: 'anagram' },
+    'boiled': { type: 'anagram' },
+    'simmered': { type: 'anagram' },
+    'stewed': { type: 'anagram' },
+    'roasted': { type: 'anagram' },
+    'grilled': { type: 'anagram' },
+    'fried': { type: 'anagram' },
+    'sauteed': { type: 'anagram' },
+    'poached': { type: 'anagram' },
+    'steamed': { type: 'anagram' },
+    'boiling': { type: 'anagram' },
+    'seething': { type: 'anagram' },
+    'bubbling': { type: 'anagram' },
+    'fizzing': { type: 'anagram' },
+    'effervescent': { type: 'anagram' },
+    'sparkling': { type: 'anagram' },
+    'glittering': { type: 'anagram' },
+    'shimmering': { type: 'anagram' },
+    'flickering': { type: 'anagram' },
+    'wavering': { type: 'anagram' },
+    'fluctuating': { type: 'anagram' },
+    'varying': { type: 'anagram' },
+    'changing': { type: 'anagram' },
+    'alternating': { type: 'anagram' },
+    'rotating': { type: 'anagram' },
+    'revolving': { type: 'anagram' },
+    'turning': { type: 'anagram' },
+    'pivoting': { type: 'anagram' },
+    'swivelling': { type: 'anagram' },
+    'swinging': { type: 'anagram' },
+    'rocking': { type: 'anagram' },
+    'swaying': { type: 'anagram' },
+    'tilting': { type: 'anagram' },
+    'listing': { type: 'anagram' },
+    'leaning': { type: 'anagram' },
+    'slanting': { type: 'anagram' },
+    'angled': { type: 'anagram' },
+    'skewed': { type: 'anagram' },
+    'askew': { type: 'anagram' },
+    'awry': { type: 'anagram' },
+    'amiss': { type: 'anagram' },
+    'astray': { type: 'anagram' },
+    'adrift': { type: 'anagram' },
+    'abroad': { type: 'anagram' },
+    'at sea': { type: 'anagram' },
+    'at large': { type: 'anagram' },
+    'at random': { type: 'anagram' },
+    'all over': { type: 'anagram' },
+    'about': { type: 'anagram' },
+    'around': { type: 'anagram' },
+    'somehow': { type: 'anagram' },
+    'anyhow': { type: 'anagram' },
+    'possibly': { type: 'anagram' },
+    'perhaps': { type: 'anagram' },
+    'maybe': { type: 'anagram' },
+    'potentially': { type: 'anagram' },
+    'could be': { type: 'anagram' },
+    'might be': { type: 'anagram' },
+    'may be': { type: 'anagram' },
+    'can be': { type: 'anagram' },
+    'to become': { type: 'anagram' },
+    'becoming': { type: 'anagram' },
+    'being': { type: 'anagram' },
+    'getting': { type: 'anagram' },
+    'going': { type: 'anagram' },
+    'coming': { type: 'anagram' },
+    'leaving': { type: 'anagram' },
+    'departing': { type: 'anagram' },
+    'travelling': { type: 'anagram' },
+    'touring': { type: 'anagram' },
+    'cruising': { type: 'anagram' },
+    'sailing': { type: 'anagram' },
+    'navigating': { type: 'anagram' },
+    'steering': { type: 'anagram' },
+    'driving': { type: 'anagram' },
+    'riding': { type: 'anagram' },
+    'cycling': { type: 'anagram' },
+    'walking': { type: 'anagram' },
+    'strolling': { type: 'anagram' },
+    'ambling': { type: 'anagram' },
+    'sauntering': { type: 'anagram' },
+    'meandering': { type: 'anagram' },
+    'rambling': { type: 'anagram' },
+    'straying': { type: 'anagram' },
+    'deviating': { type: 'anagram' },
+    'diverging': { type: 'anagram' },
+    'branching': { type: 'anagram' },
+    'splitting': { type: 'anagram' },
+    'dividing': { type: 'anagram' },
+    'separating': { type: 'anagram' },
+    'parting': { type: 'anagram' },
+    'breaking up': { type: 'anagram' },
+    'coming apart': { type: 'anagram' },
+    'going wrong': { type: 'anagram' },
+    'going bad': { type: 'anagram' },
+    'gone wrong': { type: 'anagram' },
+    'gone bad': { type: 'anagram' },
+    'out': { type: 'anagram' },
+    'outs': { type: 'anagram' },
+    'free': { type: 'anagram' },
+    'loose': { type: 'anagram' },
+    'different': { type: 'anagram' },
+    'otherwise': { type: 'anagram' },
+    'else': { type: 'anagram' },
+    'other': { type: 'anagram' },
+    'another': { type: 'anagram' },
+    'alternative': { type: 'anagram' },
+    'variant': { type: 'anagram' },
+    'version': { type: 'anagram' },
+    'form': { type: 'anagram' },
+    'fashion': { type: 'anagram' },
+    'style': { type: 'anagram' },
+    'manner': { type: 'anagram' },
+    'way': { type: 'anagram' },
+    'sort': { type: 'anagram' },
+    'kind': { type: 'anagram' },
+    'type': { type: 'anagram' },
+    'order': { type: 'anagram' },
+    'arrangement': { type: 'anagram' },
+    'disposition': { type: 'anagram' },
+    'distribution': { type: 'anagram' },
+    'allocation': { type: 'anagram' },
+    'assignment': { type: 'anagram' },
+    'appointment': { type: 'anagram' },
+    'setting': { type: 'anagram' },
+    'configuration': { type: 'anagram' },
+    'composition': { type: 'anagram' },
+    'combination': { type: 'anagram' },
+    'mixture': { type: 'anagram' },
+    'blend': { type: 'anagram' },
+    'mix': { type: 'anagram' },
+    'medley': { type: 'anagram' },
+    'potpourri': { type: 'anagram' },
+    'assortment': { type: 'anagram' },
+    'variety': { type: 'anagram' },
+    'selection': { type: 'anagram' },
+    'choice': { type: 'anagram' },
+    'pick': { type: 'anagram' },
+    'plastered': { type: 'anagram' },
+    'sloshed': { type: 'anagram' },
+    'tipsy': { type: 'anagram' },
+    'tight': { type: 'anagram' },
+    'stoned': { type: 'anagram' },
+    'high': { type: 'anagram' },
+    'wasted': { type: 'anagram' },
+    'trashed': { type: 'anagram' },
+    'totalled': { type: 'anagram' },
+    'demolished': { type: 'anagram' },
+    'devastated': { type: 'anagram' },
+    'ravaged': { type: 'anagram' },
+    'pillaged': { type: 'anagram' },
+    'plundered': { type: 'anagram' },
+    'ransacked': { type: 'anagram' },
+    'sacked': { type: 'anagram' },
+    'raided': { type: 'anagram' },
+    'attacked': { type: 'anagram' },
+    'assaulted': { type: 'anagram' },
+    'beset': { type: 'anagram' },
+    'besieged': { type: 'anagram' },
+    'bombarded': { type: 'anagram' },
+    'shelled': { type: 'anagram' },
+    'blasted': { type: 'anagram' },
+    'blitzed': { type: 'anagram' },
+    'nuked': { type: 'anagram' },
+    'zapped': { type: 'anagram' },
+    'hit': { type: 'anagram' },
+    'struck': { type: 'anagram' },
+    'slammed': { type: 'anagram' },
+    'smacked': { type: 'anagram' },
+    'whacked': { type: 'anagram' },
+    'cracked': { type: 'anagram' },
+    'snapped': { type: 'anagram' },
+    'split': { type: 'anagram' },
+    'rent': { type: 'anagram' },
+    'torn': { type: 'anagram' },
+    'ripped': { type: 'anagram' },
+    'shredded': { type: 'anagram' },
+    'sliced': { type: 'anagram' },
+    'diced': { type: 'anagram' },
+    'chopped': { type: 'anagram' },
+    'minced': { type: 'anagram' },
+    'grated': { type: 'anagram' },
+    'peeled': { type: 'anagram' },
+    'skinned': { type: 'anagram' },
+    'stripped': { type: 'anagram' },
+    'bared': { type: 'anagram' },
+    'exposed': { type: 'anagram' },
+    'revealed': { type: 'anagram' },
+    'uncovered': { type: 'anagram' },
+    'unveiled': { type: 'anagram' },
+    'unmasked': { type: 'anagram' },
+    'undressed': { type: 'anagram' },
+    'disrobed': { type: 'anagram' },
+
+    // --- REVERSAL ---
+    'back': { type: 'reversal' },
+    'returned': { type: 'reversal' },
+    'reversed': { type: 'reversal' },
+    'comeback': { type: 'reversal' },
+    'following comeback': { type: 'reversal' },
+    'up': { type: 'reversal' },  // In down clues
+    'over': { type: 'reversal' },
+    'reflected': { type: 'reversal' },
+    'going back': { type: 'reversal' },
+    'going west': { type: 'reversal' },  // In across clues
+    'heading west': { type: 'reversal' },
+    'westward': { type: 'reversal' },
+    'turned': { type: 'reversal' },
+    'the wrong way': { type: 'reversal' },
+    'mounting': { type: 'reversal' },
+    'rising': { type: 'reversal' },
+    'coming up': { type: 'reversal' },
+    'upend': { type: 'reversal' },
+    'upended': { type: 'reversal' },
+    'to upend': { type: 'reversal' },
+    'flipped': { type: 'reversal' },
+    'inverted': { type: 'reversal' },
+    'overturned': { type: 'reversal' },
+    'topsy-turvy': { type: 'reversal' },
+    'backwards': { type: 'reversal' },
+    'backward': { type: 'reversal' },
+    'retreating': { type: 'reversal' },
+    'retiring': { type: 'reversal' },
+    'receding': { type: 'reversal' },
+
+    // --- LETTER MOVEMENT (letter moves to different position) ---
+    // Letter movement - when a specific letter changes position within a word
+    'moved to the end': { type: 'letter_movement' },
+    'moved to end': { type: 'letter_movement' },
+    'moving to the end': { type: 'letter_movement' },
+    'moved to the start': { type: 'letter_movement' },
+    'moved to start': { type: 'letter_movement' },
+    'moving to the start': { type: 'letter_movement' },
+    'shifted': { type: 'letter_movement' },
+    'transferred': { type: 'letter_movement' },
+    'relocated': { type: 'letter_movement' },
+    'migrated': { type: 'letter_movement' },
+    'promoted': { type: 'letter_movement' },  // moves to front
+    'demoted': { type: 'letter_movement' },   // moves to back
+
+    // Charade indicators - sequence/order words
+    'following': { type: 'charade' },
+    'following delay': { type: 'charade' },
+    'following delay of': { type: 'charade' },
+    'delayed': { type: 'charade' },  // often means "comes after" in charade context
+
+    // --- ACROSTIC (First letters of multiple words) ---
+    'principles': { type: 'acrostic', definitionAtEnd: true },
+    'principles of': { type: 'acrostic', definitionAtEnd: true },
+    'first letters': { type: 'acrostic', definitionAtEnd: true },
+    'first letters of': { type: 'acrostic', definitionAtEnd: true },
+    'initials': { type: 'acrostic', definitionAtEnd: true },
+    'initials of': { type: 'acrostic', definitionAtEnd: true },
+    'leaders': { type: 'acrostic', definitionAtEnd: true },
+    'leaders of': { type: 'acrostic', definitionAtEnd: true },
+    'heads of': { type: 'acrostic', definitionAtEnd: true },
+    'capitals': { type: 'acrostic', definitionAtEnd: true },
+    'capitals of': { type: 'acrostic', definitionAtEnd: true },
+    'starters': { type: 'acrostic', definitionAtEnd: true },
+    'openers of': { type: 'acrostic', definitionAtEnd: true },
+    'fronts of': { type: 'acrostic', definitionAtEnd: true },
+
+    // --- HIDDEN ---
+    // Note: 'in' removed - too generic, causes false positives
+    'within': { type: 'hidden' },
+    'inside': { type: 'hidden' },
+    'held by': { type: 'hidden' },
+    'part of': { type: 'hidden' },
+    'some': { type: 'hidden' },
+    'some of': { type: 'hidden' },
+    'somewhat': { type: 'hidden' },
+    'amid': { type: 'hidden' },
+    'amidst': { type: 'hidden' },
+    'among': { type: 'hidden' },
+    'buried in': { type: 'hidden' },
+    'hidden in': { type: 'hidden' },
+    'hiding': { type: 'hidden' },
+    'houses': { type: 'hidden' },
+    'contained by': { type: 'hidden' },
+    'provided by': { type: 'hidden' },
+    'not entirely': { type: 'hidden' },
+    'not completely': { type: 'hidden' },
+    'partially': { type: 'hidden' },
+
+    // --- CONTAINER ---
+    'clutching': { type: 'container' },
+    'holding': { type: 'container' },
+    'embracing': { type: 'container' },
+    'surrounding': { type: 'container' },
+    'outside': { type: 'container' },
+    'boxing': { type: 'container' },
+    'wrapping': { type: 'container' },
+    'wrapped around': { type: 'container' },
+    'wrapped in': { type: 'container' },
+    'wrapped by': { type: 'container' },
+    'enveloping': { type: 'container' },
+    'enclosing': { type: 'container' },
+    'entertains': { type: 'container' },
+    'entertaining': { type: 'container' },
+    'hosting': { type: 'container' },
+    'housing': { type: 'container' },
+    'contains': { type: 'container' },
+    'containing': { type: 'container' },
+    'breaking': { type: 'container' },
+    'conveys': { type: 'container' },
+    'to protect': { type: 'container' },
+    'protecting': { type: 'container' },
+    'occupying': { type: 'container' },
+    'to consume': { type: 'container' },
+    'consuming': { type: 'container' },
+    'swallowing': { type: 'container' },
+    'eating': { type: 'container' },
+    'interrupting': { type: 'container' },
+    'entering': { type: 'container' },
+    'wearing': { type: 'container' },
+    'introduced to': { type: 'container' },
+    'introduced into': { type: 'container' },
+    'inserted in': { type: 'container' },
+    'inserted into': { type: 'container' },
+
+    // --- HOMOPHONE ---
+    'say': { type: 'homophone' },
+    'said': { type: 'homophone' },
+    'we hear': { type: 'homophone' },
+    'heard': { type: 'homophone' },
+    'sounds like': { type: 'homophone' },
+    'reportedly': { type: 'homophone' },
+    'spoken': { type: 'homophone' },
+    'vocal': { type: 'homophone' },
+    'aloud': { type: 'homophone' },
+    'audibly': { type: 'homophone' },
+    'in speech': { type: 'homophone' },
+    'so they say': { type: 'homophone' },
+    'recounted': { type: 'homophone' },
+    'broadcast': { type: 'homophone' },
+    'on the radio': { type: 'homophone' },
+    'for auditors': { type: 'homophone' },
+    'to the audience': { type: 'homophone' },
+    'when spoken': { type: 'homophone' },
+    'out loud': { type: 'homophone' },
+    'orally': { type: 'homophone' },
+    'verbally': { type: 'homophone' },
+    'by the sound of it': { type: 'homophone' },
+
+    // --- SUBSTITUTION ---
+    'as substitute for': { type: 'substitution' },
+    'substitute for': { type: 'substitution' },
+    'replacing': { type: 'substitution' },
+    'in place of': { type: 'substitution' },
+    'instead of': { type: 'substitution' },
+    'for': { type: 'substitution' },  // context-dependent
+};
+
+// --- PARSING RESULT ---
+
+export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard' | 'Very Hard';
+
+export interface ParseResult {
+    success: boolean;
+    confidence: number;  // 0-100
+    difficulty?: DifficultyLevel;
+    patternData?: PatternInstance;
+    needsAI: boolean;
+    reason?: string;  // Why AI is needed or parsing failed
+    parsed?: {
+        definition: { text: string; position: 'START' | 'END' };
+        indicators: { text: string; type: OperationType; entry: IndicatorEntry }[];
+        fodders: string[];
+    };
+}
+
+/**
+ * Calculate difficulty based on pattern complexity, number of steps, etc.
+ *
+ * Factors that increase difficulty:
+ * - Complex patterns (letter_movement, substitution, container)
+ * - Multiple wordplay components (charade with 3+ parts)
+ * - Abbreviations requiring specialized knowledge
+ * - Cryptic definitions
+ * - Multi-step operations (e.g., synonym + deletion + charade)
+ */
+function calculateDifficulty(
+    patternId: string,
+    variables: Record<string, string>,
+    defMatchType: string
+): DifficultyLevel {
+    let score = 0;
+
+    // Pattern complexity
+    const complexPatterns: Record<string, number> = {
+        'LETTER_MOVEMENT': 3,      // Very rare, hard to spot
+        'SUBSTITUTION': 3,         // Multi-step replacement
+        'CONTAINER': 2,            // X inside Y
+        'COMPOSITE_CHARADE': 2,    // Multiple operations
+        'ANAGRAM': 1,              // Common but requires work
+        'REVERSAL': 1,             // Straightforward once seen
+        'HIDDEN': 1,               // Need to spot hidden word
+        'CHARADE': 1,              // Basic combination
+        'DELETION': 1,             // Simple removal
+        'DOUBLE_DEFINITION': 0,    // Usually easier
+        'ACROSTIC': 1,             // First letters
+    };
+    score += complexPatterns[patternId] ?? 1;
+
+    // Number of wordplay components
+    const componentCount = Object.keys(variables).filter(k =>
+        k.startsWith('result_') || k.startsWith('additional_result_')
+    ).length;
+    if (componentCount >= 3) score += 2;
+    else if (componentCount >= 2) score += 1;
+
+    // Abbreviations (single-letter results suggest abbreviations)
+    const hasAbbreviations = Object.entries(variables).some(([k, v]) =>
+        (k.startsWith('result_') || k === 'letter') && v.length === 1
+    );
+    if (hasAbbreviations) score += 1;
+
+    // Cryptic definition
+    if (defMatchType === 'cryptic' || defMatchType === 'none') {
+        score += 2;
+    }
+
+    // Multi-step hints (contains multiple arrows)
+    const hint = variables['hint_1'] || '';
+    const arrowCount = (hint.match(/→/g) || []).length;
+    if (arrowCount >= 4) score += 2;
+    else if (arrowCount >= 3) score += 1;
+
+    // Map score to difficulty
+    if (score >= 6) return 'Very Hard';
+    if (score >= 4) return 'Hard';
+    if (score >= 2) return 'Medium';
+    return 'Easy';
+}
+
+// --- HELPER FUNCTIONS ---
+
+function cleanText(text: string): string {
+    return text.toLowerCase().replace(/[^a-z0-9\s'-]/g, '').trim();
+}
+
+function extractWordCount(clue: string): number | null {
+    const match = clue.match(/\((\d+)\)$/);
+    return match ? parseInt(match[1]) : null;
+}
+
+function getClueWithoutCount(clue: string): string {
+    return clue.replace(/\s*\(\d+(?:,\d+)*\)\s*$/, '').trim();
+}
+
+// Find definition FIRST by checking synonym matches - returns locked word indices
+function findDefinitionFirst(clue: string, answer: string): {
+    definition: string;
+    position: 'START' | 'END';
+    matchType: 'direct' | 'synonym' | 'cryptic' | 'none';
+    hint?: string;
+    lockedWordIndices: number[];
+} | null {
+    const words = getClueWithoutCount(clue).split(/\s+/);
+    const maxLen = Math.min(4, Math.floor(words.length / 2));
+
+    // Try START: check 1-4 word phrases for synonym/direct match
+    // IMPORTANT: Try LONGER phrases first to prefer "Being up" over "Being"
+    let bestMatch: { phrase: string; matchType: 'direct' | 'synonym'; hint?: string; len: number } | null = null;
+
+    for (let len = 1; len <= maxLen; len++) {
+        const phrase = words.slice(0, len).join(' ');
+        const match = checkPhraseMatchesAnswer(phrase, answer);
+        if (match.matchType === 'direct' || match.matchType === 'synonym') {
+            // Keep the longest match
+            bestMatch = { phrase, matchType: match.matchType, hint: match.hint, len };
+        }
+    }
+
+    if (bestMatch) {
+        return {
+            definition: bestMatch.phrase,
+            position: 'START',
+            matchType: bestMatch.matchType,
+            hint: bestMatch.hint,
+            lockedWordIndices: Array.from({ length: bestMatch.len }, (_, i) => i)
+        };
+    }
+
+    // Try END: check 1-4 word phrases for synonym/direct match
+    for (let len = 1; len <= maxLen; len++) {
+        const phrase = words.slice(-len).join(' ');
+        const match = checkPhraseMatchesAnswer(phrase, answer);
+        if (match.matchType === 'direct' || match.matchType === 'synonym') {
+            return {
+                definition: phrase,
+                position: 'END',
+                matchType: match.matchType,
+                hint: match.hint,
+                lockedWordIndices: Array.from({ length: len }, (_, i) => words.length - len + i)
+            };
+        }
+    }
+
+    return null; // No definition match found via synonyms
+}
+
+// Connector words to skip in charade splitting
+const CHARADE_CONNECTORS = new Set(['and', 'with', 'on', 'in', 'by', 'for', 'to', 'a', 'an', 'the']);
+
+// Try to split wordplay into synonym components that combine to answer
+// Uses backtracking to try all synonym combinations
+function tryCharadeSplit(
+    wordplayText: string,
+    answer: string
+): { parts: { text: string; result: string }[]; success: boolean } | null {
+    const words = wordplayText.split(/\s+/).filter(w => w.length > 0);
+    const answerClean = answer.toUpperCase().replace(/[^A-Z]/g, '');
+    const answerLen = answerClean.length;
+
+    // Find reversal indicators in the wordplay
+    const reversalIndicators = new Set<number>();
+    for (let i = 0; i < words.length; i++) {
+        const word = words[i].toLowerCase().replace(/[^a-z']/g, '');
+        const entry = INDICATOR_DICTIONARY[word];
+        if (entry && entry.type === 'reversal') {
+            reversalIndicators.add(i);
+        }
+    }
+
+    // Build all possible synonym candidates for each word/phrase position
+    interface Candidate {
+        text: string;
+        result: string;
+        wordStart: number;
+        wordEnd: number;
+    }
+    const candidates: Candidate[] = [];
+
+    for (let i = 0; i < words.length; i++) {
+        const word = words[i].toLowerCase().replace(/[^a-z']/g, '');
+        // Skip pure connector words for candidate building
+        if (CHARADE_CONNECTORS.has(word) && !SYNONYM_DICTIONARY[word]) continue;
+
+        // Skip reversal indicators that have no synonym meaning (pure indicators)
+        // Words like "over" can be both indicator AND fodder, so don't skip if it has synonyms
+        if (reversalIndicators.has(i) && !SYNONYM_DICTIONARY[word]) continue;
+
+        for (let phraseLen = Math.min(3, words.length - i); phraseLen >= 1; phraseLen--) {
+            const phrase = words.slice(i, i + phraseLen).join(' ').toLowerCase().replace(/[^a-z' \\-]/g, '');
+
+            const synonyms = SYNONYM_DICTIONARY[phrase];
+            if (synonyms) {
+                for (const syn of synonyms) {
+                    candidates.push({
+                        text: words.slice(i, i + phraseLen).join(' '),
+                        result: syn,
+                        wordStart: i,
+                        wordEnd: i + phraseLen
+                    });
+                }
+            }
+
+            // If adjacent to a reversal indicator, also add reversed word as candidate
+            const hasReversalBefore = reversalIndicators.has(i - 1);
+            const hasReversalAfter = reversalIndicators.has(i + phraseLen);
+            if (hasReversalBefore || hasReversalAfter) {
+                const wordClean = phrase.replace(/[^a-z]/g, '').toUpperCase();
+                const reversed = wordClean.split('').reverse().join('');
+                candidates.push({
+                    text: words.slice(i, i + phraseLen).join(' ') + ' (reversed)',
+                    result: reversed,
+                    wordStart: i,
+                    wordEnd: i + phraseLen
+                });
+            }
+        }
+    }
+
+    // Backtracking search for combination that matches answer
+    function search(
+        nextWordIdx: number,
+        currentResult: string,
+        parts: { text: string; result: string }[]
+    ): { text: string; result: string }[] | null {
+        if (currentResult === answerClean) {
+            return parts.length >= 2 ? parts : null;
+        }
+        if (currentResult.length >= answerLen) return null;
+
+        // Skip connector words
+        while (nextWordIdx < words.length) {
+            const word = words[nextWordIdx].toLowerCase().replace(/[^a-z']/g, '');
+            if (CHARADE_CONNECTORS.has(word) && !SYNONYM_DICTIONARY[word]) {
+                nextWordIdx++;
+            } else {
+                break;
+            }
+        }
+        if (nextWordIdx >= words.length) return null;
+
+        // Try each candidate starting at this position
+        for (const cand of candidates) {
+            if (cand.wordStart !== nextWordIdx) continue;
+            if (currentResult.length + cand.result.length > answerLen) continue;
+
+            const result = search(
+                cand.wordEnd,
+                currentResult + cand.result,
+                [...parts, { text: cand.text, result: cand.result }]
+            );
+            if (result) return result;
+        }
+
+        // Also try skipping this word (might be filler)
+        const result = search(nextWordIdx + 1, currentResult, parts);
+        if (result) return result;
+
+        return null;
+    }
+
+    const solution = search(0, '', []);
+    if (solution) {
+        return { parts: solution, success: true };
+    }
+
+    return null;
+}
+
+// Enhanced composite charade: handles synonym + deletion combinations
+// e.g., "in pond – half" → HIP (in) + PO (half of pond) = HIPPO
+function tryCompositeCharade(
+    wordplayText: string,
+    answer: string,
+    indicators: { text: string; type: OperationType; entry: IndicatorEntry }[]
+): { parts: { text: string; result: string; operation: string }[]; success: boolean } | null {
+    const words = wordplayText.split(/\s+/).filter(w => w.length > 0);
+    const answerClean = answer.toUpperCase().replace(/[^A-Z]/g, '');
+    const answerLen = answerClean.length;
+
+    // Find deletion indicators and their likely fodders
+    const deletionIndicators = indicators.filter(i =>
+        i.type === 'deletion_first' || i.type === 'deletion_last' ||
+        i.entry.letterOp === 'first' || i.entry.letterOp === 'last'
+    );
+
+    // Build candidate parts from synonyms and deletions
+    interface CandidatePart {
+        text: string;
+        result: string;
+        operation: string;
+        wordIndices: number[];
+    }
+    const candidates: CandidatePart[] = [];
+
+    // 1. Find synonym candidates (don't skip connectors - they might have synonym meanings like "in" = HIP)
+    for (let i = 0; i < words.length; i++) {
+        for (let phraseLen = Math.min(3, words.length - i); phraseLen >= 1; phraseLen--) {
+            const phrase = words.slice(i, i + phraseLen).join(' ').toLowerCase().replace(/[^a-z' \\-]/g, '');
+            // Don't skip connectors here - "in" can mean HIP
+
+            const synonyms = SYNONYM_DICTIONARY[phrase];
+            if (synonyms) {
+                for (const syn of synonyms) {
+                    if (syn.length <= answerLen) {
+                        candidates.push({
+                            text: words.slice(i, i + phraseLen).join(' '),
+                            result: syn,
+                            operation: 'synonym',
+                            wordIndices: Array.from({ length: phraseLen }, (_, j) => i + j)
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Find deletion candidates (half of word, first/last letters)
+    for (const ind of deletionIndicators) {
+        // Find words near this indicator that could be fodder
+        const indWord = ind.text.toLowerCase();
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+            if (word === indWord || CHARADE_CONNECTORS.has(word) || word.length < 3) continue;
+
+            const wordUpper = word.toUpperCase();
+            // Half = first or second half
+            if (ind.text === 'half' || ind.text === 'half of' || ind.text === 'halved') {
+                const midpoint = Math.ceil(wordUpper.length / 2);
+                const firstHalf = wordUpper.slice(0, midpoint);
+                const secondHalf = wordUpper.slice(midpoint);
+                candidates.push({
+                    text: words[i],
+                    result: firstHalf,
+                    operation: `half of ${words[i]} (first)`,
+                    wordIndices: [i]
+                });
+                candidates.push({
+                    text: words[i],
+                    result: secondHalf,
+                    operation: `half of ${words[i]} (second)`,
+                    wordIndices: [i]
+                });
+            }
+        }
+    }
+
+    // 3. Try combinations of candidates that don't overlap and sum to answer
+    function tryCombinations(
+        remaining: CandidatePart[],
+        current: CandidatePart[],
+        usedIndices: Set<number>,
+        currentResult: string
+    ): CandidatePart[] | null {
+        if (currentResult === answerClean) {
+            return current;
+        }
+        if (currentResult.length >= answerLen || remaining.length === 0) {
+            return null;
+        }
+
+        for (let i = 0; i < remaining.length; i++) {
+            const cand = remaining[i];
+            // Check for overlap
+            if (cand.wordIndices.some(idx => usedIndices.has(idx))) continue;
+            // Check if it fits
+            if (currentResult.length + cand.result.length > answerLen) continue;
+
+            const newUsed = new Set(usedIndices);
+            cand.wordIndices.forEach(idx => newUsed.add(idx));
+            const newRemaining = remaining.slice(i + 1);
+
+            const result = tryCombinations(
+                newRemaining,
+                [...current, cand],
+                newUsed,
+                currentResult + cand.result
+            );
+            if (result) return result;
+        }
+        return null;
+    }
+
+    const solution = tryCombinations(candidates, [], new Set(), '');
+    if (solution && solution.length >= 2) {
+        return {
+            parts: solution.map(s => ({ text: s.text, result: s.result, operation: s.operation })),
+            success: true
+        };
+    }
+
+    return null;
+}
+
+// Try letter movement + charade pattern
+// e.g., "Following delay of months, slander hospital department's union" → ALIGNMENT
+//       months = M, slander = MALIGN, delay of M = move M to end → ALIGNM
+//       hospital department = ENT, ALIGNM + ENT = ALIGNMENT
+function tryLetterMovementCharade(
+    wordplayText: string,
+    answer: string,
+    movementIndicator: string // e.g., "following delay of"
+): {
+    letterSource: string;    // "months"
+    letter: string;          // "M"
+    baseSource: string;      // "slander"
+    baseWord: string;        // "MALIGN"
+    movedWord: string;       // "ALIGNM"
+    movement: 'to_end' | 'to_start';  // direction
+    additionalParts: { source: string; result: string }[];  // [{source: "hospital department", result: "ENT"}]
+    success: boolean;
+} | null {
+    const answerClean = answer.toUpperCase().replace(/[^A-Z]/g, '');
+    const answerLen = answerClean.length;
+
+    // Determine movement direction from indicator
+    const movement: 'to_end' | 'to_start' =
+        movementIndicator.includes('delay') ||
+        movementIndicator.includes('demoted') ||
+        movementIndicator.includes('moved to the end') ||
+        movementIndicator.includes('moving to the end')
+            ? 'to_end' : 'to_start';
+
+    // Parse the wordplay text to find components
+    const words = wordplayText.split(/\s+/).filter(w => w.length > 0);
+
+    // Build synonym candidates
+    interface Candidate {
+        text: string;       // original text
+        value: string;      // synonym result
+        wordIndices: number[];
+    }
+    const candidates: Candidate[] = [];
+
+    for (let i = 0; i < words.length; i++) {
+        for (let phraseLen = Math.min(3, words.length - i); phraseLen >= 1; phraseLen--) {
+            // Clean phrase: remove punctuation, possessives ('s), and extra chars
+            let phrase = words.slice(i, i + phraseLen).join(' ').toLowerCase();
+            phrase = phrase.replace(/'s\b/g, '');  // Remove possessive 's
+            phrase = phrase.replace(/[^a-z \-]/g, '').trim();  // Keep only letters, spaces, hyphens
+            if (!phrase) continue;
+
+            const synonyms = SYNONYM_DICTIONARY[phrase];
+            if (synonyms) {
+                for (const syn of synonyms) {
+                    candidates.push({
+                        text: words.slice(i, i + phraseLen).join(' '),
+                        value: syn,
+                        wordIndices: Array.from({ length: phraseLen }, (_, j) => i + j)
+                    });
+                }
+            }
+        }
+    }
+
+    // Find single-letter candidates (abbreviations like M for months)
+    const letterCandidates = candidates.filter(c => c.value.length === 1);
+
+    // Find word candidates that contain the letter
+    const wordCandidates = candidates.filter(c => c.value.length >= 3);
+
+    // Try each letter + word combination
+    for (const letterCand of letterCandidates) {
+        const letter = letterCand.value;
+
+        for (const wordCand of wordCandidates) {
+            // Check word contains the letter
+            if (!wordCand.value.includes(letter)) continue;
+
+            // Check no overlap between letter source and word source
+            if (letterCand.wordIndices.some(i => wordCand.wordIndices.includes(i))) continue;
+
+            // Apply letter movement
+            let movedWord: string;
+            if (movement === 'to_end') {
+                // Remove first occurrence of letter and add to end
+                const idx = wordCand.value.indexOf(letter);
+                movedWord = wordCand.value.slice(0, idx) + wordCand.value.slice(idx + 1) + letter;
+            } else {
+                // Remove last occurrence and add to start
+                const idx = wordCand.value.lastIndexOf(letter);
+                movedWord = letter + wordCand.value.slice(0, idx) + wordCand.value.slice(idx + 1);
+            }
+
+            // Check if movedWord matches answer start
+            if (!answerClean.startsWith(movedWord)) continue;
+
+            // Find remaining parts to complete the answer
+            const remaining = answerClean.slice(movedWord.length);
+            if (remaining.length === 0) {
+                // Perfect match, no additional parts needed
+                return {
+                    letterSource: letterCand.text,
+                    letter,
+                    baseSource: wordCand.text,
+                    baseWord: wordCand.value,
+                    movedWord,
+                    movement,
+                    additionalParts: [],
+                    success: true
+                };
+            }
+
+            // Look for additional charade parts
+            const usedIndices = new Set([...letterCand.wordIndices, ...wordCand.wordIndices]);
+            const unusedCandidates = candidates.filter(c =>
+                !c.wordIndices.some(i => usedIndices.has(i)) &&
+                c.value.length <= remaining.length
+            );
+
+            // Try to find parts that complete the answer
+            function findParts(
+                needed: string,
+                available: Candidate[],
+                used: Set<number>,
+                found: Candidate[]
+            ): Candidate[] | null {
+                if (needed.length === 0) return found;
+
+                for (const cand of available) {
+                    if (cand.wordIndices.some(i => used.has(i))) continue;
+                    if (!needed.startsWith(cand.value)) continue;
+
+                    const newUsed = new Set(used);
+                    cand.wordIndices.forEach(i => newUsed.add(i));
+                    const newAvailable = available.filter(c => c !== cand);
+                    const result = findParts(
+                        needed.slice(cand.value.length),
+                        newAvailable,
+                        newUsed,
+                        [...found, cand]
+                    );
+                    if (result) return result;
+                }
+                return null;
+            }
+
+            const parts = findParts(remaining, unusedCandidates, usedIndices, []);
+            if (parts) {
+                return {
+                    letterSource: letterCand.text,
+                    letter,
+                    baseSource: wordCand.text,
+                    baseWord: wordCand.value,
+                    movedWord,
+                    movement,
+                    additionalParts: parts.map(p => ({ source: p.text, result: p.value })),
+                    success: true
+                };
+            }
+        }
+    }
+
+    return null;
+}
+
+// Try substitution pattern: replace letters in base word
+// e.g., "telly, primarily as substitute for money-grubber's credit"
+//       → T (primarily telly) replaces CR (credit) in SCROOGE → STOOGE
+function trySubstitution(
+    wordplayText: string,
+    answer: string,
+    indicators: { text: string; type: OperationType; entry: IndicatorEntry }[]
+): { baseWord: string; baseSynonym: string; removed: string; removedFrom: string; inserted: string; insertedFrom: string; success: boolean } | null {
+    const answerClean = answer.toUpperCase().replace(/[^A-Z]/g, '');
+    const words = wordplayText.split(/\s+/).filter(w => w.length > 0);
+
+    // Need a substitution indicator
+    const subIndicator = indicators.find(i => i.type === 'substitution');
+    if (!subIndicator) return null;
+
+    // Need a first-letter indicator for the replacement
+    const firstLetterIndicator = indicators.find(i => i.entry.letterOp === 'first');
+
+    // Build candidates for base word, removed letters, and inserted letters
+    const candidates: { text: string; value: string; type: 'synonym' | 'firstLetter' }[] = [];
+
+    for (let i = 0; i < words.length; i++) {
+        for (let phraseLen = Math.min(3, words.length - i); phraseLen >= 1; phraseLen--) {
+            const phrase = words.slice(i, i + phraseLen).join(' ').toLowerCase().replace(/[^a-z' \\-]/g, '');
+            const synonyms = SYNONYM_DICTIONARY[phrase];
+            if (synonyms) {
+                for (const syn of synonyms) {
+                    candidates.push({ text: phrase, value: syn, type: 'synonym' });
+                }
+            }
+        }
+        // Also check for first letter extraction
+        const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+        if (word.length > 0) {
+            candidates.push({ text: words[i], value: word[0].toUpperCase(), type: 'firstLetter' });
+        }
+    }
+
+    // Try combinations: find base word where removing X and inserting Y gives answer
+    for (const base of candidates.filter(c => c.type === 'synonym' && c.value.length >= answerClean.length - 2)) {
+        const baseWord = base.value;
+
+        for (const removed of candidates.filter(c => c.type === 'synonym' && c.value.length <= 3)) {
+            const removedLetters = removed.value;
+
+            // Check if base contains the letters to remove
+            const removeIdx = baseWord.indexOf(removedLetters);
+            if (removeIdx === -1) continue;
+
+            // What would remain after removal
+            const afterRemoval = baseWord.slice(0, removeIdx) + baseWord.slice(removeIdx + removedLetters.length);
+
+            // Try inserting each first letter candidate
+            for (const inserted of candidates.filter(c => c.type === 'firstLetter' || (c.type === 'synonym' && c.value.length === 1))) {
+                const insertLetter = inserted.value;
+
+                // Insert at the removal position
+                const result = afterRemoval.slice(0, removeIdx) + insertLetter + afterRemoval.slice(removeIdx);
+
+                if (result === answerClean) {
+                    return {
+                        baseWord: base.text,
+                        baseSynonym: baseWord,
+                        removed: removed.text,
+                        removedFrom: removedLetters,
+                        inserted: inserted.text,
+                        insertedFrom: insertLetter,
+                        success: true
+                    };
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+// Try to detect double definition pattern
+// Two parts of the clue, each independently defining the answer
+// e.g., "Leave Antarctica? (6)" → DESERT (leave=desert, Antarctica is a desert)
+function tryDoubleDefinition(
+    clue: string,
+    answer: string
+): { def1: string; def2: string; success: boolean } | null {
+    const cleanClueText = getClueWithoutCount(clue);
+    const words = cleanClueText.split(/\s+/).filter(w => w.length > 0);
+    const answerClean = answer.toUpperCase().replace(/[^A-Z]/g, '');
+
+    // Need at least 2 words for double definition
+    if (words.length < 2) return null;
+
+    // Try splitting at each position
+    for (let splitIdx = 1; splitIdx < words.length; splitIdx++) {
+        const part1 = words.slice(0, splitIdx).join(' ');
+        const part2 = words.slice(splitIdx).join(' ');
+
+        // Check if both parts can define the answer
+        const match1 = checkPhraseMatchesAnswer(part1, answer);
+        const match2 = checkPhraseMatchesAnswer(part2, answer);
+
+        if ((match1.matchType === 'synonym' || match1.matchType === 'direct') &&
+            (match2.matchType === 'synonym' || match2.matchType === 'direct')) {
+            return {
+                def1: part1,
+                def2: part2,
+                success: true
+            };
+        }
+    }
+
+    return null;
+}
+
+function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; startIdx: number; endIdx: number }[] {
+    const cleanClue = cleanText(clue);
+    const words = getClueWithoutCount(clue).split(/\s+/);
+    const found: { text: string; type: OperationType; entry: IndicatorEntry; startIdx: number; endIdx: number }[] = [];
+
+    // Build set of locked character ranges from locked word indices
+    const lockedRanges: { start: number; end: number }[] = [];
+    let charPos = 0;
+    for (let i = 0; i < words.length; i++) {
+        const wordLen = cleanText(words[i]).length;
+        if (lockedWordIndices.includes(i)) {
+            lockedRanges.push({ start: charPos, end: charPos + wordLen });
+        }
+        charPos += wordLen + 1; // +1 for space
+    }
+
+    // Sort indicators by length (longest first) to match phrases before single words
+    const sortedIndicators = Object.entries(INDICATOR_DICTIONARY)
+        .sort((a, b) => b[0].length - a[0].length);
+
+    for (const [indicator, entry] of sortedIndicators) {
+        const idx = cleanClue.indexOf(indicator);
+        if (idx !== -1) {
+            // Check if this indicator falls within a locked (definition) range
+            const inLockedRange = lockedRanges.some(r =>
+                (idx >= r.start && idx < r.end) ||
+                (idx + indicator.length > r.start && idx + indicator.length <= r.end)
+            );
+            if (inLockedRange) continue; // Skip - this word is part of the definition
+
+            // Check it's not already covered by a longer match
+            const alreadyCovered = found.some(f =>
+                (idx >= f.startIdx && idx < f.endIdx) ||
+                (idx + indicator.length > f.startIdx && idx + indicator.length <= f.endIdx)
+            );
+            if (!alreadyCovered) {
+                found.push({
+                    text: indicator,
+                    type: entry.type,
+                    entry,
+                    startIdx: idx,
+                    endIdx: idx + indicator.length
+                });
+            }
+        }
+    }
+
+    return found.sort((a, b) => a.startIdx - b.startIdx);
+}
+
+function guessDefinitionPosition(clue: string, indicators: { startIdx: number; endIdx: number; entry: IndicatorEntry }[]): 'START' | 'END' {
+    if (indicators.length === 0) return 'START';
+
+    // Check if any indicator explicitly signals definition position
+    const firstIndicator = indicators[0];
+    if (firstIndicator.entry.definitionAtEnd) {
+        return 'END';
+    }
+
+    const words = getClueWithoutCount(clue).split(/\s+/);
+    const lastIndicator = indicators[indicators.length - 1];
+
+    // Find which word the first indicator starts at
+    const cleanClue = cleanText(clue);
+    let charCount = 0;
+    let firstIndWordIdx = 0;
+    for (let i = 0; i < words.length; i++) {
+        if (charCount >= firstIndicator.startIdx) {
+            firstIndWordIdx = i;
+            break;
+        }
+        charCount += cleanText(words[i]).length + 1; // +1 for space
+    }
+
+    // Find which word the last indicator ends at
+    charCount = 0;
+    let lastIndWordIdx = words.length;
+    for (let i = 0; i < words.length; i++) {
+        charCount += cleanText(words[i]).length;
+        if (charCount >= lastIndicator.endIdx) {
+            lastIndWordIdx = i + 1;
+            break;
+        }
+        charCount += 1; // space
+    }
+
+    const wordsBeforeFirst = firstIndWordIdx;
+    const wordsAfterLast = words.length - lastIndWordIdx;
+
+    // Edge case: if nothing after indicator, definition must be at START
+    if (wordsAfterLast === 0) return 'START';
+    // Edge case: if nothing before indicator, definition must be at END
+    if (wordsBeforeFirst === 0) return 'END';
+
+    // If only 1-2 words before first indicator, it's likely the definition at START
+    if (wordsBeforeFirst <= 2 && wordsAfterLast > 2) return 'START';
+    // If only 1-2 words after last indicator, it's likely the definition at END
+    if (wordsAfterLast <= 2 && wordsBeforeFirst > 2) return 'END';
+
+    // Default: prefer START (traditional cryptic convention)
+    return 'START';
+}
+
+function extractDefinition(clue: string, position: 'START' | 'END', indicators: { text: string; startIdx: number; endIdx: number; entry: IndicatorEntry }[]): string {
+    const cleanClue = getClueWithoutCount(clue);
+    const words = cleanClue.split(/\s+/);
+
+    if (indicators.length === 0) {
+        // No indicators found - take first or last 1-2 words as definition
+        return position === 'START' ? words.slice(0, 2).join(' ') : words.slice(-2).join(' ');
+    }
+
+    if (position === 'START') {
+        // Definition is before first indicator
+        const firstIndicatorWord = indicators[0].text.split(/\s+/)[0];
+        let idx = words.findIndex(w => cleanText(w) === firstIndicatorWord || cleanText(w).includes(firstIndicatorWord));
+
+        if (idx <= 0) idx = 1;  // At least one word
+
+        // Look for natural break points (punctuation) that might split definition from fodder
+        // Common pattern: "Definition? Fodder indicator" or "Definition, fodder indicator"
+        let defEndIdx = idx;
+        for (let i = 0; i < idx; i++) {
+            const word = words[i];
+            // If word ends with ? or has standalone punctuation, it might be definition boundary
+            if (word.endsWith('?') || word.endsWith('!')) {
+                defEndIdx = i + 1;
+                break;
+            }
+        }
+
+        // Sanity check: definition shouldn't be more than ~4 words usually
+        // If we grabbed too many words before indicator, check for punctuation breaks
+        if (defEndIdx > 4) {
+            // Look for question mark or comma within first 4 words
+            for (let i = 0; i < Math.min(4, idx); i++) {
+                if (words[i].includes('?') || words[i].includes(',')) {
+                    defEndIdx = i + 1;
+                    break;
+                }
+            }
+        }
+
+        return words.slice(0, defEndIdx).join(' ');
+    } else {
+        // Definition is at END - take last 2-4 words
+        // For cryptic definitions, typically 2-4 words at the very end
+
+        // Check if first indicator has definitionAtEnd flag (like acrostic)
+        // In this case, definition is at the end, not after indicator
+        if (indicators[0].entry?.definitionAtEnd) {
+            // Take last 3-4 words as definition
+            // Look for natural breaks or just take last 3
+            const defLength = Math.min(4, Math.max(2, Math.floor(words.length / 3)));
+            return words.slice(-defLength).join(' ');
+        }
+
+        // Standard case: definition after last indicator
+        const lastIndicator = indicators[indicators.length - 1];
+        const lastIndicatorWords = lastIndicator.text.split(/\s+/);
+        const lastWord = lastIndicatorWords[lastIndicatorWords.length - 1];
+
+        // Find where the indicator ends and take everything after
+        for (let i = words.length - 1; i >= 0; i--) {
+            if (cleanText(words[i]).includes(lastWord)) {
+                return words.slice(i + 1).join(' ');
+            }
+        }
+        return words[words.length - 1];
+    }
+}
+
+function extractFodder(
+    clue: string,
+    indicator: { text: string; startIdx: number; endIdx: number },
+    defPosition: 'START' | 'END',
+    allIndicators: { text: string; startIdx: number; endIdx: number }[],
+    defEndWordIdx: number  // Where definition ends (if START) or begins (if END)
+): string {
+    const cleanClue = getClueWithoutCount(clue);
+    const words = cleanClue.split(/\s+/);
+    const indicatorWords = indicator.text.split(/\s+/);
+
+    // Find indicator position in word array
+    let indicatorStartWord = -1;
+    let indicatorEndWord = -1;
+
+    for (let i = 0; i <= words.length - indicatorWords.length; i++) {
+        let match = true;
+        for (let j = 0; j < indicatorWords.length; j++) {
+            if (!cleanText(words[i + j]).includes(indicatorWords[j])) {
+                match = false;
+                break;
+            }
+        }
+        if (match) {
+            indicatorStartWord = i;
+            indicatorEndWord = i + indicatorWords.length;
+            break;
+        }
+    }
+
+    if (indicatorStartWord === -1) return '';
+
+    // Find the next indicator after this one (to bound fodder)
+    const thisIndicatorIdx = allIndicators.findIndex(ind => ind.text === indicator.text);
+    const nextIndicator = allIndicators[thisIndicatorIdx + 1];
+
+    let nextIndicatorStartWord = words.length;
+    if (nextIndicator) {
+        const nextIndWords = nextIndicator.text.split(/\s+/);
+        for (let i = indicatorEndWord; i <= words.length - nextIndWords.length; i++) {
+            let match = true;
+            for (let j = 0; j < nextIndWords.length; j++) {
+                if (!cleanText(words[i + j]).includes(nextIndWords[j])) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                nextIndicatorStartWord = i;
+                break;
+            }
+        }
+    }
+
+    // Fodder location depends on indicator type and position
+    // For most indicators, fodder is adjacent (before or after)
+    // For letter extraction (end of, start of), fodder is immediately after
+
+    if (defPosition === 'START') {
+        // Definition at start
+        // Check if there's content BEFORE this indicator (between def and indicator)
+        const beforeIndicator = words.slice(defEndWordIdx, indicatorStartWord);
+        // Check if there's content AFTER this indicator (before next indicator)
+        const afterIndicator = words.slice(indicatorEndWord, nextIndicatorStartWord);
+
+        // Prefer content after indicator for "end of", "start of" type extractions
+        if (afterIndicator.length > 0) {
+            return afterIndicator.join(' ');
+        }
+        // Otherwise take content before indicator
+        if (beforeIndicator.length > 0) {
+            return beforeIndicator.join(' ');
+        }
+    } else {
+        // Definition at end
+        // For acrostic/first-letter indicators at START, fodder is AFTER the indicator
+        // For other cases, fodder might be before
+
+        // First try: content AFTER indicator, up to the definition boundary
+        const afterIndicator = words.slice(indicatorEndWord, defEndWordIdx);
+        if (afterIndicator.length > 0) {
+            return afterIndicator.join(' ');
+        }
+
+        // Fallback: content BEFORE the indicator
+        const beforeIndicator = words.slice(0, indicatorStartWord);
+        if (beforeIndicator.length > 0) {
+            return beforeIndicator.join(' ');
+        }
+    }
+
+    return '';
+}
+
+// --- DEFINITION MATCHING ---
+// Check if a phrase matches the answer via synonyms or cryptic meanings
+
+interface DefinitionMatch {
+    phrase: string;
+    matchType: 'direct' | 'synonym' | 'cryptic' | 'none';
+    hint?: string;  // For cryptic matches, explains the twist
+}
+
+function checkPhraseMatchesAnswer(phrase: string, answer: string): DefinitionMatch {
+    const answerUpper = answer.toUpperCase().replace(/[^A-Z]/g, '');
+    const phraseLower = phrase.toLowerCase();
+    const phraseWords = phraseLower.split(/\s+/).filter(w => w.length > 0);
+
+    // 1. Check phrase as a whole - is it in our synonym dictionary?
+    const phraseKey = phraseWords.join(' ');
+    const phraseSynonyms = lookupSynonyms(phraseKey);
+    if (phraseSynonyms.some(s => s.toUpperCase() === answerUpper)) {
+        return { phrase, matchType: 'synonym' };
+    }
+
+    // 2. Check individual words for direct synonym match
+    // ONLY for single-word phrases - multi-word phrases must match as a whole
+    if (phraseWords.length === 1) {
+        for (const word of phraseWords) {
+            if (word.length < 2) continue;
+
+            // Direct match
+            if (word.toUpperCase() === answerUpper) {
+                return { phrase, matchType: 'direct' };
+            }
+
+            // Synonym match
+            const synonyms = lookupSynonyms(word);
+            if (synonyms.some(s => s.toUpperCase() === answerUpper)) {
+                return { phrase, matchType: 'synonym' };
+            }
+
+            // Reverse lookup: is word a synonym of something that maps to answer?
+            // IMPORTANT: Require exact match on fodder, not partial match
+            for (const [fodder, syns] of Object.entries(SYNONYM_DICTIONARY)) {
+                if (syns.includes(answerUpper) && fodder.toLowerCase() === word) {
+                    return { phrase, matchType: 'synonym' };
+                }
+            }
+        }
+    }
+
+    // 3. Check for CRYPTIC_MEANINGS match (single-word phrases only)
+    if (phraseWords.length === 1) {
+        for (const word of phraseWords) {
+            const crypticEntry = CRYPTIC_MEANINGS[word];
+            if (crypticEntry) {
+                if (crypticEntry.synonyms.some(s => s.toUpperCase() === answerUpper)) {
+                    return {
+                        phrase,
+                        matchType: 'cryptic',
+                        hint: `"${word}" = ${crypticEntry.meaning}`
+                    };
+                }
+                // Also check partial matches
+                for (const syn of crypticEntry.synonyms) {
+                    if (answerUpper.includes(syn.toUpperCase()) || syn.toUpperCase().includes(answerUpper)) {
+                        return {
+                            phrase,
+                            matchType: 'cryptic',
+                            hint: `"${word}" = ${crypticEntry.meaning}`
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    return { phrase, matchType: 'none' };
+}
+
+/**
+ * Check if a phrase contains words that have synonyms useful for wordplay.
+ * Used to determine if a definition candidate is "stealing" words needed for wordplay.
+ */
+function phraseContainsWordplayWords(phrase: string, answer: string): boolean {
+    const words = phrase.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+    const answerClean = answer.toUpperCase().replace(/[^A-Z]/g, '');
+
+    for (const word of words) {
+        const cleanWord = word.replace(/[^a-z]/g, '');
+        if (!cleanWord) continue;
+
+        // Check if this word has synonyms that could contribute to the answer
+        const synonyms = lookupSynonyms(cleanWord);
+        for (const syn of synonyms) {
+            // If synonym is part of answer (not the whole answer), it's wordplay
+            if (syn.length < answerClean.length && answerClean.includes(syn)) {
+                return true;
+            }
+        }
+
+        // Check multi-word phrases starting with this word
+        const wordIdx = words.indexOf(cleanWord);
+        if (wordIdx >= 0 && wordIdx < words.length - 1) {
+            const twoWordPhrase = words.slice(wordIdx, wordIdx + 2).join(' ').replace(/[^a-z ]/g, '');
+            const twoWordSynonyms = lookupSynonyms(twoWordPhrase);
+            for (const syn of twoWordSynonyms) {
+                if (syn.length < answerClean.length && answerClean.includes(syn)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Find the best definition match by trying progressively longer phrases.
+ * IMPORTANT: Prefers shorter definitions when longer ones would steal words
+ * needed for wordplay.
+ *
+ * Example: For "Following delay of months, slander hospital department's union"
+ *   Both "union" and "department's union" might match ALIGNMENT
+ *   But "department's" is needed for "hospital department's" → ENT
+ *   So we prefer "union" as it leaves more words for wordplay
+ */
+function findBestDefinitionMatch(
+    clue: string,
+    answer: string,
+    position: 'START' | 'END',
+    maxWords: number = 4
+): DefinitionMatch {
+    const cleanClue = getClueWithoutCount(clue);
+    const words = cleanClue.split(/\s+/);
+
+    // Try progressively longer phrases
+    // For START: "word1", "word1 word2", "word1 word2 word3", ...
+    // For END: "wordN", "wordN-1 wordN", "wordN-2 wordN-1 wordN", ...
+
+    const maxLen = Math.min(maxWords, Math.floor(words.length / 2)); // Definition shouldn't be more than half the clue
+
+    // Collect ALL matching candidates with their lengths
+    interface DefCandidate {
+        match: DefinitionMatch;
+        length: number;
+        stealsWordplay: boolean;
+    }
+    const candidates: DefCandidate[] = [];
+
+    // First pass: find all direct/synonym matches
+    for (let len = 1; len <= maxLen; len++) {
+        let phrase: string;
+        let remainingWords: string[];
+
+        if (position === 'START') {
+            phrase = words.slice(0, len).join(' ');
+            remainingWords = words.slice(len);
+        } else {
+            phrase = words.slice(-len).join(' ');
+            remainingWords = words.slice(0, -len);
+        }
+
+        const match = checkPhraseMatchesAnswer(phrase, answer);
+        if (match.matchType === 'direct' || match.matchType === 'synonym') {
+            // Check if extra words (beyond first match) contain wordplay-useful synonyms
+            const extraWords = len > 1
+                ? (position === 'END' ? words.slice(-len, -1).join(' ') : words.slice(1, len).join(' '))
+                : '';
+            const stealsWordplay = extraWords ? phraseContainsWordplayWords(extraWords, answer) : false;
+
+            candidates.push({ match, length: len, stealsWordplay });
+        }
+    }
+
+    // If we have candidates, prefer shortest one OR one that doesn't steal wordplay
+    if (candidates.length > 0) {
+        // Sort: prefer non-stealing, then shorter
+        candidates.sort((a, b) => {
+            if (a.stealsWordplay !== b.stealsWordplay) {
+                return a.stealsWordplay ? 1 : -1; // Non-stealing first
+            }
+            return a.length - b.length; // Shorter first
+        });
+        return candidates[0].match;
+    }
+
+    // Second pass: look for cryptic matches
+    for (let len = 1; len <= maxLen; len++) {
+        let phrase: string;
+        if (position === 'START') {
+            phrase = words.slice(0, len).join(' ');
+        } else {
+            phrase = words.slice(-len).join(' ');
+        }
+
+        const match = checkPhraseMatchesAnswer(phrase, answer);
+        if (match.matchType === 'cryptic') {
+            return match;
+        }
+    }
+
+    // No match found - return shortest phrase as fallback
+    const fallbackPhrase = position === 'START'
+        ? words.slice(0, Math.min(2, maxLen)).join(' ')
+        : words.slice(-Math.min(2, maxLen)).join(' ');
+
+    return { phrase: fallbackPhrase, matchType: 'none' };
+}
+
+// --- CRYPTIC DEFINITION DETECTION (FALLBACK) ---
+// Only called when findBestDefinitionMatch returns 'none'
+// Tries to extract hints from coaching notes
+
+function detectCrypticDefinition(
+    defText: string,
+    answer: string,
+    coaching?: string[]
+): { isCryptic: boolean; hint: string; difficulty: 'Hard' | null } {
+    if (!defText || !answer) {
+        return { isCryptic: false, hint: '', difficulty: null };
+    }
+
+    // At this point, we've already tried all phrase lengths and found no match
+    // Mark as cryptic and try to extract hint from coaching notes
+
+    let hint = 'Definition may have a cryptic twist';
+
+    if (coaching && coaching.length > 0) {
+        const defWordsLower = defText.toLowerCase().split(/\s+/);
+
+        for (const note of coaching) {
+            const noteLower = note.toLowerCase();
+
+            // Skip meta-commentary lines
+            if (noteLower.includes('the real issue') ||
+                noteLower.includes('note to') ||
+                noteLower.includes('discomfort') ||
+                noteLower.startsWith('why')) {
+                continue;
+            }
+
+            // Look for "word = meaning" patterns where word is in definition
+            const equalsMatch = note.match(/["']?(\w+)["']?\s*=\s*(.+?)(?:\.|$)/i);
+            if (equalsMatch) {
+                const matchWord = equalsMatch[1].toLowerCase();
+                if (defWordsLower.includes(matchWord)) {
+                    hint = `"${equalsMatch[1]}" = ${equalsMatch[2].trim()}`;
+                    break;
+                }
+            }
+        }
+    }
+
+    return { isCryptic: true, hint, difficulty: 'Hard' };
+}
+
+// --- ACROSTIC HELPER ---
+// For acrostic clues, check if fodder contains a standalone synonym that should be split out
+function splitAcrosticFodder(fodder: string, answer: string): {
+    acrosticFodder: string;
+    acrosticResult: string;
+    synonymFodder: string | null;
+    synonymResult: string | null;
+} | null {
+    const split = splitAtStandaloneSynonym(fodder);
+
+    if (!split || split.before.length === 0) {
+        return null;  // No standalone synonym found or nothing before it
+    }
+
+    // The acrostic applies to words BEFORE the standalone synonym
+    const acrosticWords = split.before;
+    const acrosticResult = acrosticWords.map(w => w[0].toUpperCase()).join('');
+
+    // Check if acrostic + synonym = answer
+    const combined = acrosticResult + split.synonymResult;
+    if (combined.length === answer.replace(/[^A-Z]/gi, '').length) {
+        return {
+            acrosticFodder: acrosticWords.join(' '),
+            acrosticResult,
+            synonymFodder: split.synonymWord,
+            synonymResult: split.synonymResult
+        };
+    }
+
+    return null;
+}
+
+// --- MAIN PARSER ---
+
+export function parseClue(clue: string, knownAnswer?: string, coaching?: string[]): ParseResult {
+    const wordCount = extractWordCount(clue);
+    const cleanClue = getClueWithoutCount(clue);
+
+    // NEW FLOW: Find definition FIRST, lock those words, then find indicators
+    let definition: string;
+    let defPosition: 'START' | 'END' = 'START';
+    let defMatchType: 'direct' | 'synonym' | 'cryptic' | 'none' = 'none';
+    let defHint: string | undefined;
+    let lockedWordIndices: number[] = [];
+
+    // Step 1: If we have the answer, find definition first using synonym matching
+    if (knownAnswer) {
+        const defFirst = findDefinitionFirst(clue, knownAnswer);
+        if (defFirst) {
+            definition = defFirst.definition;
+            defPosition = defFirst.position;
+            defMatchType = defFirst.matchType;
+            defHint = defFirst.hint;
+            lockedWordIndices = defFirst.lockedWordIndices;
+        }
+    }
+
+    // Step 2: Find indicators, excluding locked definition words
+    const indicators = findIndicators(cleanClue, lockedWordIndices);
+
+    if (indicators.length === 0) {
+        // First, try double definition pattern (two parts both define the answer)
+        if (knownAnswer) {
+            const doubleDef = tryDoubleDefinition(clue, knownAnswer);
+            if (doubleDef?.success) {
+                const variables: Record<string, string> = {
+                    'def_text': doubleDef.def1,
+                    'def_2_text': doubleDef.def2,
+                    'definition_match_type': 'double'
+                };
+
+                return {
+                    success: true,
+                    confidence: 90,
+                    needsAI: false,
+                    parsed: {
+                        definition: { text: doubleDef.def1 + ' / ' + doubleDef.def2, position: 'START' },
+                        indicators: [],
+                        fodders: []
+                    },
+                    patternData: {
+                        id: `double-def-${Date.now()}`,
+                        patternId: 'DOUBLE_DEFINITION',
+                        clueText: clue,
+                        answer: knownAnswer,
+                        variables
+                    }
+                };
+            }
+        }
+
+        // Try charade fallback - works even without pre-found definition
+        if (knownAnswer) {
+            const cleanClueWords = getClueWithoutCount(clue).split(/\s+/);
+
+            // If definition already found, use it; otherwise try both positions
+            const positionsToTry: Array<{ position: 'START' | 'END'; defText: string | undefined }> = [];
+
+            if (definition) {
+                positionsToTry.push({ position: defPosition, defText: definition });
+            } else {
+                // Try definition at START (wordplay at END)
+                // Try various definition lengths
+                for (let defLen = 1; defLen <= Math.min(5, cleanClueWords.length - 2); defLen++) {
+                    positionsToTry.push({
+                        position: 'START',
+                        defText: cleanClueWords.slice(0, defLen).join(' ')
+                    });
+                }
+                // Try definition at END (wordplay at START)
+                for (let defLen = 1; defLen <= Math.min(5, cleanClueWords.length - 2); defLen++) {
+                    positionsToTry.push({
+                        position: 'END',
+                        defText: cleanClueWords.slice(-defLen).join(' ')
+                    });
+                }
+            }
+
+            for (const { position, defText } of positionsToTry) {
+                if (!defText) continue;
+                const defWords = defText.split(/\s+/);
+                let wordplayWords: string[];
+
+                if (position === 'START') {
+                    wordplayWords = cleanClueWords.slice(defWords.length);
+                } else {
+                    wordplayWords = cleanClueWords.slice(0, cleanClueWords.length - defWords.length);
+                }
+
+                const wordplayText = wordplayWords.join(' ');
+                const charade = tryCharadeSplit(wordplayText, knownAnswer);
+
+                if (charade?.success) {
+                    const variables: Record<string, string> = {
+                        'def_text': defText,
+                        'definition_match_type': definition ? defMatchType : 'cryptic'
+                    };
+
+                    charade.parts.forEach((part, idx) => {
+                        const n = idx + 1;
+                        variables[`indicator_${n}_text`] = '(synonym)';
+                        variables[`fodder_${n}_text`] = part.text;
+                        variables[`result_${n}`] = part.result;
+                    });
+
+                    const partsHint = charade.parts.map(p => `${p.text} → ${p.result}`).join(' + ');
+                    variables['hint_1'] = `Charade: ${partsHint} = ${knownAnswer}`;
+
+                    return {
+                        success: true,
+                        confidence: definition ? 75 : 70,
+                        needsAI: false,
+                        parsed: {
+                            definition: { text: defText, position },
+                            indicators: [],
+                            fodders: charade.parts.map(p => p.text)
+                        },
+                        patternData: {
+                            id: `charade-${Date.now()}`,
+                            patternId: 'CHARADE',
+                            clueText: clue,
+                            answer: knownAnswer,
+                            variables
+                        }
+                    };
+                }
+            }
+        }
+
+        return {
+            success: false,
+            confidence: 0,
+            needsAI: true,
+            reason: 'No known indicators found in clue'
+        };
+    }
+
+    // Step 3: If definition wasn't found via synonym, fall back to old method
+    if (!definition) {
+        defPosition = guessDefinitionPosition(cleanClue, indicators);
+
+        if (knownAnswer) {
+            // Try the guessed position first
+            let bestMatch = findBestDefinitionMatch(clue, knownAnswer, defPosition);
+
+            // If no match at guessed position, try the other position
+            if (bestMatch.matchType === 'none') {
+                const otherPosition = defPosition === 'START' ? 'END' : 'START';
+                const otherMatch = findBestDefinitionMatch(clue, knownAnswer, otherPosition);
+
+                // Use the other position if it found a match
+                if (otherMatch.matchType !== 'none') {
+                    bestMatch = otherMatch;
+                    defPosition = otherPosition;
+                }
+            }
+
+            definition = bestMatch.phrase;
+            defMatchType = bestMatch.matchType;
+            defHint = bestMatch.hint;
+        } else {
+            // No answer - fall back to basic extraction
+            definition = extractDefinition(clue, defPosition, indicators);
+        }
+    }
+
+    if (!definition || definition.length < 2) {
+        return {
+            success: false,
+            confidence: 20,
+            needsAI: true,
+            reason: 'Could not extract definition',
+            parsed: {
+                definition: { text: '', position: defPosition },
+                indicators: indicators.map(i => ({ text: i.text, type: i.type, entry: i.entry })),
+                fodders: []
+            }
+        };
+    }
+
+    // Step 3b: Try composite charade now that definition is guaranteed
+    if (knownAnswer) {
+        const cleanClueWordsForComposite = getClueWithoutCount(clue).split(/\s+/);
+        const defWordsForComposite = definition.split(/\s+/);
+        let wordplayWordsForComposite: string[];
+
+        if (defPosition === 'START') {
+            wordplayWordsForComposite = cleanClueWordsForComposite.slice(defWordsForComposite.length);
+        } else {
+            wordplayWordsForComposite = cleanClueWordsForComposite.slice(0, cleanClueWordsForComposite.length - defWordsForComposite.length);
+        }
+
+        const wordplayTextForComposite = wordplayWordsForComposite.join(' ');
+        const composite = tryCompositeCharade(wordplayTextForComposite, knownAnswer, indicators);
+
+        if (composite?.success) {
+            const variables: Record<string, string> = {
+                'def_text': definition,
+                'definition_match_type': defMatchType
+            };
+
+            composite.parts.forEach((part, idx) => {
+                const n = idx + 1;
+                variables[`indicator_${n}_text`] = part.operation;
+                variables[`fodder_${n}_text`] = part.text;
+                variables[`result_${n}`] = part.result;
+            });
+
+            const partsHint = composite.parts.map(p => `${p.text} → ${p.result} (${p.operation})`).join(' + ');
+            variables['hint_1'] = `Composite: ${partsHint} = ${knownAnswer}`;
+
+            return {
+                success: true,
+                confidence: 85,
+                needsAI: false,
+                parsed: {
+                    definition: { text: definition, position: defPosition },
+                    indicators: indicators.map(i => ({ text: i.text, type: i.type, entry: i.entry })),
+                    fodders: composite.parts.map(p => p.text)
+                },
+                patternData: {
+                    id: `composite-${Date.now()}`,
+                    patternId: 'COMPOSITE_CHARADE',
+                    clueText: clue,
+                    answer: knownAnswer,
+                    variables
+                }
+            };
+        }
+
+        // Step 3c: Try substitution pattern
+        const substitution = trySubstitution(wordplayTextForComposite, knownAnswer, indicators);
+        if (substitution?.success) {
+            const variables: Record<string, string> = {
+                'def_text': definition,
+                'definition_match_type': defMatchType,
+                'indicator_1_text': 'substitution',
+                'fodder_1_text': substitution.baseWord,
+                'result_1': knownAnswer,
+                'hint_1': `Substitution: ${substitution.baseSynonym} with ${substitution.insertedFrom} (${substitution.inserted}) replacing ${substitution.removedFrom} (${substitution.removed}) = ${knownAnswer}`
+            };
+
+            return {
+                success: true,
+                confidence: 80,
+                needsAI: false,
+                parsed: {
+                    definition: { text: definition, position: defPosition },
+                    indicators: indicators.map(i => ({ text: i.text, type: i.type, entry: i.entry })),
+                    fodders: [substitution.baseWord, substitution.removed, substitution.inserted]
+                },
+                patternData: {
+                    id: `substitution-${Date.now()}`,
+                    patternId: 'SUBSTITUTION',
+                    clueText: clue,
+                    answer: knownAnswer,
+                    variables
+                }
+            };
+        }
+    }
+
+    // Step 4: Calculate definition boundary word index
+    const cleanClueWords = getClueWithoutCount(clue).split(/\s+/);
+    const defWords = definition.split(/\s+/);
+    let defEndWordIdx = defPosition === 'START' ? defWords.length : cleanClueWords.length - defWords.length;
+
+    // Step 5: Extract fodder - process left to right, words used only once
+    // For combined operations (hidden+reversal, etc.), treat as single wordplay
+    const fodders: string[] = [];
+    const usedWordIndices = new Set<number>();
+
+    // Mark definition words as used
+    if (defPosition === 'START') {
+        for (let i = 0; i < defEndWordIdx; i++) usedWordIndices.add(i);
+    } else {
+        for (let i = defEndWordIdx; i < cleanClueWords.length; i++) usedWordIndices.add(i);
+    }
+
+    // Only extract fodder for FIRST indicator - combine multiple indicators into one operation
+    // This handles combined operations like "hidden + reversal" as a single step
+    if (indicators.length > 0) {
+        const fodder = extractFodder(clue, indicators[0], defPosition, indicators, defEndWordIdx);
+        if (fodder) fodders.push(fodder);
+    }
+
+    // Step 5: Build confidence score
+    let confidence = 50;  // Base confidence for finding indicators
+
+    if (definition.length > 0) confidence += 15;
+    if (fodders.length === indicators.length) confidence += 15;
+    if (knownAnswer && wordCount === knownAnswer.length) confidence += 10;
+    if (indicators.length === 1) confidence += 10;  // Single operation is more reliable
+
+    // Reduce confidence for complex clues
+    if (indicators.length > 2) confidence -= 20;
+    if (cleanClue.split(/\s+/).length > 10) confidence -= 10;
+
+    confidence = Math.max(0, Math.min(100, confidence));
+
+    // Step 6: Determine if we need AI
+    const needsAI = confidence < 70 || !knownAnswer;
+
+    // Step 7: Build patternData if confident enough
+    let patternData: PatternInstance | undefined;
+    let synonymsResolved = 0;
+    let synonymsNeeded = 0;
+
+    if (confidence >= 50 && knownAnswer) {
+        // Determine pattern type based on indicators
+        let patternId = 'UNKNOWN';
+        const firstIndicatorType = indicators[0]?.entry?.type;
+
+        if (indicators.length === 1) {
+            if (firstIndicatorType === 'acrostic') {
+                patternId = 'ACROSTIC';
+            } else if (firstIndicatorType?.startsWith('deletion')) {
+                patternId = 'SYNONYM_DELETION';
+            } else if (firstIndicatorType === 'letter_movement') {
+                patternId = 'LETTER_MOVEMENT';
+            } else {
+                patternId = firstIndicatorType?.toUpperCase() || 'UNKNOWN';
+            }
+        } else {
+            // Check if any indicator is letter_movement
+            const hasLetterMovement = indicators.some(i => i.entry?.type === 'letter_movement');
+            if (hasLetterMovement) {
+                patternId = 'LETTER_MOVEMENT_CHARADE';
+            } else {
+                patternId = 'COMPOSITE_CHARADE';
+            }
+        }
+
+        const variables: Record<string, string> = {
+            'def_text': definition,
+            'definition_match_type': defMatchType  // 'direct' | 'synonym' | 'cryptic' | 'none'
+        };
+
+        // Calculate expected result lengths for each part
+        // For single indicator: result length = answer length
+        // For multiple indicators: we need to figure out how they combine
+        const answerLen = knownAnswer.replace(/[^A-Z]/gi, '').length;
+
+        // Only create variables for first indicator + combine all indicator texts
+        // Multiple indicators (e.g., "somewhat" + "following comeback") = combined operation
+        const allIndicatorTexts = indicators.map(i => i.text).join(', ');
+
+        // Process only the first indicator for wordplay
+        [indicators[0]].forEach((ind, idx) => {
+            const n = idx + 1;
+            // Include all indicator texts so user sees the full operation
+            variables[`indicator_${n}_text`] = allIndicatorTexts;
+
+            const fodder = fodders[idx];
+            if (fodder) {
+                // Try to resolve synonym and result using dictionary
+                const entry = ind.entry;
+
+                // SPECIAL CASE: Acrostic indicators - check for standalone synonym split
+                if (entry.type === 'acrostic' && knownAnswer) {
+                    const acrosticSplit = splitAcrosticFodder(fodder, knownAnswer);
+
+                    if (acrosticSplit) {
+                        // Split into two wordplay components:
+                        // Component 1: Acrostic (first letters)
+                        variables[`fodder_${n}_text`] = acrosticSplit.acrosticFodder;
+                        variables[`result_${n}`] = acrosticSplit.acrosticResult;
+                        synonymsNeeded++;
+                        synonymsResolved++;
+
+                        // Component 2: Standalone synonym (charade part)
+                        const m = n + 1;
+                        variables[`indicator_${m}_text`] = '(synonym)';
+                        variables[`fodder_${m}_text`] = acrosticSplit.synonymFodder || '';
+                        variables[`result_${m}`] = acrosticSplit.synonymResult || '';
+                        synonymsNeeded++;
+                        synonymsResolved++;
+
+                        return;  // Skip normal processing for this indicator
+                    }
+                }
+
+                variables[`fodder_${n}_text`] = fodder;
+                synonymsNeeded++;
+
+                if (entry.letterOp === 'first' || entry.letterOp === 'last') {
+                    // Letter extraction - no synonym needed, just extract letter
+                    const letter = extractLetter(fodder, entry.letterOp);
+                    variables[`result_${n}`] = letter;
+                    synonymsResolved++;
+                } else if (entry.type === 'acrostic') {
+                    // Acrostic without split - take first letters of all words
+                    const words = fodder.split(/\s+/);
+                    const result = words.map(w => w[0]?.toUpperCase() || '').join('');
+                    variables[`result_${n}`] = result;
+                    synonymsResolved++;
+                } else if (entry.type === 'anagram') {
+                    // Anagram - check if fodder letters can be rearranged to form answer
+                    let fodderClean = fodder.replace(/[^a-zA-Z]/g, '').toUpperCase();
+                    if (knownAnswer) {
+                        const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+                        const answerSorted = answerClean.split('').sort().join('');
+                        let fodderSorted = fodderClean.split('').sort().join('');
+                        let actualFodder = fodder;
+
+                        // If fodder has too many letters, try to find correct subset
+                        if (fodderSorted !== answerSorted && fodderClean.length > answerClean.length) {
+                            const cleanClue = getClueWithoutCount(clue);
+                            const words = cleanClue.split(/\s+/);
+                            const indWords = ind.text.toLowerCase().split(/\s+/);
+
+                            // Find indicator position
+                            let indEnd = 0;
+                            for (let i = 0; i <= words.length - indWords.length; i++) {
+                                if (words.slice(i, i + indWords.length).join(' ').toLowerCase() === indWords.join(' ')) {
+                                    indEnd = i + indWords.length;
+                                    break;
+                                }
+                            }
+
+                            // Try progressively shorter fodder (words after indicator)
+                            for (let len = 1; len <= words.length - indEnd; len++) {
+                                const testFodder = words.slice(indEnd, indEnd + len).join(' ');
+                                const testClean = testFodder.replace(/[^a-zA-Z]/g, '').toUpperCase();
+                                const testSorted = testClean.split('').sort().join('');
+                                if (testSorted === answerSorted) {
+                                    actualFodder = testFodder;
+                                    fodderClean = testClean;
+                                    fodderSorted = testSorted;
+                                    variables[`fodder_${n}_text`] = actualFodder;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Check if letters match (anagram verification)
+                        if (fodderSorted === answerSorted) {
+                            variables[`result_${n}`] = answerClean;
+                            variables[`hint_${n}`] = `"${actualFodder}" anagrammed = ${answerClean}`;
+                            synonymsResolved++;
+                        }
+                    }
+                } else if (entry.type === 'hidden' || entry.type === 'reversal') {
+                    // Hidden word or reversal - check fodder for answer
+                    let fodderClean = fodder.replace(/\s+/g, '').toUpperCase();
+                    if (knownAnswer) {
+                        const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+                        const reversedAnswer = answerClean.split('').reverse().join('');
+
+                        // For hidden indicators, try alternate fodder if primary doesn't contain answer
+                        // (fodder could be before OR after the indicator)
+                        let actualFodder = fodder;
+                        if (entry.type === 'hidden' && !fodderClean.includes(answerClean)) {
+                            // Try alternate fodder location (before indicator instead of after, or vice versa)
+                            const cleanClue = getClueWithoutCount(clue);
+                            const words = cleanClue.split(/\s+/);
+                            const indWords = ind.text.toLowerCase().split(/\s+/);
+
+                            // Find indicator position
+                            let indStart = -1;
+                            for (let i = 0; i <= words.length - indWords.length; i++) {
+                                if (words.slice(i, i + indWords.length).join(' ').toLowerCase().includes(indWords.join(' '))) {
+                                    indStart = i;
+                                    break;
+                                }
+                            }
+
+                            if (indStart >= 0) {
+                                const indEnd = indStart + indWords.length;
+                                // Words before indicator (excluding definition)
+                                const beforeInd = words.slice(defPosition === 'START' ? defEndWordIdx : 0, indStart);
+                                // Words after indicator (excluding definition)
+                                const afterInd = words.slice(indEnd, defPosition === 'END' ? defEndWordIdx : words.length);
+
+                                // Try before indicator
+                                const beforeClean = beforeInd.join('').toUpperCase().replace(/[^A-Z]/g, '');
+                                if (beforeClean.includes(answerClean)) {
+                                    actualFodder = beforeInd.join(' ');
+                                    fodderClean = beforeClean;
+                                    variables[`fodder_${n}_text`] = actualFodder;
+                                }
+                                // Try after indicator
+                                else {
+                                    const afterClean = afterInd.join('').toUpperCase().replace(/[^A-Z]/g, '');
+                                    if (afterClean.includes(answerClean)) {
+                                        actualFodder = afterInd.join(' ');
+                                        fodderClean = afterClean;
+                                        variables[`fodder_${n}_text`] = actualFodder;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Check if multiple indicators suggest combined operation (hidden + reversal)
+                        const hasHidden = indicators.some(i => i.type === 'hidden');
+                        const hasReversal = indicators.some(i => i.type === 'reversal');
+
+                        if (hasHidden && hasReversal) {
+                            // Combined hidden + reversal: look for reversed answer in fodder
+                            if (fodderClean.includes(reversedAnswer)) {
+                                variables[`result_${n}`] = answerClean;
+                                variables[`hint_${n}`] = `Hidden "${reversedAnswer}" in "${actualFodder}" reversed = ${answerClean}`;
+                                synonymsResolved++;
+                            }
+                        } else if (entry.type === 'hidden') {
+                            // Pure hidden: look for answer directly in fodder
+                            if (fodderClean.includes(answerClean)) {
+                                variables[`result_${n}`] = answerClean;
+                                variables[`hint_${n}`] = `Hidden word in "${actualFodder}" = ${answerClean}`;
+                                synonymsResolved++;
+                            }
+                        } else if (entry.type === 'reversal') {
+                            // Pure reversal: reverse the fodder
+                            if (fodderClean.length === answerClean.length) {
+                                const reversed = fodderClean.split('').reverse().join('');
+                                if (reversed === answerClean) {
+                                    variables[`result_${n}`] = answerClean;
+                                    variables[`hint_${n}`] = `"${fodder}" reversed = ${answerClean}`;
+                                    synonymsResolved++;
+                                }
+                            }
+
+                            // Charade + reversal: try splitting fodder into synonym parts,
+                            // combine them, then reverse to get answer
+                            if (!variables[`result_${n}`]) {
+                                // Try to find charade that when reversed gives answer
+                                const reversedAnswer = answerClean.split('').reverse().join('');
+                                const charadeSplit = tryCharadeSplit(fodder, reversedAnswer);
+                                if (charadeSplit && charadeSplit.success) {
+                                    const combined = charadeSplit.parts.map(p => p.result).join('');
+                                    if (combined === reversedAnswer) {
+                                        const partsDesc = charadeSplit.parts.map(p => `${p.text}→${p.result}`).join(' + ');
+                                        variables[`result_${n}`] = answerClean;
+                                        variables[`hint_${n}`] = `Charade (${partsDesc}) = ${combined}, reversed = ${answerClean}`;
+                                        synonymsResolved++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (entry.type === 'letter_movement') {
+                    // Letter movement - create battlecard steps where results combine to answer
+                    if (knownAnswer) {
+                        const movementResult = tryLetterMovementCharade(fodder, knownAnswer, ind.text);
+                        if (movementResult?.success) {
+                            const direction = movementResult.movement === 'to_end' ? 'to end' : 'to start';
+                            const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+
+                            // Clean up source strings (remove trailing punctuation)
+                            const cleanSource = (s: string) => s.replace(/[,;:.']+$/g, '').trim();
+                            const baseClean = cleanSource(movementResult.baseSource);
+                            const letterClean = cleanSource(movementResult.letterSource);
+
+                            // Step 1: Letter movement (combined base + letter operation → moved word)
+                            // This produces the first part of the answer
+                            variables[`indicator_1_text`] = ind.text;
+                            variables[`fodder_1_text`] = `${baseClean}, ${letterClean}`;
+                            variables[`synonym_1`] = movementResult.baseWord;
+                            variables[`result_1`] = movementResult.movedWord;
+                            variables[`hint_1`] = `"${baseClean}" → ${movementResult.baseWord}, "${letterClean}" → ${movementResult.letter}, move ${movementResult.letter} ${direction} → ${movementResult.movedWord}`;
+
+                            // Step 2+: Additional charade parts
+                            let stepNum = 2;
+                            for (const part of movementResult.additionalParts) {
+                                const partClean = cleanSource(part.source);
+                                variables[`indicator_${stepNum}_text`] = '';
+                                variables[`fodder_${stepNum}_text`] = partClean;
+                                variables[`synonym_${stepNum}`] = part.result;
+                                variables[`result_${stepNum}`] = part.result;
+                                variables[`hint_${stepNum}`] = `"${partClean}" → ${part.result}`;
+                                stepNum++;
+                            }
+
+                            // Store structure for parsing summary
+                            let structure = `${movementResult.movedWord}`;
+                            if (movementResult.additionalParts.length > 0) {
+                                structure += ` + ${movementResult.additionalParts.map(p => p.result).join(' + ')}`;
+                            }
+                            structure += ` = ${answerClean}`;
+                            variables['structure'] = structure;
+
+                            // Final assembly step - shows how all parts combine
+                            // Note: don't set result_N for assembly as it would break the combination check
+                            const finalStepNum = stepNum;
+                            variables[`indicator_${finalStepNum}_text`] = 'Assembly';
+                            variables[`fodder_${finalStepNum}_text`] = structure;
+                            variables[`hint_${finalStepNum}`] = `${movementResult.movedWord} + ${movementResult.additionalParts.map(p => p.result).join(' + ')} = ${answerClean}`;
+
+                            // Mark as fully resolved - results will combine to answer
+                            synonymsResolved = 1 + movementResult.additionalParts.length;
+                        } else {
+                            // Fallback if we can't trace it
+                            const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+                            variables[`result_${n}`] = answerClean;
+                            variables[`hint_${n}`] = `Letter movement pattern (could not trace steps)`;
+                        }
+                    }
+                } else if (entry.synonymRequired || lookupSynonyms(fodder).length > 0) {
+                    // Need to find synonym, then apply operation
+                    const operation = entry.type === 'deletion_first' ? 'deletion_first' : 'deletion_last';
+
+                    // For composite clues, try multiple possible target lengths
+                    // For single clue, result length = answer length
+                    let targetLengths: number[] = [answerLen];
+
+                    if (indicators.length > 1) {
+                        // For 2-part charades, try various splits
+                        // Account for letter extractions in other parts
+                        const otherPartsLetterExtract = indicators.filter((ind, i) =>
+                            i !== idx && (ind.entry.letterOp === 'first' || ind.entry.letterOp === 'last')
+                        ).length;
+
+                        const remainingLen = answerLen - otherPartsLetterExtract;
+
+                        // Try different possible lengths for this part
+                        targetLengths = [];
+                        for (let len = 1; len <= remainingLen; len++) {
+                            targetLengths.push(len);
+                        }
+                    }
+
+                    // Try each possible target length
+                    for (const targetLen of targetLengths) {
+                        const match = findSynonymForOperation(fodder, operation, targetLen);
+                        if (match) {
+                            variables[`synonym_${n}`] = match.synonym;
+                            variables[`result_${n}`] = match.result;
+                            synonymsResolved++;
+                            break;  // Found a valid match
+                        }
+                    }
+                } else {
+                    // Direct operation on fodder (no synonym step)
+                    const fodderClean = fodder.toUpperCase().replace(/[^A-Z]/g, '');
+                    if (entry.type === 'deletion_first') {
+                        variables[`result_${n}`] = fodderClean.slice(1);
+                        synonymsResolved++;
+                    } else if (entry.type === 'deletion_last') {
+                        variables[`result_${n}`] = fodderClean.slice(0, -1);
+                        synonymsResolved++;
+                    }
+                }
+            }
+        });
+
+        // Verify that results combine to form the answer
+        // Check up to 3 result slots (acrostic splits can create extra results)
+        const resultParts: string[] = [];
+        for (let i = 1; i <= 3; i++) {
+            if (variables[`result_${i}`]) {
+                resultParts.push(variables[`result_${i}`]);
+            }
+        }
+        const combinedResult = resultParts.join('').toUpperCase();
+        const expectedAnswer = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+        let resultsMatchAnswer = combinedResult === expectedAnswer;
+
+        // If results don't match for composite clues, try smarter combinations
+        if (!resultsMatchAnswer && indicators.length === 2 && fodders.length === 2) {
+            // Clear previous attempts
+            for (let i = 1; i <= indicators.length; i++) {
+                delete variables[`synonym_${i}`];
+                delete variables[`result_${i}`];
+            }
+            synonymsResolved = 0;
+
+            // Try all valid length combinations for a 2-part charade
+            const ind1 = indicators[0];
+            const ind2 = indicators[1];
+            const fod1 = fodders[0];
+            const fod2 = fodders[1];
+
+            // Determine what operations each part uses
+            const op1 = ind1.entry.letterOp ? `extract_${ind1.entry.letterOp}` as const :
+                       ind1.entry.type === 'deletion_first' ? 'deletion_first' : 'deletion_last';
+            const op2 = ind2.entry.letterOp ? `extract_${ind2.entry.letterOp}` as const :
+                       ind2.entry.type === 'deletion_first' ? 'deletion_first' : 'deletion_last';
+
+            // For each possible split of the answer length
+            for (let len1 = 1; len1 < answerLen; len1++) {
+                const len2 = answerLen - len1;
+
+                let match1: { synonym: string; result: string } | null = null;
+                let match2: { synonym: string; result: string } | null = null;
+
+                // Try to find synonyms that produce results of these lengths
+                if (ind1.entry.letterOp === 'first' || ind1.entry.letterOp === 'last') {
+                    if (len1 === 1) {
+                        match1 = { synonym: '', result: extractLetter(fod1, ind1.entry.letterOp) };
+                    }
+                } else {
+                    match1 = findSynonymForOperation(fod1, op1 as any, len1);
+                }
+
+                if (ind2.entry.letterOp === 'first' || ind2.entry.letterOp === 'last') {
+                    if (len2 === 1) {
+                        match2 = { synonym: '', result: extractLetter(fod2, ind2.entry.letterOp) };
+                    }
+                } else {
+                    match2 = findSynonymForOperation(fod2, op2 as any, len2);
+                }
+
+                if (match1 && match2) {
+                    const combined = (match1.result + match2.result).toUpperCase();
+                    if (combined === expectedAnswer) {
+                        if (match1.synonym) variables['synonym_1'] = match1.synonym;
+                        variables['result_1'] = match1.result;
+                        if (match2.synonym) variables['synonym_2'] = match2.synonym;
+                        variables['result_2'] = match2.result;
+                        synonymsResolved = 2;
+                        resultsMatchAnswer = true;
+                        break;
+                    }
+                }
+            }
+        } else if (!resultsMatchAnswer && synonymsResolved > 0) {
+            // Single part clue failed - clear incorrect results
+            for (let i = 1; i <= indicators.length; i++) {
+                delete variables[`synonym_${i}`];
+                delete variables[`result_${i}`];
+            }
+            synonymsResolved = 0;
+        }
+
+        // Update patternId if we detected an acrostic+charade split
+        if (firstIndicatorType === 'acrostic' && variables['result_2']) {
+            patternId = 'ACROSTIC_CHARADE';
+        }
+
+        // Set definition type based on findBestDefinitionMatch results
+        // This uses the multi-word phrase matching we did earlier
+        if (defMatchType === 'cryptic' && defHint) {
+            variables['definition_type'] = 'cryptic';
+            variables['definition_hint'] = defHint;
+        } else if (defMatchType === 'none') {
+            // No match found even with multi-word phrases - last resort fallback
+            const crypticCheck = detectCrypticDefinition(definition, knownAnswer, coaching);
+            if (crypticCheck.isCryptic) {
+                variables['definition_type'] = 'cryptic';
+                variables['definition_hint'] = crypticCheck.hint;
+            }
+        }
+        // For 'direct' and 'synonym' matches, definition is straightforward (no special type)
+
+        patternData = {
+            id: `parsed-${Date.now()}`,
+            patternId,
+            clueText: clue,
+            answer: knownAnswer,
+            variables
+        };
+
+        // Boost confidence if we resolved synonyms AND they match the answer
+        if (synonymsNeeded > 0 && synonymsResolved === synonymsNeeded && resultsMatchAnswer) {
+            confidence = Math.min(100, confidence + 15);
+        }
+    }
+
+    // Update needsAI based on synonym resolution
+    let needsAIUpdated = confidence < 70 || !knownAnswer || (synonymsNeeded > 0 && synonymsResolved < synonymsNeeded);
+
+    // Charade fallback: if indicator-based parsing didn't fully resolve, try charade
+    if (needsAIUpdated && knownAnswer && definition) {
+        // Build wordplay text by excluding definition
+        const cleanClue = getClueWithoutCount(clue);
+        const defWords = definition.split(/\s+/);
+        const allWords = cleanClue.split(/\s+/);
+
+        let wordplayWords: string[];
+        if (defPosition === 'START') {
+            wordplayWords = allWords.slice(defWords.length);
+        } else {
+            wordplayWords = allWords.slice(0, allWords.length - defWords.length);
+        }
+
+        const wordplayText = wordplayWords.join(' ');
+        const charade = tryCharadeSplit(wordplayText, knownAnswer);
+
+        if (charade?.success) {
+            // Charade succeeded - update patternData
+            const charadevars: Record<string, string> = {
+                'def_text': definition,
+                'definition_match_type': defMatchType
+            };
+
+            charade.parts.forEach((part, idx) => {
+                const n = idx + 1;
+                charadevars[`indicator_${n}_text`] = '(synonym)';
+                charadevars[`fodder_${n}_text`] = part.text;
+                charadevars[`result_${n}`] = part.result;
+            });
+
+            const partsHint = charade.parts.map(p => `${p.text} → ${p.result}`).join(' + ');
+            charadevars['hint_1'] = `Charade: ${partsHint} = ${knownAnswer}`;
+
+            patternData = {
+                id: `charade-fallback-${Date.now()}`,
+                patternId: 'CHARADE',
+                clueText: clue,
+                answer: knownAnswer,
+                variables: charadevars
+            };
+
+            confidence = 75;
+            needsAIUpdated = false;
+        }
+    }
+
+    // Calculate difficulty
+    const difficulty = patternData
+        ? calculateDifficulty(
+            patternData.patternId,
+            patternData.variables,
+            patternData.variables['definition_match_type'] || 'synonym'
+        )
+        : 'Medium';
+
+    return {
+        success: confidence >= 50,
+        confidence,
+        difficulty,
+        patternData,
+        needsAI: needsAIUpdated,
+        reason: needsAIUpdated ? `Confidence ${confidence}% - ${synonymsResolved}/${synonymsNeeded} synonyms resolved` : undefined,
+        parsed: {
+            definition: { text: definition, position: defPosition },
+            indicators: indicators.map(i => ({ text: i.text, type: i.type, entry: i.entry })),
+            fodders
+        }
+    };
+}
+
+// --- TEMPLATE COMPLETION ---
+// Given partial patternData, fill in missing pieces with known rules
+
+export function completePattern(
+    partial: PatternInstance,
+    synonyms?: Record<string, string>,  // fodder -> synonym mapping
+    results?: Record<string, string>    // step -> result mapping
+): PatternInstance {
+    const variables = { ...partial.variables };
+
+    // Apply provided synonyms
+    if (synonyms) {
+        Object.entries(synonyms).forEach(([fodder, synonym]) => {
+            // Find which fodder slot this matches
+            for (let i = 1; i <= 3; i++) {
+                if (variables[`fodder_${i}_text`]?.toLowerCase() === fodder.toLowerCase()) {
+                    variables[`synonym_${i}`] = synonym.toUpperCase();
+                }
+            }
+        });
+    }
+
+    // Apply provided results
+    if (results) {
+        Object.entries(results).forEach(([key, result]) => {
+            variables[key] = result.toUpperCase();
+        });
+    }
+
+    return {
+        ...partial,
+        variables
+    };
+}
+
+// --- BATCH IMPORT HELPER ---
+
+export interface BatchImportResult {
+    total: number;
+    parsed: number;
+    needsAI: number;
+    items: {
+        clue: string;
+        answer: string;
+        result: ParseResult;
+    }[];
+}
+
+export function batchParse(clues: { clue: string; answer: string }[]): BatchImportResult {
+    const items = clues.map(({ clue, answer }) => ({
+        clue,
+        answer,
+        result: parseClue(clue, answer)
+    }));
+
+    return {
+        total: items.length,
+        parsed: items.filter(i => i.result.success && !i.result.needsAI).length,
+        needsAI: items.filter(i => i.result.needsAI).length,
+        items
+    };
+}
+
+/**
+ * Verify a definition against an answer using AI as fallback.
+ * First checks the synonym dictionary, then falls back to AI if needed.
+ *
+ * @param definitionText - The suspected definition text from the clue
+ * @param answer - The known answer
+ * @returns Promise resolving to verification result
+ */
+export async function verifyDefinitionWithAI(
+    definitionText: string,
+    answer: string
+): Promise<{ isValid: boolean; source: 'dictionary' | 'ai' | 'unknown' }> {
+    const answerUpper = answer.toUpperCase().replace(/[^A-Z]/g, '');
+    const defLower = definitionText.toLowerCase().trim();
+
+    // First check dictionary
+    const synonyms = lookupSynonyms(defLower);
+    if (synonyms.some(s => s.toUpperCase() === answerUpper)) {
+        return { isValid: true, source: 'dictionary' };
+    }
+
+    // Reverse lookup in dictionary
+    for (const [fodder, syns] of Object.entries(SYNONYM_DICTIONARY)) {
+        if (syns.includes(answerUpper) && fodder.toLowerCase() === defLower) {
+            return { isValid: true, source: 'dictionary' };
+        }
+    }
+
+    // Check CRYPTIC_MEANINGS
+    const crypticEntry = CRYPTIC_MEANINGS[defLower];
+    if (crypticEntry?.synonyms.some(s => s.toUpperCase() === answerUpper)) {
+        return { isValid: true, source: 'dictionary' };
+    }
+
+    // Fall back to AI verification
+    try {
+        const { verifySynonym } = await import('./geminiService');
+        const aiResult = await verifySynonym(definitionText, answer);
+        return { isValid: aiResult, source: 'ai' };
+    } catch (e) {
+        console.error('AI verification failed:', e);
+        return { isValid: false, source: 'unknown' };
+    }
+}
