@@ -1,6 +1,23 @@
 
 import { PatternInstance } from '../types';
-import { parseClue } from './clueParser';
+import { parseClue, analyzeClueWithoutAnswer, ClueAnalysis } from './clueParser';
+
+/**
+ * Normalize text from copy/paste to handle smart quotes, dashes, and special spaces.
+ * This is essential because users often paste from Word, websites, or other formatted sources.
+ */
+function normalizeInputText(text: string): string {
+    return text
+        // Normalize apostrophes/quotes (smart quotes to straight)
+        .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+        // Normalize dashes (en/em dash, minus to hyphen)
+        .replace(/[\u2013\u2014\u2015\u2212]/g, '-')
+        // Normalize spaces (non-breaking, thin, etc. to regular space)
+        .replace(/[\u00A0\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000]/g, ' ')
+        // Remove zero-width characters
+        .replace(/[\u200B\u200C\u200D\uFEFF]/g, '');
+}
 
 /**
  * Parses free-form clue input in natural format:
@@ -38,7 +55,9 @@ export interface FreeformParseResult {
 }
 
 export function parseFreeformInput(input: string, defaultPubId?: string): FreeformParseResult {
-    const lines = input.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    // Normalize input to handle smart quotes, dashes, and special characters from copy/paste
+    const normalizedInput = normalizeInputText(input);
+    const lines = normalizedInput.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
     // ============================================================
     // PHASE 1: UP-FRONT VALIDATION (fail fast with clear errors)
@@ -104,47 +123,38 @@ export function parseFreeformInput(input: string, defaultPubId?: string): Freefo
         );
     }
 
-    if (answerLineIdx === -1) {
-        return {
-            success: false,
-            errors: [
-                'No answer found.',
-                'Expected formats:',
-                '  "Answer: WORD – explanation"',
-                '  "WORD – explanation" (WORD in uppercase)',
-                '',
-                'Example: "Answer: TONSURE – first letters of..."',
-                'Example: "RISER – reverse hidden in scaRES IReland"'
-            ]
-        };
-    }
+    // Note: answerLineIdx === -1 means no answer provided yet
+    // We'll continue and return partial success if we have a clue
 
-    // 1d. Extract and validate answer
-    const answerLine = lines[answerLineIdx];
+    // 1d. Extract and validate answer (if present)
+    const answerLine = answerLineIdx !== -1 ? lines[answerLineIdx] : '';
     let answer = '';
     let parsing = '';
 
-    // Try "Answer: WORD" format first
-    const answerMatch = answerLine.match(/(?:answer(?:\/parsing)?)[:\s]+([A-Z]+)(?:\s*[–\-—]\s*(.+))?/i);
-    if (answerMatch) {
-        answer = answerMatch[1].toUpperCase();
-        parsing = answerMatch[2] || '';
-    } else {
-        // Try direct format: "WORD – explanation"
-        const directMatch = answerLine.match(/^([A-Z]{2,})\s*[–\-—]\s*(.+)/);
-        if (directMatch) {
-            answer = directMatch[1].toUpperCase();
-            parsing = directMatch[2] || '';
+    if (answerLine) {
+        // Try "Answer: WORD" format first
+        const answerMatch = answerLine.match(/(?:answer(?:\/parsing)?)[:\s]+([A-Z]+)(?:\s*[–\-—]\s*(.+))?/i);
+        if (answerMatch) {
+            answer = answerMatch[1].toUpperCase();
+            parsing = answerMatch[2] || '';
         } else {
-            // Last resort: extract any uppercase word
-            const simpleMatch = answerLine.match(/[:\s]([A-Z]{2,})/);
-            if (simpleMatch) {
-                answer = simpleMatch[1];
+            // Try direct format: "WORD – explanation"
+            const directMatch = answerLine.match(/^([A-Z]{2,})\s*[–\-—]\s*(.+)/);
+            if (directMatch) {
+                answer = directMatch[1].toUpperCase();
+                parsing = directMatch[2] || '';
+            } else {
+                // Last resort: extract any uppercase word
+                const simpleMatch = answerLine.match(/[:\s]([A-Z]{2,})/);
+                if (simpleMatch) {
+                    answer = simpleMatch[1];
+                }
             }
         }
     }
 
-    if (!answer) {
+    // If we have an answer line but couldn't extract the answer, show error
+    if (answerLine && !answer) {
         return {
             success: false,
             errors: [
@@ -155,6 +165,8 @@ export function parseFreeformInput(input: string, defaultPubId?: string): Freefo
             ]
         };
     }
+
+    // No answer is OK - we'll proceed with partial analysis
 
     // ============================================================
     // PHASE 2: PARSE CLUE LINE AND METADATA
@@ -242,8 +254,8 @@ export function parseFreeformInput(input: string, defaultPubId?: string): Freefo
         wordCountMatch[1].split(',').reduce((sum, n) => sum + parseInt(n), 0) :
         undefined;
 
-    // 2e. Validate answer length matches word count
-    if (wordCount && answer.length !== wordCount) {
+    // 2e. Validate answer length matches word count (only if we have an answer)
+    if (answer && wordCount && answer.length !== wordCount) {
         return {
             success: false,
             errors: [
@@ -298,6 +310,7 @@ export function parseFreeformInput(input: string, defaultPubId?: string): Freefo
     let patternData: PatternInstance | undefined;
 
     if (answer && clueText) {
+        // Full parsing with answer
         const parseResult = parseClue(clueText, answer, coaching);
 
         if (parseResult.patternData) {
@@ -311,6 +324,32 @@ export function parseFreeformInput(input: string, defaultPubId?: string): Freefo
             // Create minimal pattern data from freeform input
             patternData = buildPatternFromCoaching(clueText, answer, parsing, coaching);
         }
+    } else if (clueText && !answer) {
+        // Partial parsing without answer - use hypothesis-based analysis
+        const analysis = analyzeClueWithoutAnswer(clueText);
+
+        // Build variables from analysis
+        const variables: Record<string, string> = {};
+        if (analysis.definitionCandidates.length > 0) {
+            variables['def_candidates'] = analysis.definitionCandidates.join(' | ');
+        }
+        analysis.obviousElements.forEach((elem, i) => {
+            if (elem.type === 'abbreviation') {
+                variables[`fodder_${i + 1}_text`] = elem.fodder;
+                variables[`result_${i + 1}`] = elem.result;
+            }
+        });
+
+        patternData = {
+            id: `partial-${Date.now()}`,
+            patternId: 'PARTIAL',
+            clueText,
+            answer: '',
+            variables,
+            solveSteps: analysis.solveSteps,
+            // Store the full analysis for UI to use
+            analysis: analysis as unknown as Record<string, unknown>
+        };
     }
 
     // All validation passed - return success

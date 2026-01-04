@@ -53,7 +53,7 @@ const LearningItem: React.FC<{ text: string; hint?: string }> = ({ text, hint })
                     >
                       <EyeOff size={12} />
                     </button>
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Logic Chain</span>
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Solve Sequence</span>
                   </div>
                   <div className="bg-indigo-100/50 border border-indigo-200 rounded-md px-3 py-2 font-mono text-xs text-indigo-800">
                     {hint}
@@ -73,7 +73,7 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
 }) => {
   // --- ENGINE STATE ---
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [runtimePattern, setRuntimePattern] = useState<{ steps: string[], variables: Record<string, string> } | null>(null);
+  const [runtimePattern, setRuntimePattern] = useState<{ steps: string[], variables: Record<string, string>, solveSteps?: string[] } | null>(null);
   
   // --- UI STATE ---
   const [grid, setGrid] = useState<string[]>([]);
@@ -115,7 +115,8 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
         if (patternDef) {
             setRuntimePattern({
                 steps: patternData.stepOverrides || patternDef.steps,
-                variables: patternData.variables
+                variables: patternData.variables,
+                solveSteps: patternData.solveSteps
             });
             return;
         }
@@ -142,7 +143,8 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
 
         setRuntimePattern({
             steps: patternData.stepOverrides || dynamicSteps,
-            variables: patternData.variables
+            variables: patternData.variables,
+            solveSteps: patternData.solveSteps
         });
         return;
     }
@@ -533,7 +535,7 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                             {currentTemplate.actionPrompt}
                          </div>
 
-                         {/* GOT IT - Logic Chain (for DEFINITION stage) */}
+                         {/* SOLVE STEPS (for DEFINITION stage) */}
                          {runtimePattern && currentTemplate.stage === 'DEFINITION' && (() => {
                              const defText = runtimePattern.variables['def_text'];
                              const defType = runtimePattern.variables['definition_type'];
@@ -571,10 +573,21 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                                                  >
                                                      <EyeOff size={12} />
                                                  </button>
-                                                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Logic Chain</span>
+                                                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Solve Sequence</span>
                                              </div>
-                                             <div className="bg-slate-100 border border-slate-200 rounded-md px-3 py-2 font-mono text-xs text-slate-700 whitespace-pre-wrap">
-                                                 {logicChain}
+                                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                                                 {runtimePattern?.solveSteps?.length ? (
+                                                     runtimePattern.solveSteps.map((step, i) => (
+                                                         <div key={i} className="flex gap-2 text-sm">
+                                                             <span className="text-indigo-500 font-bold">{i + 1}.</span>
+                                                             <span className="text-slate-700">{step}</span>
+                                                         </div>
+                                                     ))
+                                                 ) : (
+                                                     <div className="font-mono text-xs text-slate-700 whitespace-pre-wrap">
+                                                         {logicChain}
+                                                     </div>
+                                                 )}
                                              </div>
                                          </div>
                                      )}
@@ -582,7 +595,7 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                              );
                          })()}
 
-                         {/* GOT IT - Logic Chain (for wordplay steps) */}
+                         {/* SOLVE STEPS (for wordplay stages) */}
                          {runtimePattern && currentTemplate.stage !== 'DEFINITION' && currentTemplate.stage !== 'SOLVE' && (() => {
                              const stepId = runtimePattern.steps[currentStepIndex] || '';
                              let idx = '1';
@@ -625,10 +638,21 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                                                      >
                                                          <EyeOff size={12} />
                                                      </button>
-                                                     <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Logic Chain</span>
+                                                     <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Solve Sequence</span>
                                                  </div>
-                                                 <div className="bg-slate-100 border border-slate-200 rounded-md px-3 py-2 font-mono text-xs text-slate-700">
-                                                     {logicChain}
+                                                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                                                     {runtimePattern?.solveSteps?.length ? (
+                                                         runtimePattern.solveSteps.map((step, i) => (
+                                                             <div key={i} className="flex gap-2 text-sm">
+                                                                 <span className="text-indigo-500 font-bold">{i + 1}.</span>
+                                                                 <span className="text-slate-700">{step}</span>
+                                                             </div>
+                                                         ))
+                                                     ) : (
+                                                         <div className="font-mono text-xs text-slate-700">
+                                                             {logicChain}
+                                                         </div>
+                                                     )}
                                                  </div>
                                              </div>
                                          )}
@@ -924,13 +948,25 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                  </div>
              )}
 
-             {/* Parsing Summary */}
-             {parsingSummary && (
+             {/* Solve Sequence - step by step solving approach */}
+             {runtimePattern?.solveSteps?.length ? (
+                 <div className="bg-white/70 border border-indigo-200 rounded-lg p-4 mb-4">
+                     <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest block mb-3">Solve Sequence</span>
+                     <div className="space-y-2">
+                         {runtimePattern.solveSteps.map((step, i) => (
+                             <div key={i} className="flex gap-2 text-sm">
+                                 <span className="text-indigo-500 font-bold min-w-[20px]">{i + 1}.</span>
+                                 <span className="text-slate-700">{step}</span>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+             ) : parsingSummary ? (
                  <div className="bg-white/70 border border-indigo-200 rounded-lg p-4 mb-4 font-mono text-sm text-indigo-800">
                      <span className="text-indigo-400 text-xs font-sans font-bold uppercase tracking-widest block mb-1">Parsing</span>
                      {parsingSummary}
                  </div>
-             )}
+             ) : null}
 
              {/* Learnings with collapsible hints */}
              <ul className="space-y-3 mb-6">

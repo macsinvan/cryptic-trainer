@@ -73,6 +73,8 @@ export interface PatternInstance {
     answer: string;
     variables: Record<string, string>;
     stepOverrides?: string[]; // Optional specific step ID list for this instance
+    solveSteps?: string[]; // Step-by-step solve sequence for the battlecard
+    analysis?: Record<string, unknown>; // Full analysis data for partial parsing
 }
 
 // -------------------------------------

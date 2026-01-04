@@ -260,4 +260,123 @@ Return ONLY valid JSON:
         const text = response.content[0].type === 'text' ? response.content[0].text : '';
         return extractJSON<SolvedClue>(text);
     }
+
+    /**
+     * Test a specific hypothesis about a cryptic clue.
+     * This is a CONSTRAINED verification - we tell the AI exactly what to check.
+     *
+     * @param hypothesis - The specific hypothesis to test
+     * @returns Verification result with confidence
+     */
+    async verifyHypothesis(hypothesis: {
+        definition: string;           // The proposed definition word
+        synonymFodder: string;        // The word that needs a synonym
+        requiredLetterCount: number;  // How many letters the synonym must have
+        knownParts: string[];         // Already known letter parts (e.g., ["ENT", "M"])
+        targetLength: number;         // Total answer length
+    }): Promise<{
+        valid: boolean;
+        synonym: string | null;       // The synonym found (if valid)
+        answer: string | null;        // The complete answer (if valid)
+        confidence: 'high' | 'medium' | 'low' | 'cannot_verify';
+        reasoning: string;
+    }> {
+        const { definition, synonymFodder, requiredLetterCount, knownParts, targetLength } = hypothesis;
+
+        const response = await client.messages.create({
+            model: COMPLEX_MODEL,
+            max_tokens: 1024,
+            messages: [{
+                role: "user",
+                content: `You are verifying a SPECIFIC hypothesis about a cryptic crossword clue. Do NOT solve the clue yourself - only verify what is asked.
+
+HYPOTHESIS TO TEST:
+- Definition word: "${definition}"
+- Word needing synonym: "${synonymFodder}"
+- Required synonym length: exactly ${requiredLetterCount} letters
+- Known letter parts: ${knownParts.join(', ')}
+- Total answer length: ${targetLength} letters
+
+TASK:
+1. Find a ${requiredLetterCount}-letter synonym for "${synonymFodder}"
+2. Combine it with the known parts (${knownParts.join(' + ')}) to form a ${targetLength}-letter word
+3. Check if that word means "${definition}"
+
+CRITICAL RULES:
+- The synonym must be EXACTLY ${requiredLetterCount} letters
+- The final answer must be EXACTLY ${targetLength} letters
+- The answer must genuinely mean "${definition}"
+- If you cannot find a valid synonym, say "cannot_verify"
+- Do NOT guess or hallucinate - only report if you are confident
+
+Return ONLY valid JSON:
+{
+    "valid": true/false,
+    "synonym": "THE SYNONYM IN CAPS" or null,
+    "answer": "THE ANSWER IN CAPS" or null,
+    "confidence": "high" | "medium" | "low" | "cannot_verify",
+    "reasoning": "Brief explanation of your verification"
+}`
+            }]
+        });
+
+        const text = response.content[0].type === 'text' ? response.content[0].text : '';
+        const result = extractJSON<{
+            valid: boolean;
+            synonym: string | null;
+            answer: string | null;
+            confidence: 'high' | 'medium' | 'low' | 'cannot_verify';
+            reasoning: string;
+        }>(text);
+
+        return result || {
+            valid: false,
+            synonym: null,
+            answer: null,
+            confidence: 'cannot_verify',
+            reasoning: 'Failed to parse AI response'
+        };
+    }
+
+    /**
+     * Test multiple hypotheses in parallel and return the best verified result.
+     */
+    async testHypotheses(hypotheses: Array<{
+        definition: string;
+        synonymFodder: string;
+        requiredLetterCount: number;
+        knownParts: string[];
+        targetLength: number;
+    }>): Promise<{
+        bestHypothesis: number | null;  // Index of the best hypothesis (or null if none valid)
+        results: Array<{
+            valid: boolean;
+            synonym: string | null;
+            answer: string | null;
+            confidence: 'high' | 'medium' | 'low' | 'cannot_verify';
+            reasoning: string;
+        }>;
+    }> {
+        // Test all hypotheses in parallel
+        const results = await Promise.all(
+            hypotheses.map(h => this.verifyHypothesis(h))
+        );
+
+        // Find the best valid result (highest confidence)
+        const confidenceOrder = { high: 3, medium: 2, low: 1, cannot_verify: 0 };
+        let bestIdx: number | null = null;
+        let bestConfidence = 0;
+
+        results.forEach((r, i) => {
+            if (r.valid && confidenceOrder[r.confidence] > bestConfidence) {
+                bestConfidence = confidenceOrder[r.confidence];
+                bestIdx = i;
+            }
+        });
+
+        return {
+            bestHypothesis: bestIdx,
+            results
+        };
+    }
 }

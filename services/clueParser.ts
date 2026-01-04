@@ -2,6 +2,803 @@
 import { PatternInstance } from '../types';
 import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS } from '../data/synonymDictionary';
 
+// --- SOLVE STEPS GENERATOR ---
+// Generates step-by-step solve sequence for the battlecard
+// KEY PRINCIPLE: Start with what can be spotted WITHOUT knowing the answer
+
+// Common cryptic abbreviations that solvers should recognize immediately
+const OBVIOUS_ABBREVIATIONS: Record<string, string[]> = {
+    // Single letters
+    'M': ['months', 'month', 'thousand', 'meters', 'male', 'married'],
+    'N': ['north', 'nitrogen', 'noon', 'number', 'name'],
+    'S': ['south', 'second', 'small', 'son', 'saint'],
+    'E': ['east', 'english', 'energy', 'eastern'],
+    'W': ['west', 'with', 'wife', 'western', 'women'],
+    'L': ['left', 'large', 'lake', 'latin', 'learner', 'fifty'],
+    'R': ['right', 'river', 'king', 'queen', 'runs'],
+    'C': ['century', 'cold', 'carbon', 'circa', 'hundred'],
+    'D': ['day', 'daughter', 'died', 'penny', 'five hundred'],
+    'I': ['one', 'island', 'iodine', 'current'],
+    'O': ['love', 'zero', 'old', 'oxygen', 'over'],
+    'P': ['page', 'piano', 'quiet', 'parking'],
+    'T': ['time', 'ton', 'temperature'],
+    'V': ['five', 'versus', 'volt', 'very'],
+    'X': ['ten', 'times', 'kiss', 'unknown'],
+    // Multi-letter common abbreviations
+    'ENT': ['hospital department', 'ear nose throat', 'ear, nose and throat'],
+    'DR': ['doctor', 'drive'],
+    'ST': ['street', 'saint'],
+    'RD': ['road'],
+    'RE': ['about', 'concerning', 'regarding'],
+    'AD': ['advertisement', 'anno domini'],
+    'AM': ['morning', 'before noon'],
+    'PM': ['afternoon', 'evening'],
+    'AC': ['account', 'alternating current'],
+    'AI': ['artificial intelligence'],
+    'IT': ['information technology'],
+    'OR': ['operating room', 'gold'],
+    'ER': ['hesitation', 'emergency room'],
+    'UM': ['hesitation'],
+    'AH': ['hesitation', 'exclamation'],
+};
+
+// Check if a fodder->result mapping is an "obvious" abbreviation
+function isObviousAbbreviation(fodder: string, result: string): boolean {
+    const fodderLower = fodder.toLowerCase();
+    const resultUpper = result.toUpperCase();
+
+    const abbrevFodders = OBVIOUS_ABBREVIATIONS[resultUpper];
+    if (abbrevFodders) {
+        return abbrevFodders.some(f => fodderLower.includes(f));
+    }
+    return false;
+}
+
+// Check if result is a direct/obvious transformation (not requiring synonym knowledge)
+function isObviousTransformation(fodder: string, result: string, operation?: string): boolean {
+    // Abbreviations are obvious
+    if (isObviousAbbreviation(fodder, result)) return true;
+
+    // Single letter extractions with operation hints are obvious
+    if (result.length === 1 && operation) return true;
+
+    // Very short results from common abbreviation fodders
+    if (result.length <= 3 && isObviousAbbreviation(fodder, result)) return true;
+
+    return false;
+}
+
+// --- CLUE SCANNER ---
+// Scans clue text to find obvious elements WITHOUT knowing the answer
+// Returns elements that a solver could spot just by reading the clue
+
+interface ScannedElement {
+    fodder: string;           // The phrase in the clue
+    result: string;           // What it becomes (abbreviation or empty if unknown)
+    type: 'abbreviation' | 'indicator' | 'definition' | 'remaining';
+    startIndex: number;       // Position in clue text
+    endIndex: number;
+    obvious: boolean;         // Can be spotted without answer
+    needsSynonym?: boolean;   // True if word doesn't work directly
+}
+
+// Common function words that are typically indicators or connectors, not content
+const FUNCTION_WORDS = new Set([
+    'a', 'an', 'the', 'of', 'to', 'in', 'on', 'at', 'by', 'for', 'with', 'and', 'or', 'but',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'has', 'have', 'had', 'do', 'does', 'did',
+    'this', 'that', 'these', 'those', 'it', 'its', 'from', 'into', 'about', 'as', 'up', 'down'
+]);
+
+// Common indicator words - these signal operations, not content
+const INDICATOR_WORDS = new Set([
+    // Movement/position
+    'following', 'after', 'before', 'behind', 'ahead', 'around', 'over', 'under',
+    'initially', 'finally', 'first', 'last', 'start', 'end', 'beginning', 'ending',
+    // Delay/time indicators (often signal letter movement)
+    'delay', 'delayed', 'late', 'later', 'early', 'earlier',
+    // Change indicators
+    'moving', 'moved', 'shifting', 'shifted', 'changing', 'changed',
+    'turning', 'turned', 'becoming', 'becomes',
+    // Anagram indicators
+    'broken', 'mixed', 'confused', 'crazy', 'wild', 'upset', 'troubled',
+    'arranged', 'rearranged', 'sorted', 'ordered', 'shuffled',
+    // Reversal indicators
+    'back', 'backward', 'backwards', 'returned', 'reversed', 'reflected',
+    // Hidden indicators
+    'hidden', 'hiding', 'within', 'inside', 'contained', 'holding',
+    // Container indicators
+    'around', 'surrounding', 'outside', 'embracing', 'holding',
+    // Homophone indicators
+    'sounds', 'heard', 'spoken', 'said', 'vocal', 'audibly',
+    // Deletion indicators
+    'losing', 'lost', 'without', 'missing', 'dropping', 'dropped',
+    // General
+    'perhaps', 'maybe', 'possibly', 'oddly', 'strangely', 'unusually'
+]);
+
+function scanClueForObviousElements(clue: string, definition?: string): ScannedElement[] {
+    const elements: ScannedElement[] = [];
+
+    // Remove word count from end, e.g., "(9)" or "(3,4)"
+    const clueText = clue.replace(/\s*\([0-9,\-]+\)\s*$/, '').trim();
+
+    // Normalize for matching: remove apostrophes/possessives, lowercase
+    const clueTextNormalized = clueText.toLowerCase().replace(/['']s?\b/g, '');
+    const clueTextLower = clueText.toLowerCase();
+
+    // Track which character positions are "used" by abbreviations
+    const usedRanges: { start: number; end: number }[] = [];
+
+    // Scan for known abbreviations - try both exact and normalized matching
+    for (const [abbrev, fodders] of Object.entries(OBVIOUS_ABBREVIATIONS)) {
+        for (const fodder of fodders) {
+            const fodderLower = fodder.toLowerCase();
+
+            // Try exact match first
+            let idx = clueTextLower.indexOf(fodderLower);
+            let matchLength = fodder.length;
+
+            // If no exact match, try normalized match (handles "department's" matching "department")
+            if (idx === -1) {
+                const fodderNormalized = fodderLower.replace(/['']s?\b/g, '');
+                idx = clueTextNormalized.indexOf(fodderNormalized);
+                if (idx !== -1) {
+                    // Find the actual end position in original text (may include 's)
+                    const endSearch = clueTextLower.substring(idx);
+                    const possessiveMatch = endSearch.match(new RegExp(fodderNormalized.replace(/\s+/g, "\\s+") + "['']?s?", 'i'));
+                    if (possessiveMatch) {
+                        matchLength = possessiveMatch[0].length;
+                    }
+                }
+            }
+
+            if (idx !== -1) {
+                // Check it's a word boundary (not part of larger word)
+                const before = idx === 0 ? ' ' : clueTextLower[idx - 1];
+                const afterIdx = idx + matchLength;
+                const after = afterIdx >= clueTextLower.length ? ' ' : clueTextLower[afterIdx];
+                const isWordBoundary = /[\s,;:'"()-]/.test(before) && /[\s,;:'"()-]/.test(after);
+
+                if (isWordBoundary || idx === 0 || afterIdx === clueTextLower.length) {
+                    // Extract the actual text from clue (preserving case)
+                    const actualFodder = clueText.substring(idx, idx + matchLength);
+
+                    // Avoid duplicates
+                    if (!elements.some(e => e.startIndex === idx && e.result === abbrev)) {
+                        elements.push({
+                            fodder: actualFodder,
+                            result: abbrev,
+                            type: 'abbreviation',
+                            startIndex: idx,
+                            endIndex: idx + matchLength,
+                            obvious: true
+                        });
+                        usedRanges.push({ start: idx, end: idx + matchLength });
+                    }
+                }
+            }
+        }
+    }
+
+    // Find remaining content words (not used by abbreviations, not function words, not definition)
+    const words = clueText.split(/\s+/);
+    let currentPos = 0;
+
+    for (const word of words) {
+        const wordStart = clueText.indexOf(word, currentPos);
+        const wordEnd = wordStart + word.length;
+        currentPos = wordEnd;
+
+        // Clean word for checking
+        const cleanWord = word.toLowerCase().replace(/[^a-z']/g, '');
+
+        // Skip if empty, function word, or indicator word
+        if (!cleanWord || FUNCTION_WORDS.has(cleanWord) || INDICATOR_WORDS.has(cleanWord)) continue;
+
+        // Skip if part of definition
+        if (definition && definition.toLowerCase().includes(cleanWord)) continue;
+
+        // Skip if already covered by an abbreviation (check for ANY overlap)
+        const isUsed = usedRanges.some(r =>
+            (wordStart >= r.start && wordStart < r.end) ||  // Word starts inside range
+            (wordEnd > r.start && wordEnd <= r.end) ||      // Word ends inside range
+            (wordStart <= r.start && wordEnd >= r.end)      // Word contains range
+        );
+        if (isUsed) continue;
+
+        // Also skip if the word (without possessives) was part of a multi-word abbreviation fodder
+        const cleanWordNoPossessive = cleanWord.replace(/['']s?$/, '');
+        const isPartOfAbbrev = elements.some(e =>
+            e.type === 'abbreviation' &&
+            e.fodder.toLowerCase().replace(/['']s?/g, '').split(/\s+/).some(
+                part => part === cleanWordNoPossessive
+            )
+        );
+        if (isPartOfAbbrev) continue;
+
+        // Check if it's a known indicator
+        // (We'll check INDICATOR_DICTIONARY later when it's in scope)
+        // For now, mark as 'remaining' content word
+        elements.push({
+            fodder: word.replace(/[,;:'"]/g, ''),
+            result: '',  // Unknown until we check
+            type: 'remaining',
+            startIndex: wordStart,
+            endIndex: wordEnd,
+            obvious: false,
+            needsSynonym: true  // Assume needs synonym until proven otherwise
+        });
+    }
+
+    // Sort by position in clue (left to right)
+    elements.sort((a, b) => a.startIndex - b.startIndex);
+
+    return elements;
+}
+
+// --- HYPOTHESIS-BASED ANALYSIS ---
+// Analyzes clue WITHOUT knowing answer, generates testable hypotheses
+
+export interface ClueHypothesis {
+    definitionCandidate: string;
+    definitionPosition: 'START' | 'END';
+    wordplayParts: {
+        fodder: string;
+        result: string;        // Known result (abbreviation) or empty
+        letterCount?: number;  // If result unknown, how many letters needed
+    }[];
+    knownLetters: number;      // Total letters from known abbreviations
+    neededLetters: number;     // Letters still needed from synonyms
+    targetLength: number;      // Total answer length from (N)
+    synonymNeeded: {
+        fodder: string;        // The word that needs a synonym
+        letterCount: number;   // How many letters the synonym must have
+    } | null;
+}
+
+export interface ClueAnalysis {
+    clueText: string;
+    targetLength: number;
+    obviousElements: ScannedElement[];
+    contentWords: string[];           // Words that are wordplay fodder
+    definitionCandidates: string[];   // Possible definitions (start/end)
+    hypotheses: ClueHypothesis[];     // Testable hypotheses
+    solveSteps: string[];             // Human-readable solve sequence
+}
+
+/**
+ * Analyze a clue WITHOUT knowing the answer.
+ * Returns hypotheses that can be tested with constrained AI calls.
+ */
+export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
+    // Extract target length from (N) at end
+    const lengthMatch = clue.match(/\((\d+(?:,\d+)*)\)\s*$/);
+    const targetLength = lengthMatch
+        ? lengthMatch[1].split(',').reduce((sum, n) => sum + parseInt(n), 0)
+        : 0;
+
+    const clueText = clue.replace(/\s*\([0-9,\-]+\)\s*$/, '').trim();
+    const words = clueText.split(/\s+/);
+
+    // Step 1: Find all obvious abbreviations
+    const obviousElements = scanClueForObviousElements(clue);
+    const abbreviations = obviousElements.filter(e => e.type === 'abbreviation');
+
+    // Step 2: Identify content words (not function words, not abbreviation fodder)
+    // NOTE: We do NOT filter out indicator words at START or END positions - they could be definitions
+    const usedPhrases = new Set<string>();
+    abbreviations.forEach(a => {
+        // Mark individual words in the fodder as used (normalize to remove possessives)
+        a.fodder.toLowerCase().replace(/['']s?/g, '').split(/\s+/).forEach(w => {
+            usedPhrases.add(w.replace(/[^a-z]/g, ''));
+        });
+    });
+
+    const contentWords: string[] = [];
+    words.forEach((word, idx) => {
+        // Normalize: remove possessives and non-alpha
+        const wordLower = word.toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+        if (wordLower.length < 2) return;
+        if (FUNCTION_WORDS.has(wordLower)) return;
+        if (usedPhrases.has(wordLower)) return;  // Skip if part of abbreviation fodder
+
+        // Only filter indicator words if they're NOT at start or end (those could be definitions)
+        const isFirstWord = idx === 0;
+        const isLastWord = idx === words.length - 1;
+        if (INDICATOR_WORDS.has(wordLower) && !isFirstWord && !isLastWord) return;
+
+        contentWords.push(word);
+    });
+
+    // Step 3: Identify definition candidates (first and last content words)
+    const definitionCandidates: string[] = [];
+    if (contentWords.length >= 1) {
+        definitionCandidates.push(contentWords[0]); // Start
+        if (contentWords.length > 1) {
+            definitionCandidates.push(contentWords[contentWords.length - 1]); // End
+        }
+    }
+
+    // Step 4: Calculate known letters from abbreviations
+    const knownLetters = abbreviations.reduce((sum, a) => sum + a.result.length, 0);
+    const neededLetters = targetLength - knownLetters;
+
+    // Step 5: Build hypotheses
+    const hypotheses: ClueHypothesis[] = [];
+
+    for (const defCandidate of definitionCandidates) {
+        const isStartDef = contentWords.indexOf(defCandidate) === 0;
+        const position = isStartDef ? 'START' : 'END';
+
+        // Wordplay parts = all content words except the definition
+        const wordplayFodder = contentWords.filter(w => w !== defCandidate);
+
+        // Build wordplay parts with known results
+        const wordplayParts = wordplayFodder.map(fodder => {
+            // Check if this fodder has a known abbreviation result
+            const abbrev = abbreviations.find(a =>
+                a.fodder.toLowerCase().includes(fodder.toLowerCase())
+            );
+            return {
+                fodder,
+                result: abbrev?.result || '',
+                letterCount: abbrev ? abbrev.result.length : undefined
+            };
+        });
+
+        // Add abbreviations that aren't tied to content words
+        abbreviations.forEach(abbrev => {
+            const alreadyIncluded = wordplayParts.some(p =>
+                abbrev.fodder.toLowerCase().includes(p.fodder.toLowerCase())
+            );
+            if (!alreadyIncluded) {
+                wordplayParts.push({
+                    fodder: abbrev.fodder,
+                    result: abbrev.result,
+                    letterCount: abbrev.result.length
+                });
+            }
+        });
+
+        // Find which fodder needs a synonym
+        const unknownParts = wordplayParts.filter(p => !p.result);
+        const synonymNeeded = unknownParts.length === 1 && neededLetters > 0
+            ? { fodder: unknownParts[0].fodder, letterCount: neededLetters }
+            : null;
+
+        hypotheses.push({
+            definitionCandidate: defCandidate,
+            definitionPosition: position,
+            wordplayParts,
+            knownLetters,
+            neededLetters,
+            targetLength,
+            synonymNeeded
+        });
+    }
+
+    // Step 6: Generate human-readable solve steps
+    const solveSteps: string[] = [];
+
+    // Show obvious abbreviations first
+    if (abbreviations.length > 0) {
+        abbreviations.forEach((abbrev, i) => {
+            if (i === 0) {
+                solveSteps.push(`Spot obvious wordplay: "${abbrev.fodder}" → ${abbrev.result}`);
+            } else {
+                solveSteps.push(`Also: "${abbrev.fodder}" → ${abbrev.result}`);
+            }
+        });
+        solveSteps.push(`Known letters: ${abbreviations.map(a => a.result).join(' + ')} = ${knownLetters} letters`);
+    }
+
+    // Show remaining content words
+    const remainingContent = contentWords.filter(w =>
+        !abbreviations.some(a => a.fodder.toLowerCase().includes(w.toLowerCase()))
+    );
+    if (remainingContent.length > 0) {
+        solveSteps.push(`Remaining content: "${remainingContent.join('", "')}"`);
+    }
+
+    // Show target calculation
+    if (targetLength > 0) {
+        solveSteps.push(`Target: ${targetLength} letters. Have ${knownLetters}, need ${neededLetters} more.`);
+    }
+
+    // Show definition candidates
+    if (definitionCandidates.length === 2) {
+        solveSteps.push(`Definition is either "${definitionCandidates[0]}" (start) or "${definitionCandidates[1]}" (end)`);
+    } else if (definitionCandidates.length === 1) {
+        solveSteps.push(`Definition candidate: "${definitionCandidates[0]}"`);
+    }
+
+    // Show hypotheses to test
+    hypotheses.forEach((h, i) => {
+        if (h.synonymNeeded) {
+            solveSteps.push(`Hypothesis ${i + 1}: "${h.definitionCandidate}" = definition → need ${h.synonymNeeded.letterCount}-letter synonym for "${h.synonymNeeded.fodder}"`);
+        }
+    });
+
+    return {
+        clueText,
+        targetLength,
+        obviousElements,
+        contentWords,
+        definitionCandidates,
+        hypotheses,
+        solveSteps
+    };
+}
+
+// Guess definition position (usually at start or end of clue)
+function guessDefinitionFromClue(clue: string): { text: string; position: 'START' | 'END' } {
+    // Remove word count
+    const clueText = clue.replace(/\s*\([0-9,\-]+\)\s*$/, '').trim();
+    const words = clueText.split(/\s+/);
+
+    // Heuristic: definition is usually 1-3 words at start or end
+    // Look for natural break points (commas, etc.)
+
+    // Check for comma - often separates definition from wordplay
+    const commaIdx = clueText.indexOf(',');
+    if (commaIdx !== -1) {
+        const beforeComma = clueText.substring(0, commaIdx).trim();
+        const afterComma = clueText.substring(commaIdx + 1).trim();
+
+        // Shorter part is likely definition
+        if (beforeComma.split(/\s+/).length <= 3) {
+            return { text: beforeComma, position: 'START' };
+        }
+        if (afterComma.split(/\s+/).length <= 3) {
+            return { text: afterComma, position: 'END' };
+        }
+    }
+
+    // Default: last word(s) as definition
+    if (words.length >= 2) {
+        return { text: words[words.length - 1], position: 'END' };
+    }
+
+    return { text: words[0], position: 'START' };
+}
+
+function generateSolveSteps(
+    variables: Record<string, string>,
+    patternId: string,
+    answer: string,
+    coaching?: string[],
+    clue?: string
+): string[] {
+    const steps: string[] = [];
+    const answerClean = answer.toUpperCase().replace(/[^A-Z]/g, '');
+
+    // Step 1: Definition - use parsed definition if available, otherwise guessed
+    const guessedDef = clue ? guessDefinitionFromClue(clue) : null;
+    const defText = variables['def_text'] || guessedDef?.text || '';
+    const defPosition = variables['definition_position'] || guessedDef?.position || 'END';
+    if (defText) {
+        steps.push(`Spot the definition: "${defText}" (at ${defPosition.toLowerCase()})`);
+    }
+
+    // PHASE 1: Scan the clue for obvious elements (no answer needed)
+    // Pass definition so scanner can exclude it from remaining words
+    const scannedElements = clue ? scanClueForObviousElements(clue, defText) : [];
+
+    // PHASE 2: Build wordplay parts - start with scanned elements, enhance with coaching
+    let wordplayParts: { fodder: string; indicator: string; synonym?: string; result: string; hint?: string; operation?: string; position?: number; scanned: boolean; needsSynonym?: boolean }[] = [];
+
+    // Add scanned abbreviations (these are obvious from clue alone)
+    for (const elem of scannedElements) {
+        if (elem.type === 'abbreviation') {
+            wordplayParts.push({
+                fodder: elem.fodder,
+                indicator: '',
+                result: elem.result,
+                scanned: true  // Marked as found from clue scan
+            });
+        }
+    }
+
+    // Add remaining content words (need to check if they work directly or need synonyms)
+    const remainingWords = scannedElements.filter(e => e.type === 'remaining');
+    for (const elem of remainingWords) {
+        // Check if this word directly contributes letters to the answer
+        const wordUpper = elem.fodder.toUpperCase().replace(/[^A-Z]/g, '');
+        // If no answer provided, we can't check - mark as needing synonym (unknown)
+        const worksDirectly = answerClean.length > 0 && answerClean.includes(wordUpper) && wordUpper.length >= 2;
+
+        wordplayParts.push({
+            fodder: elem.fodder,
+            indicator: '',
+            result: worksDirectly ? wordUpper : '',
+            scanned: true,
+            needsSynonym: answerClean.length === 0 ? undefined : !worksDirectly  // undefined = unknown (no answer)
+        });
+    }
+
+    // Add/enhance with coaching notes (provides synonyms and operations)
+    if (coaching && coaching.length > 0) {
+        const coachingParts = parseCoachingNotes(coaching, answer);
+        for (const cp of coachingParts) {
+            // Check if this fodder was already scanned
+            const existing = wordplayParts.find(p =>
+                p.fodder.toLowerCase() === cp.fodder.toLowerCase()
+            );
+            if (existing) {
+                // Enhance with coaching info (e.g., operation, actual result)
+                existing.operation = cp.operation;
+                existing.position = cp.position;
+                if (cp.result) {
+                    existing.result = cp.result;
+                    existing.needsSynonym = false;
+                }
+            } else {
+                // New part from coaching (not scannable - e.g., synonyms)
+                wordplayParts.push({
+                    fodder: cp.fodder,
+                    indicator: cp.operation || '',
+                    result: cp.result,
+                    operation: cp.operation,
+                    position: cp.position,
+                    scanned: false  // Not obvious from clue alone
+                });
+            }
+        }
+    }
+
+    // Fall back to variables if no parts found
+    if (wordplayParts.length === 0) {
+        for (let i = 1; i <= 5; i++) {
+            const fodder = variables[`fodder_${i}_text`];
+            const indicator = variables[`indicator_${i}_text`] || '';
+            const synonym = variables[`synonym_${i}`];
+            const result = variables[`result_${i}`];
+            const hint = variables[`hint_${i}`];
+
+            if (fodder && result) {
+                const isScanned = scannedElements.some(e =>
+                    e.fodder.toLowerCase() === fodder.toLowerCase()
+                );
+                wordplayParts.push({ fodder, indicator, synonym, result, hint, scanned: isScanned });
+            }
+        }
+    }
+
+    // Classify parts into "obvious" (scanned from clue) vs "deduced" (need coaching/answer)
+    const obviousParts = wordplayParts.filter(p => isObviousTransformation(p.fodder, p.result, p.operation));
+    const deducedParts = wordplayParts.filter(p => !isObviousTransformation(p.fodder, p.result, p.operation));
+
+    // Sort obvious parts by "obviousness" - longer results are more obvious
+    obviousParts.sort((a, b) => b.result.length - a.result.length);
+
+    // Step 2: Work through obvious wordplay (what solver can spot immediately)
+    if (obviousParts.length > 0) {
+        obviousParts.forEach((part, idx) => {
+            let stepText = `"${part.fodder}" → ${part.result}`;
+            if (part.operation) {
+                stepText += ` (${part.operation})`;
+            }
+            if (idx === 0) {
+                steps.push(`Most obvious wordplay: ${stepText}`);
+            } else {
+                steps.push(`Next: ${stepText}`);
+            }
+        });
+    }
+
+    // Step 3: Show what we have so far
+    const obviousResults = obviousParts.map(p => p.result).filter(r => r);
+    const obviousLen = obviousResults.join('').length;
+
+    if (obviousResults.length > 0 && answerClean.length > 0) {
+        const neededLen = answerClean.length - obviousLen;
+        const obviousSum = obviousResults.join(' + ');
+        steps.push(`We have: ${obviousSum} (${obviousLen} letters). Need ${neededLen} more.`);
+    } else if (obviousResults.length > 0) {
+        // No answer provided - just show what we found
+        const obviousSum = obviousResults.join(' + ');
+        steps.push(`Found so far: ${obviousSum} (${obviousLen} letters)`);
+    }
+
+    // Step 4: Show remaining words and deduce what they must contribute
+    if (deducedParts.length > 0) {
+        deducedParts.forEach(part => {
+            const fodderUpper = part.fodder.toUpperCase().replace(/[^A-Z]/g, '');
+
+            if (answerClean.length === 0) {
+                // No answer - just note remaining content words
+                steps.push(`Remaining: "${part.fodder}" → needs synonym or contributes letters`);
+            } else if (part.needsSynonym || !answerClean.includes(fodderUpper)) {
+                // Word doesn't appear directly in answer - need synonym
+                steps.push(`Remaining: "${part.fodder}" → doesn't fit directly, need a synonym`);
+            } else {
+                // Word might work directly
+                steps.push(`Remaining: "${part.fodder}" → ?`);
+            }
+        });
+    }
+
+    // Step 5: Reveal the deduced parts (solution reveal)
+    if (deducedParts.length > 0) {
+        const hasResults = deducedParts.some(p => p.result);
+        if (hasResults) {
+            deducedParts.forEach(part => {
+                if (part.result) {
+                    steps.push(`Solution: "${part.fodder}" → ${part.result}`);
+                }
+            });
+        }
+    }
+
+    // Final step: Check positions and verify assembly
+    // Only include parts that have results, and only if we have an answer to verify against
+    const partsWithResults = wordplayParts.filter(p => p.result);
+
+    if (partsWithResults.length > 0 && answerClean.length > 0) {
+        // Check for letter movement
+        const movedPart = partsWithResults.find(p => p.operation === 'moved to end');
+        const basePart = partsWithResults.find(p => p.result.length > 1 && p !== movedPart);
+
+        if (movedPart && basePart) {
+            const letter = movedPart.result;
+            const base = basePart.result;
+
+            // Find the base that starts with the moved letter (e.g., MALIGN starts with M)
+            const correctBase = partsWithResults.find(p =>
+                p.result.length > 1 &&
+                p.result.startsWith(letter) &&
+                p !== movedPart
+            ) || basePart;
+
+            const actualBase = correctBase.result;
+            const transformed = actualBase.slice(1) + letter;
+            const otherParts = partsWithResults.filter(p => p !== movedPart && p !== correctBase);
+            const otherResults = otherParts.map(p => p.result).filter(r => r);
+
+            // Build position display
+            const allParts = [actualBase.slice(1), letter, ...otherResults];
+            const posDisplay = `[${allParts.join('][')}]`;
+
+            if (otherResults.length > 0) {
+                steps.push(`Check: ${actualBase} → ${actualBase.slice(1)} + ${letter} at end → ${transformed}, + ${otherResults.join(' + ')}`);
+            } else {
+                steps.push(`Check: ${actualBase} → ${actualBase.slice(1)} + ${letter} at end → ${transformed}`);
+            }
+            steps.push(`Verify: ${posDisplay} = ${answerClean} ✓`);
+        } else {
+            // Simple charade - show position breakdown
+            const sortedParts = [...partsWithResults].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+            const allResults = sortedParts.map(p => p.result).filter(r => r);
+            const posDisplay = `[${allResults.join('][')}]`;
+            steps.push(`Check: ${allResults.join(' + ')}`);
+            steps.push(`Verify: ${posDisplay} = ${answerClean} ✓`);
+        }
+    }
+
+    return steps;
+}
+
+// --- COACHING NOTES PARSER ---
+// Parses explanation text like "MALIGN (slander) with M (months) moved to the end + ENT (hospital department)"
+
+interface CoachingPart {
+    fodder: string;      // The word in the clue (e.g., "slander")
+    result: string;      // What it becomes (e.g., "MALIGN")
+    operation?: string;  // Optional operation description
+    position?: number;   // Position in answer (0 = leftmost)
+}
+
+function parseCoachingNotes(coaching: string[], answer?: string): CoachingPart[] {
+    const parts: CoachingPart[] = [];
+    const answerClean = answer?.toUpperCase().replace(/[^A-Z]/g, '') || '';
+
+    for (const note of coaching) {
+        // Pattern 1: "RESULT (fodder)" - e.g., "MALIGN (slander)", "ENT (hospital department)"
+        const pattern1 = /([A-Z]+)\s*\(([^)]+)\)/g;
+        let match;
+        while ((match = pattern1.exec(note)) !== null) {
+            parts.push({
+                fodder: match[2].trim(),
+                result: match[1].trim()
+            });
+        }
+
+        // Pattern 2: "fodder → result" or "fodder = result"
+        const pattern2 = /["']?([^"'→=]+)["']?\s*[→=]\s*([A-Z]+)/g;
+        while ((match = pattern2.exec(note)) !== null) {
+            const fodder = match[1].trim();
+            // Avoid duplicates
+            if (!parts.some(p => p.fodder === fodder)) {
+                parts.push({
+                    fodder,
+                    result: match[2].trim()
+                });
+            }
+        }
+
+        // Pattern 3: Look for "M (months)" style abbreviation hints
+        const abbrPattern = /\b([A-Z])\s*\(([^)]+)\)/g;
+        while ((match = abbrPattern.exec(note)) !== null) {
+            const fodder = match[2].trim();
+            // Only add if not already captured and it's a single letter result
+            if (!parts.some(p => p.fodder === fodder) && match[1].length === 1) {
+                parts.push({
+                    fodder,
+                    result: match[1].trim()
+                });
+            }
+        }
+
+        // Pattern 4: Extract operation hints like "moved to the end"
+        if (note.includes('moved to the end') || note.includes('moved to end')) {
+            // Find the letter being moved
+            const moveMatch = note.match(/([A-Z])\s*\([^)]+\)\s*moved/i);
+            if (moveMatch) {
+                const existingPart = parts.find(p => p.result.length === 1);
+                if (existingPart) {
+                    existingPart.operation = 'moved to end';
+                }
+            }
+        }
+    }
+
+    // Calculate positions in the answer for each part
+    // For letter movement cases, we need special handling
+    if (answerClean && parts.length > 0) {
+        const movedPart = parts.find(p => p.operation === 'moved to end');
+
+        if (movedPart) {
+            // Letter movement case: e.g., ALIGNMENT = ALIGN + M + ENT
+            // The moved letter and its base word form a unit
+            // Find the base word (the synonym that contains the moved letter at start)
+            const basePart = parts.find(p =>
+                p !== movedPart &&
+                p.result.length > 1 &&
+                p.result.startsWith(movedPart.result)
+            );
+
+            if (basePart) {
+                // The base becomes the transformed version (letter moved to end)
+                // e.g., MALIGN -> ALIGNM (position 0, contributes ALIGN at start, M later)
+                const transformedBase = basePart.result.slice(1) + movedPart.result;
+
+                // Find remaining parts and their positions
+                let currentPos = 0;
+
+                // First: the transformed base (minus the moved letter which comes later)
+                basePart.position = currentPos;
+                currentPos += basePart.result.length - 1; // ALIGN part
+
+                // The moved letter position
+                movedPart.position = currentPos;
+                currentPos += 1; // M part
+
+                // Other parts in order they appear in remaining answer
+                const otherParts = parts.filter(p => p !== basePart && p !== movedPart);
+                for (const part of otherParts) {
+                    const posInAnswer = answerClean.indexOf(part.result, currentPos);
+                    if (posInAnswer >= 0) {
+                        part.position = posInAnswer;
+                        currentPos = posInAnswer + part.result.length;
+                    }
+                }
+            }
+        } else {
+            // Simple charade: find each part's position in the answer
+            let searchStart = 0;
+            for (const part of parts) {
+                const posInAnswer = answerClean.indexOf(part.result, searchStart);
+                if (posInAnswer >= 0) {
+                    part.position = posInAnswer;
+                    searchStart = posInAnswer + part.result.length;
+                }
+            }
+        }
+    }
+
+    return parts;
+}
+
 // --- INDICATOR DICTIONARIES ---
 // Each entry: indicator word/phrase -> { type, position_hint, letter_operation }
 
@@ -2005,7 +2802,12 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                         patternId: 'DOUBLE_DEFINITION',
                         clueText: clue,
                         answer: knownAnswer,
-                        variables
+                        variables,
+                        solveSteps: [
+                            `Definition 1: "${doubleDef.def1}" = ${knownAnswer}`,
+                            `Definition 2: "${doubleDef.def2}" = ${knownAnswer}`,
+                            `Both definitions point to the same answer: ${knownAnswer}`
+                        ]
                     }
                 };
             }
@@ -2082,7 +2884,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                             patternId: 'CHARADE',
                             clueText: clue,
                             answer: knownAnswer,
-                            variables
+                            variables,
+                            solveSteps: generateSolveSteps(variables, 'CHARADE', knownAnswer, coaching, clue)
                         }
                     };
                 }
@@ -2185,7 +2988,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                     patternId: 'COMPOSITE_CHARADE',
                     clueText: clue,
                     answer: knownAnswer,
-                    variables
+                    variables,
+                    solveSteps: generateSolveSteps(variables, 'COMPOSITE_CHARADE', knownAnswer, coaching, clue)
                 }
             };
         }
@@ -2216,7 +3020,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                     patternId: 'SUBSTITUTION',
                     clueText: clue,
                     answer: knownAnswer,
-                    variables
+                    variables,
+                    solveSteps: generateSolveSteps(variables, 'SUBSTITUTION', knownAnswer, coaching, clue)
                 }
             };
         }
@@ -2709,7 +3514,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             patternId,
             clueText: clue,
             answer: knownAnswer,
-            variables
+            variables,
+            solveSteps: generateSolveSteps(variables, patternId, knownAnswer, coaching, clue)
         };
 
         // Boost confidence if we resolved synonyms AND they match the answer
@@ -2760,12 +3566,53 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 patternId: 'CHARADE',
                 clueText: clue,
                 answer: knownAnswer,
-                variables: charadevars
+                variables: charadevars,
+                solveSteps: generateSolveSteps(charadevars, 'CHARADE', knownAnswer, coaching, clue)
             };
 
             confidence = 75;
             needsAIUpdated = false;
         }
+    }
+
+    // If no patternData but we have a clue (e.g., no answer provided), create partial analysis
+    if (!patternData && clue) {
+        // Use the full hypothesis-based analysis
+        const fullAnalysis = analyzeClueWithoutAnswer(clue);
+
+        const variables: Record<string, string> = {};
+        if (fullAnalysis.definitionCandidates.length > 0) {
+            // Don't set def_text until we verify which is correct
+            // Just note the candidates
+            variables['definition_candidates'] = fullAnalysis.definitionCandidates.join(' | ');
+        }
+
+        // Add scanned abbreviations to variables
+        fullAnalysis.obviousElements.filter(e => e.type === 'abbreviation').forEach((elem, i) => {
+            variables[`fodder_${i + 1}_text`] = elem.fodder;
+            variables[`result_${i + 1}`] = elem.result;
+        });
+
+        // Add content words
+        if (fullAnalysis.contentWords.length > 0) {
+            variables['content_words'] = fullAnalysis.contentWords.join(', ');
+        }
+
+        patternData = {
+            id: `partial-${Date.now()}`,
+            patternId: 'PARTIAL',
+            clueText: clue,
+            answer: '',
+            variables,
+            solveSteps: fullAnalysis.solveSteps,
+            analysis: {
+                targetLength: fullAnalysis.targetLength,
+                obviousElements: fullAnalysis.obviousElements,
+                contentWords: fullAnalysis.contentWords,
+                definitionCandidates: fullAnalysis.definitionCandidates,
+                hypotheses: fullAnalysis.hypotheses
+            }
+        };
     }
 
     // Calculate difficulty
@@ -2778,7 +3625,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
         : 'Medium';
 
     return {
-        success: confidence >= 50,
+        success: confidence >= 50 || (patternData?.patternId === 'PARTIAL'),
         confidence,
         difficulty,
         patternData,

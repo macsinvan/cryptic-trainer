@@ -28,6 +28,22 @@ export interface ChallengeVerification {
     evaluation?: ClueEvaluation;
 }
 
+export interface HypothesisVerification {
+    valid: boolean;
+    synonym: string | null;
+    answer: string | null;
+    confidence: 'high' | 'medium' | 'low' | 'cannot_verify';
+    reasoning: string;
+}
+
+export interface HypothesisInput {
+    definition: string;
+    synonymFodder: string;
+    requiredLetterCount: number;
+    knownParts: string[];
+    targetLength: number;
+}
+
 export interface AIProvider {
     evaluateClue(clue: string, context?: string): Promise<ClueEvaluation | null>;
     generateChallenge(setter: string, clueType: string): Promise<GeneratedChallenge | null>;
@@ -37,6 +53,11 @@ export interface AIProvider {
     quickIdentifyDefinition(clue: string): Promise<string>;
     verifySynonym(word: string, answer: string): Promise<boolean>;
     solveClue(clue: string): Promise<SolvedClue | null>;
+    verifyHypothesis?(hypothesis: HypothesisInput): Promise<HypothesisVerification>;
+    testHypotheses?(hypotheses: HypothesisInput[]): Promise<{
+        bestHypothesis: number | null;
+        results: HypothesisVerification[];
+    }>;
 }
 
 // --- Provider Selection ---
@@ -115,6 +136,40 @@ export async function verifySynonym(word: string, answer: string): Promise<boole
 export async function solveClue(clue: string): Promise<SolvedClue | null> {
     const provider = await getProvider();
     return provider.solveClue(clue);
+}
+
+export async function verifyHypothesis(hypothesis: HypothesisInput): Promise<HypothesisVerification> {
+    const provider = await getProvider();
+    if (provider.verifyHypothesis) {
+        return provider.verifyHypothesis(hypothesis);
+    }
+    return {
+        valid: false,
+        synonym: null,
+        answer: null,
+        confidence: 'cannot_verify',
+        reasoning: 'Provider does not support hypothesis verification'
+    };
+}
+
+export async function testHypotheses(hypotheses: HypothesisInput[]): Promise<{
+    bestHypothesis: number | null;
+    results: HypothesisVerification[];
+}> {
+    const provider = await getProvider();
+    if (provider.testHypotheses) {
+        return provider.testHypotheses(hypotheses);
+    }
+    // Fallback: test each hypothesis individually
+    const results: HypothesisVerification[] = [];
+    for (const h of hypotheses) {
+        results.push(await verifyHypothesis(h));
+    }
+    const validIdx = results.findIndex(r => r.valid);
+    return {
+        bestHypothesis: validIdx >= 0 ? validIdx : null,
+        results
+    };
 }
 
 // Keep this for backward compatibility with existing code

@@ -70,11 +70,13 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
   };
 
   // Preview the battlecard WITHOUT saving
+  // Can preview without answer to show partial analysis
   const previewBattlecard = () => {
-    if (!parseResult?.success || !parseResult.answer || !parseResult.clueText) return;
+    if (!parseResult?.success || !parseResult.clueText) return;
 
     // Try code-based parser first (pass coaching notes for cryptic definition detection)
-    const codeParseResult = parseClue(parseResult.clueText, parseResult.answer, parseResult.coaching);
+    // If no answer, use empty string to get partial analysis
+    const codeParseResult = parseClue(parseResult.clueText, parseResult.answer || '', parseResult.coaching);
 
     // Use code parser result if successful, otherwise use freeform-extracted data
     // NEVER call AI - all processing happens at import time
@@ -92,8 +94,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     const evaluation: ClueEvaluation = {
       id: `freeform-${Date.now()}`,
       clue: parseResult.clueText,
-      answer: parseResult.answer,
-      type: detectClueType(parseResult.parsing || ''),
+      answer: parseResult.answer || '', // May be empty for partial analysis
+      type: parseResult.answer ? detectClueType(parseResult.parsing || '') : 'Analysis',
       difficulty: 'Medium',
       definition: {
         text: patternData.variables['def_text'] || '',
@@ -257,23 +259,81 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
             </p>
           </div>
 
-          {/* Answer Grid */}
+          {/* Answer Grid - show letters if answer exists, or blank boxes for target length */}
           <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-center">
-            <div className="flex gap-2">
-              {answer.replace(/[^A-Z]/gi, '').split('').map((char, i) => (
-                <div
-                  key={i}
-                  className="w-12 h-12 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center text-xl font-bold text-green-700"
-                >
-                  {char.toUpperCase()}
-                </div>
-              ))}
-            </div>
+            {answer ? (
+              <div className="flex gap-2">
+                {answer.replace(/[^A-Z]/gi, '').split('').map((char, i) => (
+                  <div
+                    key={i}
+                    className="w-12 h-12 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center text-xl font-bold text-green-700"
+                  >
+                    {char.toUpperCase()}
+                  </div>
+                ))}
+              </div>
+            ) : activePatternData?.analysis?.targetLength ? (
+              <div className="flex gap-2">
+                {Array.from({ length: activePatternData.analysis.targetLength as number }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-12 h-12 bg-amber-100 border-2 border-amber-300 rounded-lg flex items-center justify-center text-xl font-bold text-amber-400"
+                  >
+                    ?
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-slate-400 text-sm italic">No answer provided</div>
+            )}
           </div>
 
-          {/* Solved-Style Breakdown OR Edit Form */}
+          {/* Solved-Style Breakdown OR Partial Analysis OR Edit Form */}
           <div className="p-6">
-            {!hasMissingInfo && !isAccepted ? (
+            {/* PARTIAL ANALYSIS: Show solve steps when we have analysis but no answer */}
+            {!answer && activePatternData?.solveSteps && activePatternData.solveSteps.length > 0 ? (
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="bg-amber-600 text-white p-1.5 rounded">
+                    <Brain size={16} />
+                  </div>
+                  <h3 className="font-bold text-amber-900 uppercase tracking-widest text-sm">Partial Analysis — What We Can See</h3>
+                </div>
+
+                {/* Solve Steps */}
+                <div className="space-y-2 mb-6">
+                  {activePatternData.solveSteps.map((step, i) => (
+                    <div key={i} className="flex gap-3 text-sm">
+                      <span className="text-amber-500 font-bold min-w-[24px]">{i + 1}.</span>
+                      <span className="text-amber-900">{step}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Hypotheses from analysis */}
+                {activePatternData.analysis?.hypotheses && (
+                  <div className="bg-white/60 border border-amber-200 rounded-lg p-4 mb-4">
+                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest block mb-2">
+                      Hypotheses to Test
+                    </span>
+                    <div className="space-y-2">
+                      {(activePatternData.analysis.hypotheses as Array<{definitionCandidate: string; definitionPosition: string; synonymNeeded?: {fodder: string; letterCount: number}}>).map((h, i) => (
+                        <div key={i} className="text-sm text-amber-800 font-mono">
+                          <span className="font-bold">H{i+1}:</span> "{h.definitionCandidate}" = definition ({h.definitionPosition.toLowerCase()})
+                          {h.synonymNeeded && (
+                            <span className="text-amber-600"> → need {h.synonymNeeded.letterCount}-letter synonym for "{h.synonymNeeded.fodder}"</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-amber-600 italic">
+                  Add the answer to see full verification and save to library
+                </p>
+              </div>
+            ) : !hasMissingInfo && !isAccepted ? (
               // COMPLETE: Show solved battlecard style
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -697,35 +757,24 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           </div>
         )}
 
-        {/* Solve with AI Button - show when clue exists but no answer */}
-        {parseResult.clueText && !parseResult.answer && (
-          <div className="px-5 py-4 bg-indigo-50 border-b border-indigo-200">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-indigo-800">No answer provided</p>
-                <p className="text-xs text-indigo-600 mt-0.5">Use AI to solve this clue and find the answer</p>
-              </div>
-              <button
-                onClick={handleSolveClue}
-                disabled={isSolving}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold text-sm rounded-lg transition-colors shadow-md"
-              >
-                {isSolving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Solving...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 size={16} />
-                    Solve with AI
-                  </>
-                )}
-              </button>
+        {/* Partial Analysis Preview - show when clue exists but no answer */}
+        {parseResult.clueText && !parseResult.answer && parseResult.patternData?.solveSteps && (
+          <div className="px-5 py-4 bg-amber-50 border-b border-amber-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Brain size={16} className="text-amber-600" />
+              <span className="text-xs font-black uppercase tracking-widest text-amber-700">Partial Analysis (No Answer)</span>
             </div>
-            {solveError && (
-              <p className="text-sm text-red-600 mt-2">{solveError}</p>
-            )}
+            <div className="space-y-1.5">
+              {parseResult.patternData.solveSteps.slice(0, 5).map((step, i) => (
+                <div key={i} className="flex gap-2 text-sm">
+                  <span className="text-amber-500 font-bold min-w-[20px]">{i + 1}.</span>
+                  <span className="text-amber-800">{step}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-amber-600 mt-3 italic">
+              Add the answer to see full analysis and verification
+            </p>
           </div>
         )}
 
