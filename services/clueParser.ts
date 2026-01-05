@@ -1,6 +1,6 @@
 
 import { PatternInstance, WordplayStep } from '../types';
-import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS } from '../data/synonymDictionary';
+import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS, ABBREVIATION_EXPLANATIONS } from '../data/synonymDictionary';
 
 // --- SOLVE STEPS GENERATOR ---
 // Generates step-by-step solve sequence for the battlecard
@@ -1707,6 +1707,67 @@ function cleanText(text: string): string {
 }
 
 /**
+ * Extra variables for letter_movement explanation template
+ */
+interface LetterMovementVars {
+    letterSource: string;   // "months"
+    letter: string;         // "M"
+    synonymFodder: string;  // "slander"
+    synonym: string;        // "MALIGN"
+    movedResult: string;    // "ALIGNM"
+}
+
+/**
+ * Generate plain English explanation for a wordplay step.
+ * Templates are keyed by stepType.
+ * Uses ABBREVIATION_EXPLANATIONS for teaching content.
+ */
+function generateStepExplanation(
+    stepType: WordplayStep['stepType'],
+    fodder: string,
+    result: string,
+    indicator: string,
+    letterMovementVars?: LetterMovementVars,
+    definitionText?: string
+): string {
+    switch (stepType) {
+        case 'abbreviation': {
+            // Look up teaching explanation for this abbreviation
+            // Try exact match first, then normalized (strip possessive, lowercase)
+            const normalized = fodder.toLowerCase().replace(/'s\b/g, '').trim();
+            const abbrevInfo = ABBREVIATION_EXPLANATIONS[fodder.toLowerCase()] ||
+                               ABBREVIATION_EXPLANATIONS[normalized];
+
+            if (abbrevInfo) {
+                return `"${fodder}" is a standard cryptic abbreviation. ${abbrevInfo.explanation}`;
+            }
+            // Fallback if no teaching content available
+            return `"${fodder}" is a standard cryptic abbreviation. "${fodder}" → ${result}.`;
+        }
+
+        case 'letter_movement': {
+            if (!letterMovementVars) {
+                return ''; // Missing data
+            }
+            const { letterSource, letter, synonymFodder, synonym, movedResult } = letterMovementVars;
+            // Cold view template - guides student to discover they need a synonym, then shows solution
+            return `"${indicator}" signals letter movement — a letter needs to move position. "${letterSource}" = ${letter} (standard abbreviation). The ${letter} must be inside a word. But "${synonymFodder}" doesn't contain ${letter}! So we need a synonym for "${synonymFodder}" that contains ${letter}. ${synonymFodder} → ${synonym} → ${movedResult}`;
+        }
+
+        case 'assembly':
+            // fodder contains the equation like "ALIGNM + ENT = ALIGNMENT"
+            // Add the definition to complete the explanation
+            return definitionText
+                ? `Combine the parts: ${fodder} = ${definitionText}`
+                : `Combine the parts: ${fodder}`;
+
+        // TODO: Add more templates as we build them
+        default:
+            return '';
+    }
+}
+
+/**
  * Compute all derived fields for a PatternInstance.
  * This is the SINGLE place where all battlecard logic lives.
  * The UI receives ready-to-render data with no computation needed.
@@ -1728,14 +1789,48 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
         const indicator = variables[`indicator_${i}_text`];
         const fodder = variables[`fodder_${i}_text`];
         if (indicator !== undefined || fodder !== undefined) {
+            const isAssembly = indicator === 'Assembly';
+            const complexity = parseInt(variables[`complexity_${i}`] || '2', 10);
+            const result = variables[`result_${i}`] || '';
+
+            // Determine stepType based on indicator and complexity
+            let stepType: WordplayStep['stepType'] = 'unknown';
+            if (isAssembly) {
+                stepType = 'assembly';
+            } else if (!indicator && complexity === 1) {
+                stepType = 'abbreviation';
+            } else if (indicator?.includes('delay') || indicator?.includes('movement')) {
+                stepType = 'letter_movement';
+            }
+            // TODO: Add more stepType detection as we build templates
+
+            // Build extra vars for letter_movement template
+            let letterMovementVars: LetterMovementVars | undefined;
+            if (stepType === 'letter_movement') {
+                letterMovementVars = {
+                    letterSource: variables[`letterSource_${i}`] || '',
+                    letter: variables[`letter_${i}`] || '',
+                    synonymFodder: variables[`synonymFodder_${i}`] || '',
+                    synonym: variables[`synonym_${i}`] || '',
+                    movedResult: variables[`result_${i}`] || ''
+                };
+            }
+
+            // Generate explanation based on stepType
+            // Pass definitionText for assembly steps
+            const defText = variables['def_text'] || '';
+            const explanation = generateStepExplanation(stepType, fodder || '', result, indicator || '', letterMovementVars, defText);
+
             steps.push({
                 indicator: indicator || '',
                 fodder: fodder || '',
-                result: variables[`result_${i}`] || '',
+                result,
                 synonym: variables[`synonym_${i}`] || '',
                 hint: variables[`hint_${i}`] || '',
-                complexity: parseInt(variables[`complexity_${i}`] || '2', 10),
-                isAssembly: indicator === 'Assembly'
+                complexity,
+                isAssembly,
+                stepType,
+                explanation
             });
         }
     }
@@ -1777,18 +1872,78 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
     const isComplete = !defMissing && !wordplayMissing;
 
     // Compute parsingSummary
+    // Use structural order (from 'structure' variable), not complexity order
+    // Show full chains for letter movement: fodder → synonym → Move X → result
     let parsingSummary = '';
     if (isComplete && answer) {
-        const parts: string[] = [];
+        // Get structural order from the 'structure' variable (e.g., "ALIGNM + ENT = ALIGNMENT")
+        const structure = variables['structure'] || '';
+        const structureMatch = structure.match(/^([A-Z]+)\s*\+\s*([A-Z]+)\s*=/);
+
+        // Build a map of result -> step for ordering
+        const resultToStep = new Map<string, WordplayStep>();
         steps.filter(s => !s.isAssembly).forEach(step => {
-            if (step.synonym && step.result && step.synonym !== step.result) {
-                parts.push(`${step.synonym} (${step.fodder}) → ${step.result}`);
+            if (step.result) {
+                resultToStep.set(step.result.toUpperCase(), step);
+            }
+        });
+
+        // Order steps by structure if available
+        let orderedSteps: WordplayStep[];
+        if (structureMatch) {
+            const [, first, second] = structureMatch;
+            const firstStep = resultToStep.get(first);
+            const secondStep = resultToStep.get(second);
+            orderedSteps = [firstStep, secondStep].filter((s): s is WordplayStep => !!s);
+        } else {
+            // Fallback: use original variable order (fodder_1, fodder_2, etc.)
+            orderedSteps = steps.filter(s => !s.isAssembly);
+        }
+
+        const parts: string[] = [];
+        orderedSteps.forEach(step => {
+            if (step.stepType === 'letter_movement') {
+                // Full chain: fodder → synonym → Move X → result
+                const letterMovementVars = {
+                    synonymFodder: variables['synonymFodder_1'] || variables['synonymFodder_2'] || '',
+                    synonym: step.synonym || '',
+                    letter: variables['letter_1'] || variables['letter_2'] || '',
+                    result: step.result || ''
+                };
+                if (letterMovementVars.synonymFodder && letterMovementVars.synonym) {
+                    parts.push(`${letterMovementVars.synonymFodder} → ${letterMovementVars.synonym} → Move ${letterMovementVars.letter} → ${letterMovementVars.result}`);
+                } else if (step.result) {
+                    parts.push(`${step.fodder} → ${step.result}`);
+                }
+            } else if (step.synonym && step.result && step.synonym !== step.result) {
+                parts.push(`${step.fodder} → ${step.synonym} → ${step.result}`);
             } else if (step.result) {
                 parts.push(`${step.fodder} → ${step.result}`);
             }
         });
         if (parts.length > 0) {
             parsingSummary = parts.join(' + ') + ' = ' + answer;
+        }
+    }
+
+    // Compute definition explanation
+    const defMatchType = (variables['definition_match_type'] as 'direct' | 'synonym' | 'cryptic' | 'none') || 'none';
+    const defPosition = (variables['definition_position'] || 'start').toLowerCase() as 'start' | 'end' | 'entire';
+    const defHint = variables['definition_hint'] || '';
+
+    let definitionExplanation = '';
+    if (defText) {
+        const positionText = defPosition === 'entire' ? 'the entire clue' : `the ${defPosition}`;
+
+        if (defMatchType === 'direct' || defMatchType === 'synonym') {
+            definitionExplanation = `The definition is "${defText}" — found at ${positionText}. This maps to ${answer}.`;
+        } else if (defMatchType === 'cryptic') {
+            definitionExplanation = `The definition is "${defText}" — found at ${positionText}. This is a cryptic definition.`;
+            if (defHint) {
+                definitionExplanation += ` ${defHint}`;
+            }
+        } else {
+            definitionExplanation = `The definition is "${defText}" — found at ${positionText}. Tip: Always check both ends of the clue for the definition.`;
         }
     }
 
@@ -1799,7 +1954,10 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
         isComplete,
         parsingSummary,
         definitionText: defText,
-        definitionMatchType: (variables['definition_match_type'] as 'direct' | 'synonym' | 'cryptic' | 'none') || 'none'
+        definitionMatchType: defMatchType,
+        definitionExplanation,
+        definitionPosition: defPosition,
+        definitionHint: defHint
     };
 }
 
@@ -3150,7 +3308,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
         if (composite?.success) {
             const variables: Record<string, string> = {
                 'def_text': definition,
-                'definition_match_type': defMatchType
+                'definition_match_type': defMatchType,
+                'definition_position': defPosition
             };
 
             composite.parts.forEach((part, idx) => {
@@ -3189,6 +3348,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             const variables: Record<string, string> = {
                 'def_text': definition,
                 'definition_match_type': defMatchType,
+                'definition_position': defPosition,
                 'indicator_1_text': 'substitution',
                 'fodder_1_text': substitution.baseWord,
                 'result_1': knownAnswer,
@@ -3295,7 +3455,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
         const variables: Record<string, string> = {
             'def_text': definition,
-            'definition_match_type': defMatchType  // 'direct' | 'synonym' | 'cryptic' | 'none'
+            'definition_match_type': defMatchType,  // 'direct' | 'synonym' | 'cryptic' | 'none'
+            'definition_position': defPosition  // 'START' | 'END'
         };
 
         // Calculate expected result lengths for each part
@@ -3522,6 +3683,10 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                             variables[`hint_1`] = `"${baseClean}" → ${movementResult.baseWord}, "${letterClean}" → ${movementResult.letter}, move ${movementResult.letter} ${direction} → ${movementResult.movedWord}`;
                             // Mark as complex (3 steps) for pedagogical ordering
                             variables[`complexity_1`] = '3';
+                            // Store separate parts for explanation template
+                            variables[`letterSource_1`] = letterClean;  // "months"
+                            variables[`letter_1`] = movementResult.letter;  // "M"
+                            variables[`synonymFodder_1`] = baseClean;  // "slander"
 
                             // Step 2+: Additional charade parts (simple lookups)
                             let stepNum = 2;
@@ -3752,7 +3917,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             // Charade succeeded - update patternData
             const charadevars: Record<string, string> = {
                 'def_text': definition,
-                'definition_match_type': defMatchType
+                'definition_match_type': defMatchType,
+                'definition_position': defPosition
             };
 
             charade.parts.forEach((part, idx) => {

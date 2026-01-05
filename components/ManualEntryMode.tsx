@@ -442,68 +442,25 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                   </div>
                 )}
 
-                {/* Learnings */}
+                {/* Learnings - all explanations pre-computed by parser */}
                 <ul className="space-y-3">
                   {/* Definition learning */}
-                  {(() => {
-                    const defMatchType = vars['definition_match_type'];
-                    const isValidDef = defMatchType === 'direct' || defMatchType === 'synonym';
-                    const isCrypticDef = defMatchType === 'cryptic';
+                  <li className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
+                    <div className="flex gap-3 text-sm text-indigo-900 leading-relaxed">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
+                      <div className="flex-1">
+                        <p>{activePatternData.definitionExplanation}</p>
+                      </div>
+                    </div>
+                  </li>
 
-                    return (
-                      <li className={`p-3 rounded-lg border ${isValidDef ? 'bg-green-50/50 border-green-100/50' : 'bg-white/50 border-indigo-100/50'}`}>
-                        <div className="flex gap-3 text-sm leading-relaxed">
-                          <div className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${isValidDef ? 'bg-green-500' : isCrypticDef ? 'bg-amber-400' : 'bg-indigo-400'}`}></div>
-                          <div className="flex-1">
-                            <p className={isValidDef ? 'text-green-900' : 'text-indigo-900'}>
-                              The definition is "{vars['def_text']}" — found at the {fullAnalysis.definition?.position?.toLowerCase() || 'start'}.
-                              {isValidDef && <span className="ml-1 text-green-600 font-medium">(maps to {answer})</span>}
-                              {!isValidDef && ' Tip: Always check both ends of the clue for the definition.'}
-                            </p>
-                            {isCrypticDef && vars['definition_hint'] && (
-                              <div className="mt-2 bg-amber-100/50 rounded p-2">
-                                <span className="text-xs font-bold text-amber-600 uppercase tracking-widest flex items-center gap-1 mb-1">
-                                  Cryptic Twist
-                                </span>
-                                <p className="text-xs text-amber-700 font-mono">{vars['definition_hint']}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })()}
-
-                  {/* Wordplay learnings */}
+                  {/* Wordplay learnings - uses pre-computed explanations from parser */}
                   {wordplaySteps.map((step, i) => (
                     <li key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
                       <div className="flex gap-3 text-sm text-indigo-900 leading-relaxed">
                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
                         <div className="flex-1">
-                          <p>
-                            {step.indicator ? (
-                              <>"{step.indicator}" signals wordplay on "{step.fodder}".</>
-                            ) : (
-                              <>"{step.fodder}" is wordplay fodder.</>
-                            )}
-                            {step.synonym && ' You often need to find a synonym first, then apply the operation.'}
-                          </p>
-                          <div className="mt-2 bg-indigo-100/50 border border-indigo-200 rounded-md px-3 py-2">
-                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                              Logic Chain
-                            </span>
-                            <p className="text-xs text-indigo-800 font-mono">
-                              {step.hint || (
-                                <>
-                                  {step.fodder}
-                                  {step.synonym && ` → ${step.synonym}`}
-                                  {step.indicator && ` → Apply "${step.indicator}"`}
-                                  {step.result && ` → ${step.result}`}
-                                </>
-                              )}
-                            </p>
-                          </div>
+                          <p>{step.explanation}</p>
                         </div>
                       </div>
                     </li>

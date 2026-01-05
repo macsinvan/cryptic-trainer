@@ -75,6 +75,8 @@ export interface WordplayStep {
     hint: string;
     complexity: number;  // 1=easy, 2=medium, 3=hard
     isAssembly: boolean; // True for Assembly steps (informational only)
+    stepType: 'abbreviation' | 'letter_movement' | 'assembly' | 'synonym' | 'anagram' | 'hidden' | 'reversal' | 'deletion' | 'unknown';
+    explanation: string; // Pre-computed plain English explanation for UI
 }
 
 export interface PatternInstance {
@@ -93,6 +95,9 @@ export interface PatternInstance {
     parsingSummary?: string;         // e.g., "MALIGN (slander) → ALIGNM + ENT = ALIGNMENT"
     definitionText?: string;         // The definition text
     definitionMatchType?: 'direct' | 'synonym' | 'cryptic' | 'none';
+    definitionExplanation?: string;  // Pre-computed plain English explanation for definition
+    definitionPosition?: 'start' | 'end' | 'entire';  // Where definition appears in clue
+    definitionHint?: string;         // For cryptic definitions, the cryptic twist explanation
 }
 
 // -------------------------------------

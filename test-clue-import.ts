@@ -18,18 +18,17 @@ console.log("isComplete:", result.patternData?.isComplete);
 console.log("parsingSummary:", result.patternData?.parsingSummary);
 console.log("definitionText:", result.patternData?.definitionText);
 console.log("definitionMatchType:", result.patternData?.definitionMatchType);
+console.log("definitionExplanation:", result.patternData?.definitionExplanation);
 console.log("");
 
 console.log("=== WORDPLAY STEPS (pre-sorted) ===");
 result.patternData?.wordplaySteps?.forEach((step, i) => {
   console.log(`Step ${i + 1}:`);
+  console.log(`  stepType: ${step.stepType}`);
+  console.log(`  explanation: ${step.explanation}`);
   console.log(`  indicator: ${step.indicator || '(none)'}`);
   console.log(`  fodder: ${step.fodder}`);
-  console.log(`  synonym: ${step.synonym}`);
   console.log(`  result: ${step.result}`);
-  console.log(`  hint: ${step.hint}`);
-  console.log(`  complexity: ${step.complexity}`);
-  console.log(`  isAssembly: ${step.isAssembly}`);
 });
 console.log("");
 
