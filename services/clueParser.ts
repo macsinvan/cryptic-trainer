@@ -2264,6 +2264,47 @@ export function tryCompositeCharade(
             }
         }
 
+        // Special handling for "closers of X Y" or "enders of X Y" patterns
+        // Extract last letters from all words between "of" and the first word that has synonyms
+        if ((indWord === 'closers' || indWord === 'enders') && indIdx >= 0) {
+            // Check if next word is "of"
+            const nextWord = words[indIdx + 1]?.toLowerCase().replace(/[^a-z]/g, '');
+            if (nextWord === 'of') {
+                // Extract last letters from words after "of" until we hit a synonym word
+                const lastLetterResults: string[] = [];
+                const lastLetterTexts: string[] = [];
+                const lastLetterIndices: number[] = [];
+
+                for (let i = indIdx + 2; i < words.length; i++) {
+                    const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+                    if (word.length < 2) continue;
+
+                    // Check if this word has synonyms (meaning it's likely a separate fodder word, not a letter source)
+                    const synonyms = SYNONYM_DICTIONARY[word];
+                    if (synonyms && synonyms.length > 0 && synonyms.some(s => s.length > 2)) {
+                        // This word is likely a synonym source, stop extracting last letters here
+                        break;
+                    }
+
+                    // Extract last letter
+                    const wordUpper = word.toUpperCase();
+                    lastLetterResults.push(wordUpper[wordUpper.length - 1]);
+                    lastLetterTexts.push(words[i]);
+                    lastLetterIndices.push(i);
+                }
+
+                // Add combined last letters as a candidate
+                if (lastLetterResults.length > 0) {
+                    candidates.push({
+                        text: lastLetterTexts.join(' '),
+                        result: lastLetterResults.join(''),
+                        operation: `last letters of ${lastLetterTexts.join(', ')}`,
+                        wordIndices: lastLetterIndices
+                    });
+                }
+            }
+        }
+
         // Look at word(s) adjacent to the indicator
         for (let i = 0; i < words.length; i++) {
             const word = words[i].toLowerCase().replace(/[^a-z]/g, '');

@@ -210,6 +210,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['anagram'],
         expectedTechniques: ['anagram'],
     },
+    {
+        name: 'SEDATIVE (Charade + Letter Selection)',
+        clue: 'Agent that calms closers of serious crime case (8)',
+        answer: 'SEDATIVE',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'Agent that calms',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['synonym'],  // case → DATIVE
+        expectedTechniques: ['synonym', 'charade'],
+    },
 ];
 
 // Colors for output

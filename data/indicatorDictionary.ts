@@ -89,6 +89,10 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'first four': { type: 'deletion_first', letterOp: 'first', letterCount: 4 },
     'last of': { type: 'deletion_last', letterOp: 'last' },
     'at end': { type: 'deletion_last', letterOp: 'last' },
+    'closers': { type: 'deletion_last', letterOp: 'last' },  // "closers of serious crime" = S, E (last letters)
+    'closer': { type: 'deletion_last', letterOp: 'last' },
+    'enders': { type: 'deletion_last', letterOp: 'last' },
+    'ender': { type: 'deletion_last', letterOp: 'last' },
     'heart of': { type: 'deletion_first', letterOp: 'middle' },
     'centre of': { type: 'deletion_first', letterOp: 'middle' },
     'center of': { type: 'deletion_first', letterOp: 'middle' },

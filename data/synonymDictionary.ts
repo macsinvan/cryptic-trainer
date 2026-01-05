@@ -1333,6 +1333,18 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'loss': ['DEFEAT', 'WASTE', 'FORFEIT'],
     'tax': ['DUTY', 'LEVY', 'TOLL', 'VAT', 'STRAIN'],
     'debt': ['IOU', 'OWING', 'LIABILITY', 'ARREARS'],
+
+    // --- GRAMMAR ---
+    'case': ['DATIVE', 'NOMINATIVE', 'ACCUSATIVE', 'GENITIVE', 'ABLATIVE', 'INSTANCE', 'BOX'],
+    'grammatical case': ['DATIVE', 'NOMINATIVE', 'ACCUSATIVE', 'GENITIVE', 'ABLATIVE'],
+
+    // --- MEDICINE / DRUGS ---
+    'agent that calms': ['SEDATIVE'],
+    'calming agent': ['SEDATIVE'],
+    'sedative': ['SEDATIVE', 'DOWNER', 'TRANQUILIZER'],
+    'tranquilizer': ['SEDATIVE', 'DOWNER'],
+    'drug': ['PILL', 'DOSE', 'MEDICINE', 'NARCOTIC', 'SEDATE'],
+    'medicine': ['DRUG', 'CURE', 'REMEDY', 'TREATMENT'],
 };
 
 // --- LOOKUP FUNCTIONS ---
