@@ -621,6 +621,8 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'migrated': { type: 'letter_movement' },
     'promoted': { type: 'letter_movement' },
     'demoted': { type: 'letter_movement' },
+    'lowering head': { type: 'letter_movement' },  // Move first letter down/to end
+    'lowering': { type: 'letter_movement' },
     'following': { type: 'charade' },
     'following delay': { type: 'letter_movement' },
     'following delay of': { type: 'letter_movement' },

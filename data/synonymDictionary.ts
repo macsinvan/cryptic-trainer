@@ -363,6 +363,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'fool': ['ASS', 'IDIOT', 'DUNCE', 'CLOWN', 'MUG'],
     'fools': ['ASSES', 'IDIOTS', 'DUNCES', 'MUGS'],
     'asses': ['FOOLS', 'DONKEYS', 'IDIOTS'],
+    'street urchin': ['GAMIN', 'WAIF', 'RAGAMUFFIN'],
+    'gamin': ['URCHIN', 'WAIF', 'RAGAMUFFIN'],
+    'breaking in': ['TAMING', 'TRAINING'],
+    'taming': ['BREAKING IN', 'SUBDUING', 'TRAINING'],
 
     // --- COMMON WORDS ---
     'the': ['T', 'TH'],
@@ -807,6 +811,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'question': ['Q', 'QUERY', 'ASK', 'QU'],
     'railway': ['RY', 'LINE', 'BR', 'GWR', 'LMS'],
     'shilling': ['S', 'BOB'],
+    'tense': ['T'],  // Grammatical tense abbreviation
     'society': ['S', 'SOC', 'CLUB', 'BODY'],
     'southern': ['S'],
     'unknown': ['X', 'Y', 'Z', 'N', 'ANON', 'STRANGER'],
