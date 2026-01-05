@@ -1,5 +1,36 @@
 # Cryptic Trainer — Master Application Specification
 
+---
+
+## ⚠️ CLAUDE: MANDATORY INTERACTION PROTOCOL
+
+**STOP. Before responding to ANY user request, you MUST follow this protocol.**
+
+### Step 1: Summarize Understanding
+Restate the user's request in plain English before doing anything.
+
+### Step 2: Analyze & Plan
+- **If bug:** Find root cause, explain in plain English
+- **If feature:** Explain your plan in plain English
+
+### Step 3: Permissions
+| Action | Permission |
+|--------|------------|
+| Read files | ✅ Allowed |
+| Search code | ✅ Allowed |
+| Run tests | ✅ Allowed |
+| **Edit ANY file** | ❌ **ASK FIRST** |
+
+### Step 4: Ask for Go
+Before editing ANY file:
+1. State what you will change (plain English)
+2. Ask: "Want me to go ahead?"
+3. **WAIT** for user to say "go"
+
+**Full protocol in `CLAUDE_RULES.md` — injected into every prompt via hook.**
+
+---
+
 ## 1. Core Philosophy
 
 The Cryptic Trainer is a state-machine-driven application that breaks down cryptic crosswords into strict, bite-sized instructional steps.
