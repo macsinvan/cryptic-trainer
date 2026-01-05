@@ -1970,7 +1970,10 @@ function generateStepExplanation(
             }
         }
 
-        // TODO: Add more templates as we build them
+        case 'synonym':
+            // Simple synonym lookup in charade - no indicator, just word → synonym
+            return `"${fodder}" gives ${result} (synonym).`;
+
         default:
             return '';
     }
@@ -2016,8 +2019,10 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             } else if (variables[`homophone_base_${i}`]) {
                 // Homophone detected via stored variables
                 stepType = 'homophone';
+            } else if (indicator === '(synonym)' || indicator === 'synonym') {
+                // Charade parts identified as synonym lookups
+                stepType = 'synonym';
             }
-            // TODO: Add more stepType detection as we build templates
 
             // Build extra vars for letter_movement template
             let letterMovementVars: LetterMovementVars | undefined;
@@ -2538,6 +2543,43 @@ function tryCharadeSplit(
     const solution = search(0, '', []);
     if (solution) {
         return { parts: solution, success: true };
+    }
+
+    // Try reversed order for charade with "on" connector
+    // "A on B" often means B + A in charade order (B is the base, A goes on top)
+    // Try all 2-part combinations in reversed order
+    if (candidates.length >= 2) {
+        // Group candidates by their results
+        const uniqueResults = new Map<string, Candidate>();
+        for (const cand of candidates) {
+            const key = cand.result;
+            if (!uniqueResults.has(key) || cand.text.length > uniqueResults.get(key)!.text.length) {
+                uniqueResults.set(key, cand);
+            }
+        }
+
+        // Try all pairs in reversed order (B + A instead of A + B)
+        const candList = Array.from(uniqueResults.values());
+        for (let i = 0; i < candList.length; i++) {
+            for (let j = 0; j < candList.length; j++) {
+                if (i === j) continue;
+                const first = candList[i];
+                const second = candList[j];
+                // Check that they don't overlap in word indices
+                if (first.wordEnd > second.wordStart && second.wordEnd > first.wordStart) continue;
+
+                const combined = second.result + first.result;
+                if (combined === answerClean) {
+                    return {
+                        parts: [
+                            { text: second.text, result: second.result },
+                            { text: first.text, result: first.result }
+                        ],
+                        success: true
+                    };
+                }
+            }
+        }
     }
 
     return null;
@@ -3627,7 +3669,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                         },
                         patternData: {
                             id: `charade-${Date.now()}`,
-                            patternId: 'CHARADE',
+                            patternId: 'Charade',
                             clueText: clue,
                             answer: knownAnswer,
                             variables,
@@ -4553,7 +4595,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
             patternData = {
                 id: `charade-fallback-${Date.now()}`,
-                patternId: 'CHARADE',
+                patternId: 'Charade',
                 clueText: clue,
                 answer: knownAnswer,
                 variables: charadevars,

@@ -442,6 +442,11 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'upset': ['INVERT', 'OVERTURN', 'SAD', 'ANGRY', 'RILED'],
     'green': ['ECO', 'NAIVE', 'ENVIOUS', 'LIME', 'JADE', 'VERT'],
     'wearing': ['IN'],  // As in "dressed in" / "sporting"
+    'fat': ['OBESE', 'PLUMP', 'STOUT', 'LARGE', 'HEAVY'],
+    'fatter': ['HEAVIER', 'LARGER', 'PLUMPER'],
+    'carrying more weight': ['FATTER', 'HEAVIER'],
+    'more weight': ['FATTER', 'HEAVIER'],
+    'heavier': ['FATTER', 'WEIGHTIER'],
 
     // --- POSITION / RANK ---
     'position': ['RANK', 'PLACE', 'SPOT', 'POST', 'STATION', 'SITE'],
@@ -955,6 +960,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'skin': ['HIDE', 'PELT', 'RIND'],
     'bone': ['RIB', 'ULNA', 'FEMUR', 'TIBIA'],
     'blood': ['GORE'],
+    'thigh': ['HAM', 'LEG'],
+    'leg': ['LIMB', 'PIN', 'HAM', 'GAMMON'],
 
     // --- FOOD / DRINK ---
     'spirits': ['GIN', 'RUM', 'MORALE', 'GHOSTS'],

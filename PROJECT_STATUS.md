@@ -132,6 +132,7 @@
 | 2 | ALIGNMENT | Letter Movement + Charade | 2026-01-04 |
 | 3 | STOWE | Homophone | 2026-01-05 |
 | 4 | SODOM | Container | 2026-01-05 |
+| 5 | HAMFATTER | Charade (reversed order) | 2026-01-05 |
 
 ---
 

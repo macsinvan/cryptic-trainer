@@ -60,6 +60,16 @@ const testCases: TestCase[] = [
         expectedColdDefinitionCandidates: ['Depraved', 'Depraved scene'],
         expectedColdIndicators: ['embodied by'],
     },
+    {
+        name: 'HAMFATTER (Charade)',
+        clue: 'Second-rate artiste carrying more weight on thigh (9)',
+        answer: 'HAMFATTER',
+        expectedPattern: 'Charade',
+        expectedDefinition: 'Second-rate artiste',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['synonym'],
+        expectedTechniques: ['synonym', 'charade'],
+    },
 ];
 
 // Colors for output
