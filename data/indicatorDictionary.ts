@@ -98,6 +98,8 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'extremely': { type: 'deletion_first', letterOp: 'ends' },
     'wings of': { type: 'deletion_first', letterOp: 'ends' },
     'cases of': { type: 'deletion_first', letterOp: 'ends' },
+    'case for': { type: 'deletion_first', letterOp: 'ends' },  // "case for three" = TE (outer letters)
+    'case': { type: 'deletion_first', letterOp: 'ends' },
     'outsides of': { type: 'deletion_first', letterOp: 'ends' },
     'borders of': { type: 'deletion_first', letterOp: 'ends' },
     'edges of': { type: 'deletion_first', letterOp: 'ends' },

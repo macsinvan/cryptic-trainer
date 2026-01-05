@@ -348,6 +348,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'being up': ['AWAKE', 'ALERT', 'ASTIR', 'RISEN', 'RISER'],
     'alert': ['AWAKE', 'AWARE', 'WARY', 'VIGILANT'],
     'asleep': ['OUT', 'DORMANT', 'SLEEPING'],
+    'hurt': ['SMARTED', 'ACHED', 'PAINED', 'STUNG'],
+    'smarted': ['HURT', 'ACHED', 'STUNG'],
 
     // --- CHARACTER / BEHAVIOR ---
     'nuisance': ['PEST', 'VARMINT', 'BOTHER', 'HASSLE', 'ANNOYANCE'],
@@ -708,6 +710,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'nil': ['O', 'ZERO', 'NONE', 'NOTHING'],
 
     // --- MILITARY ---
+    'forces': ['RAMS', 'ARMY', 'RAF', 'NAVY', 'MEN'],  // RAMS = forces (to force/push)
     'soldiers': ['GIS', 'MEN', 'OR', 'RE', 'RA', 'ANTS', 'ARMY'],
     'private': ['GI', 'SECRET', 'OWN', 'PERSONAL'],
     'general': ['GEN', 'COMMON', 'USUAL', 'BROAD'],
@@ -762,6 +765,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'ent': ['ENT'],
 
     // --- TIME ABBREVIATIONS ---
+    'days': ['D', 'DD'],
     'months': ['M', 'MO'],
 
     // --- COMMON ABBREVIATIONS ---
