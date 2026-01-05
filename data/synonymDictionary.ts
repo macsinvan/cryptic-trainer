@@ -239,6 +239,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'soldier': ['GI', 'RE', 'RA', 'ANT', 'PRIVATE', 'TOMMY'],
     'doctor': ['DR', 'MD', 'DOC', 'GP', 'MO', 'QUACK'],
     'king': ['REX', 'K', 'ER', 'MONARCH', 'R'],
+    'charles': ['THE KING'],  // King Charles III
     'head of state no longer': ['ER'],  // Elizabeth Regina - former monarch
     'knight': ['N', 'SIR', 'K'],
     'bishop': ['B', 'RR', 'BP'],
@@ -1114,6 +1115,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'jail': ['PRISON', 'GAOL', 'NICK', 'CAN'],
     'theatre': ['STAGE', 'REP', 'DRAMA'],
     'cinema': ['FILM', 'MOVIES', 'PICTURES', 'FLICKS'],
+    'film': ['THE KING AND I', 'MOVIE', 'PICTURE', 'FLICK'],  // THE KING AND I is a famous film/musical
     'gallery': ['ART', 'BALCONY'],
     'museum': ['V AND A', 'BM'],
     'library': ['LIB'],
