@@ -15,6 +15,7 @@ const OBVIOUS_ABBREVIATIONS: Record<string, string[]> = {
     'S': ['south', 'second', 'small', 'son', 'saint'],
     'E': ['east', 'english', 'energy', 'eastern'],
     'W': ['west', 'with', 'wife', 'western', 'women'],
+    'H': ['henry', 'hospital', 'hot', 'hard', 'hour', 'husband', 'hydrogen'],
     'L': ['left', 'large', 'lake', 'latin', 'learner', 'fifty'],
     'R': ['right', 'river', 'king', 'queen', 'runs'],
     'C': ['century', 'cold', 'carbon', 'circa', 'hundred'],
@@ -1969,7 +1970,7 @@ function tryCharadeSplit(
 
 // Enhanced composite charade: handles synonym + deletion combinations
 // e.g., "in pond – half" → HIP (in) + PO (half of pond) = HIPPO
-function tryCompositeCharade(
+export function tryCompositeCharade(
     wordplayText: string,
     answer: string,
     indicators: { text: string; type: OperationType; entry: IndicatorEntry }[]
@@ -2018,6 +2019,36 @@ function tryCompositeCharade(
                         }
                     }
                     break;  // Found synonyms, don't try the cleaned version
+                }
+            }
+        }
+    }
+
+    // 1a2. Find abbreviation candidates from OBVIOUS_ABBREVIATIONS
+    // e.g., "Henry" → H, "months" → M
+    for (let i = 0; i < words.length; i++) {
+        const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+        if (word.length < 2) continue;
+        // Skip if this word is an indicator
+        const isIndicator = indicators.some(ind =>
+            ind.text.toLowerCase().replace(/[^a-z]/g, '') === word
+        );
+        if (isIndicator) continue;
+
+        // Check against OBVIOUS_ABBREVIATIONS
+        for (const [abbrev, fodders] of Object.entries(OBVIOUS_ABBREVIATIONS)) {
+            if (fodders.some(f => word === f || word.includes(f))) {
+                // Don't add if we already have a synonym for this word
+                const alreadyHas = candidates.some(c =>
+                    c.wordIndices.length === 1 && c.wordIndices[0] === i && c.result === abbrev
+                );
+                if (!alreadyHas) {
+                    candidates.push({
+                        text: words[i],
+                        result: abbrev,
+                        operation: 'abbreviation',
+                        wordIndices: [i]
+                    });
                 }
             }
         }
@@ -2376,6 +2407,7 @@ function tryCompositeCharade(
     // 2g. Container with insertion - insert content into outer container
     // e.g., "used in sensitive regressive" → U inside EROS = EUROS
     // e.g., "PIR in EXE" → EXPIRE (multi-letter insertion)
+    // e.g., "RANT + H in GAM" → G(RANTH)AM = GRANTHAM (combined inner)
     // Check if "in" appears in the wordplay (common container indicator)
     const hasInWord = words.some(w => w.toLowerCase().replace(/[^a-z]/g, '') === 'in');
     if (hasInWord) {
@@ -2384,6 +2416,7 @@ function tryCompositeCharade(
         // Get outer candidates (container - at least 2 letters to wrap around)
         const outerCandidates = candidates.filter(c => c.result.length >= 2);
 
+        // 2g1. Try single candidates as inner content
         for (const innerCand of innerCandidates) {
             for (const outerCand of outerCandidates) {
                 // Check indices don't overlap
@@ -2408,6 +2441,44 @@ function tryCompositeCharade(
                             operation: operationDesc,
                             wordIndices: [...innerCand.wordIndices, ...outerCand.wordIndices]
                         });
+                    }
+                }
+            }
+        }
+
+        // 2g2. Try pairs of candidates combined as inner content
+        // e.g., RANT + H combined, then inserted into GAM
+        for (let i = 0; i < innerCandidates.length; i++) {
+            for (let j = 0; j < innerCandidates.length; j++) {
+                if (i === j) continue;
+                const cand1 = innerCandidates[i];
+                const cand2 = innerCandidates[j];
+
+                // Check they don't overlap
+                const indices1 = new Set(cand1.wordIndices);
+                if (cand2.wordIndices.some(idx => indices1.has(idx))) continue;
+
+                const combinedInner = cand1.result + cand2.result;
+                if (combinedInner.length > answerLen - 2) continue;
+
+                for (const outerCand of outerCandidates) {
+                    // Check outer doesn't overlap with either inner candidate
+                    const allInnerIndices = new Set([...cand1.wordIndices, ...cand2.wordIndices]);
+                    if (outerCand.wordIndices.some(idx => allInnerIndices.has(idx))) continue;
+
+                    const outer = outerCand.result;
+
+                    // Try inserting combined inner at each position in outer
+                    for (let pos = 1; pos < outer.length; pos++) {
+                        const result = outer.slice(0, pos) + combinedInner + outer.slice(pos);
+                        if (result.length <= answerLen) {
+                            candidates.push({
+                                text: `${cand1.text} + ${cand2.text} in ${outerCand.text}`,
+                                result: result,
+                                operation: `${combinedInner} inside ${outer}`,
+                                wordIndices: [...cand1.wordIndices, ...cand2.wordIndices, ...outerCand.wordIndices]
+                            });
+                        }
                     }
                 }
             }
@@ -2454,7 +2525,9 @@ function tryCompositeCharade(
     }
 
     const solution = tryCombinations(candidates, [], new Set(), '');
-    if (solution && solution.length >= 2) {
+    // Allow single-part solutions for container operations (e.g., RANTH inside GAM = GRANTHAM)
+    // Require 2+ parts for pure charades
+    if (solution && (solution.length >= 2 || (solution.length === 1 && solution[0].operation.includes('inside')))) {
         return {
             parts: solution.map(s => ({ text: s.text, result: s.result, operation: s.operation })),
             success: true

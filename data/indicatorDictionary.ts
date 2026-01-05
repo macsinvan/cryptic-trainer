@@ -689,6 +689,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'partially': { type: 'hidden' },
 
     // --- CONTAINER ---
+    'in': { type: 'container' },  // "X in Y" = X goes inside Y
     'clutching': { type: 'container' },
     'holding': { type: 'container' },
     'embracing': { type: 'container' },

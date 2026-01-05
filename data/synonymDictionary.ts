@@ -659,7 +659,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'university': ['U', 'VARSITY', 'OXFORD', 'CAMBRIDGE'],
     'uni': ['U'],
     'college': ['U', 'ETON'],
-    'school': ['SCH', 'ETON', 'HARROW', 'STOWE', 'RUGBY'],
+    'school': ['SCH', 'ETON', 'HARROW', 'STOWE', 'RUGBY', 'GAM'],  // GAM = school of whales
     'public school': ['ETON', 'HARROW', 'STOWE', 'RUGBY', 'WINCHESTER'],
     'teacher': ['SIR', 'MISS', 'MA', 'MASTER'],
     'pupil': ['L', 'LEARNER', 'EYE', 'STUDENT'],
@@ -919,6 +919,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'zee': ['Z'],
 
     // --- VERBS / ACTIONS ---
+    'scold': ['RANT', 'BERATE', 'CHIDE', 'RAIL', 'NAG'],
+    'rant': ['RAVE', 'RAIL', 'TIRADE'],
     'entertains': ['HAS', 'HOLDS', 'CONTAINS', 'AMUSES'],
     'houses': ['HOLDS', 'CONTAINS', 'HAS'],
     'holds': ['HAS', 'CONTAINS', 'GRIPS'],
@@ -1104,6 +1106,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'track': ['PATH', 'TRAIL', 'RAIL', 'LINE', 'FOLLOW'],
 
     // --- BUILDINGS / PLACES ---
+    "location of maggie's education": ['GRANTHAM'],  // Margaret Thatcher attended school in Grantham
+    'maggie': ['THATCHER', 'MARGARET'],
     'house': ['HO', 'HOME', 'PAD', 'LODGE', 'MANOR', 'CONTAIN'],
     'home': ['IN', 'PAD', 'HOUSE', 'BASE', 'ABODE'],
     'lodge': ['STOW', 'PUT', 'HOUSE', 'CABIN', 'HUT', 'INN'],

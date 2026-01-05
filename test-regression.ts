@@ -94,7 +94,7 @@ const testCases: TestCase[] = [
         name: 'ADHERE (Charade with Editorial Abbreviation)',
         clue: 'Stick notice in The Times? (6)',
         answer: 'ADHERE',
-        expectedPattern: 'Charade',
+        expectedPattern: 'COMPOSITE_CHARADE',  // AD + HERE
         expectedDefinition: 'Stick',
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['synonym'],
@@ -189,6 +189,16 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['container', 'synonym'],
         expectedTechniques: ['container', 'reversal', 'synonym'],
+    },
+    {
+        name: 'GRANTHAM (Container with Combined Inner)',
+        clue: "Scold Henry in school, location of Maggie's education (8)",
+        answer: 'GRANTHAM',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: "location of Maggie's education",
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['container'],
+        expectedTechniques: ['container'],
     },
 ];
 
