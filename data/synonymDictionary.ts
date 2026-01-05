@@ -230,6 +230,9 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'girl': ['LASS', 'MISS', 'GAL', 'MAID'],
     'daughter': ['D', 'GIRL', 'LASS'],
     'son': ['S', 'BOY', 'LAD', 'HEIR'],
+    'sons': ['S', 'BOYS', 'LADS', 'HEIRS'],
+    'people': ['INDIVIDUALS', 'FOLK', 'PERSONS', 'HUMANS', 'MEN'],
+    'individuals': ['PEOPLE', 'PERSONS', 'FOLK'],
     "daughter's": ['D'],
     "son's": ['S'],
     'worker': ['ANT', 'BEE', 'HAND', 'STAFF'],
@@ -517,12 +520,15 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // --- MUSIC / PERFORMANCE ---
     'air': ['SONG', 'TUNE', 'ARIA', 'MANNER', 'LOOK', 'OXYGEN'],
     'double': ['TWO', 'TWIN', 'COPY', 'DUAL', 'BI'],
+    'twin': ['DUAL', 'DOUBLE', 'PAIR', 'MATCH'],
     'double act': ['DUO', 'PAIR', 'TWOFOLD'],
     'act': ['DO', 'DEED', 'LAW', 'PLAY', 'PERFORM'],
+    'share': ['DIVI', 'DIVVY', 'PART', 'PORTION', 'STAKE'],  // DIVI = variant spelling of divvy
 
     // --- US STATES ---
     'state': ['IDAHO', 'OHIO', 'IOWA', 'MAINE', 'TEXAS', 'UTAH', 'NEVADA'],
     'state of potatoes': ['IDAHO'],
+    'indiana': ['IN'],  // US state abbreviation
 
     // --- NATIONALITY ---
     'irish': ['EIRE', 'ERIN', 'GAELIC', 'CELTIC'],
