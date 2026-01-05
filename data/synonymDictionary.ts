@@ -885,6 +885,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // W (already have with)
     // X
     'times': ['X', 'ERA', 'AGE', 'MULTIPLY'],
+    'newspaper': ['FT', 'TIMES', 'SUN', 'MAIL', 'RAG', 'PAPER'],  // FT = Financial Times
+    'financial times': ['FT'],
+    'much of the time in verse': ['OFT'],  // Archaic/poetic for "often"
+    'oft': ['OFTEN', 'FREQUENTLY'],
     // Y
     'why': ['Y'],
     // Z
