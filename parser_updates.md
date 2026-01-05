@@ -424,6 +424,57 @@ Parsing summary: `lodge → STOW → STOWE = STOWE`
 
 ---
 
+## Regression Testing
+
+### Running Tests
+
+```bash
+npx tsx test-regression.ts
+```
+
+### Test Structure
+
+Each test case in `test-regression.ts` verifies:
+
+**With answer (full parsing):**
+- Pattern ID matches expected
+- Definition text matches
+- Definition position (START/END)
+- Step types present (abbreviation, homophone, etc.)
+- isComplete is true
+- Explanations link to definition
+
+**Cold parsing (no answer):**
+- Definition candidates include expected phrases
+- Indicators detected correctly
+- Answer derived correctly from dictionary
+
+### Adding New Test Cases
+
+```typescript
+{
+    name: 'STOWE (Homophone)',
+    clue: 'Public school lodge reported (5)',
+    answer: 'STOWE',
+    expectedPattern: 'Homophone',
+    expectedDefinition: 'Public school',
+    expectedDefinitionPosition: 'START',
+    expectedStepTypes: ['homophone'],
+    expectedColdDefinitionCandidates: ['Public', 'Public school'],
+    expectedColdIndicators: ['reported'],
+    expectedColdFodder: ['lodge'],
+},
+```
+
+### When to Add Tests
+
+Add a regression test when:
+1. A new clue type is successfully parsed
+2. A bug is fixed (prevent regression)
+3. A new pattern is implemented
+
+---
+
 ## Template for New Cases
 
 ```markdown

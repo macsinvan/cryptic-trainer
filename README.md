@@ -31,7 +31,8 @@ Open http://localhost:5173
 ## Testing
 
 ```bash
-npx tsx test-clue-import.ts    # Test parser output
+npx tsx test-regression.ts     # Run import regression tests
+npx tsx test-clue-import.ts    # Test single clue parser output
 npx tsc --noEmit               # Type check
 ```
 
