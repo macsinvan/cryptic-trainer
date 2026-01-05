@@ -230,6 +230,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['synonym'],  // Small → S, sounds → TOCKS
         expectedTechniques: ['synonym', 'charade'],
     },
+    {
+        name: 'CANDIDATE (Anagram + Synonym)',
+        clue: 'Person who runs an addict about to get drug (9)',
+        answer: 'CANDIDATE',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'Person who runs',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['anagram'],  // AN + ADDICT + E anagrammed
+        expectedTechniques: ['anagram'],
+    },
 ];
 
 // Colors for output

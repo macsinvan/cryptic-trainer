@@ -2081,21 +2081,27 @@ export function tryCompositeCharade(
 
     // 1b. For anagrams: add raw words as potential fodder (the word itself contributes letters)
     // e.g., "codes" in "defective... codes formed" contributes CODES to the anagram
+    // e.g., "an addict" in "an addict about" contributes AN + ADDICT to the anagram
     const hasAnagramIndicator = indicators.some(i => i.type === 'anagram');
     if (hasAnagramIndicator) {
         for (let i = 0; i < words.length; i++) {
             const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
-            if (word.length < 2 || CHARADE_CONNECTORS.has(word)) continue;
+            // For anagrams, include short connector words like "an" as they contribute letters
+            // Only skip very short words (1 letter) and pure function words like "the"
+            const skipConnectors = new Set(['the', 'a']);  // Only skip articles, not "an"
+            if (word.length < 2 || skipConnectors.has(word)) continue;
             // Skip if this word is an indicator
             const isIndicator = indicators.some(ind =>
                 ind.text.toLowerCase().replace(/[^a-z]/g, '') === word
             );
             if (isIndicator) continue;
-            // Skip if we already have a synonym for this word
-            const alreadyHasSynonym = candidates.some(c =>
-                c.wordIndices.length === 1 && c.wordIndices[0] === i
+            // For anagrams, always add the raw word even if it has synonyms
+            // The actual letters might be needed for the anagram (e.g., "an" = AN, not A or ONE)
+            // Skip duplicates only if they already exist as raw
+            const alreadyHasRaw = candidates.some(c =>
+                c.wordIndices.length === 1 && c.wordIndices[0] === i && c.operation === 'raw'
             );
-            if (alreadyHasSynonym) continue;
+            if (alreadyHasRaw) continue;
 
             const wordUpper = word.toUpperCase();
             if (wordUpper.length <= answerLen) {

@@ -1343,7 +1343,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'calming agent': ['SEDATIVE'],
     'sedative': ['SEDATIVE', 'DOWNER', 'TRANQUILIZER'],
     'tranquilizer': ['SEDATIVE', 'DOWNER'],
-    'drug': ['PILL', 'DOSE', 'MEDICINE', 'NARCOTIC', 'SEDATE'],
+    'drug': ['PILL', 'DOSE', 'MEDICINE', 'NARCOTIC', 'SEDATE', 'E'],  // E = ecstasy
     'medicine': ['DRUG', 'CURE', 'REMEDY', 'TREATMENT'],
 
     // --- SOUNDS ---
@@ -1355,6 +1355,11 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'supply': ['STOCK', 'STORE', 'FEED', 'GIVE', 'PROVIDE'],
     'stocks': ['SHARES', 'SUPPLIES', 'STORES', 'BONDS'],
     'stock': ['SHARE', 'SUPPLY', 'STORE', 'BROTH'],
+
+    // --- POLITICS / ELECTIONS ---
+    'person who runs': ['CANDIDATE'],
+    'candidate': ['APPLICANT', 'NOMINEE', 'RUNNER', 'ENTRANT'],
+    'runner': ['CANDIDATE', 'ATHLETE', 'BLADE', 'MESSENGER'],
 };
 
 // --- LOOKUP FUNCTIONS ---
