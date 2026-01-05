@@ -220,6 +220,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['synonym'],  // case → DATIVE
         expectedTechniques: ['synonym', 'charade'],
     },
+    {
+        name: 'STOCKS (Pure Charade)',
+        clue: 'Small sounds of the enemy advancing for supplies (6)',
+        answer: 'STOCKS',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'supplies',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['synonym'],  // Small → S, sounds → TOCKS
+        expectedTechniques: ['synonym', 'charade'],
+    },
 ];
 
 // Colors for output

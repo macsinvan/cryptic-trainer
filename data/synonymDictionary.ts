@@ -1345,6 +1345,16 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'tranquilizer': ['SEDATIVE', 'DOWNER'],
     'drug': ['PILL', 'DOSE', 'MEDICINE', 'NARCOTIC', 'SEDATE'],
     'medicine': ['DRUG', 'CURE', 'REMEDY', 'TREATMENT'],
+
+    // --- SOUNDS ---
+    'sounds': ['TOCKS', 'TICKS', 'NOISES', 'DINS'],  // tick-tock sounds
+    'sound': ['TONE', 'NOISE', 'DIN', 'WELL', 'FIT', 'SANE'],
+
+    // --- COMMERCE / SUPPLIES ---
+    'supplies': ['STOCKS', 'STORES', 'PROVISIONS', 'GOODS'],
+    'supply': ['STOCK', 'STORE', 'FEED', 'GIVE', 'PROVIDE'],
+    'stocks': ['SHARES', 'SUPPLIES', 'STORES', 'BONDS'],
+    'stock': ['SHARE', 'SUPPLY', 'STORE', 'BROTH'],
 };
 
 // --- LOOKUP FUNCTIONS ---
