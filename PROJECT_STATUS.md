@@ -136,6 +136,7 @@
 | 5 | HAMFATTER | Charade (reversed order) | 2026-01-05 |
 | 6 | SOVEREIGN STATES | Anagram | 2026-01-05 |
 | 7 | DEDUCTED | Charade with Outer Letters | 2026-01-05 |
+| 8 | ADHERE | Charade with Editorial Abbreviation | 2026-01-05 |
 
 ---
 

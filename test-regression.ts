@@ -90,6 +90,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['deletion', 'synonym'],
         expectedTechniques: ['deletion', 'synonym', 'charade'],
     },
+    {
+        name: 'ADHERE (Charade with Editorial Abbreviation)',
+        clue: 'Stick notice in The Times? (6)',
+        answer: 'ADHERE',
+        expectedPattern: 'Charade',
+        expectedDefinition: 'Stick',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['synonym'],
+        expectedTechniques: ['synonym', 'charade'],
+    },
 ];
 
 // Colors for output

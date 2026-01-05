@@ -157,6 +157,18 @@ export const ABBREVIATION_EXPLANATIONS: Record<string, { result: string; explana
         result: 'W',
         explanation: 'W represents west/western, as seen on maps and compasses.'
     },
+    'notice': {
+        result: 'AD',
+        explanation: 'In newspaper cryptics, "notice" often gives AD (advertisement). Papers are full of notices/ads.'
+    },
+    'in the times': {
+        result: 'HERE',
+        explanation: 'Self-referential device: "in The Times" means "in this paper" = HERE. Common in Times crosswords.'
+    },
+    'in this paper': {
+        result: 'HERE',
+        explanation: 'Self-referential: "in this paper" = HERE. The setter is pointing to where you are right now.'
+    },
 };
 
 export const SYNONYM_DICTIONARY: Record<string, string[]> = {
@@ -716,6 +728,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // --- COMMON ABBREVIATIONS ---
     'account': ['AC', 'BILL', 'TAB', 'STORY'],
     'advertisement': ['AD', 'ADVERT', 'NOTICE'],
+    'notice': ['AD', 'ADVERT', 'BILL', 'NOTE', 'SIGN', 'SPOT', 'SEE'],
     'afternoon': ['PM'],
     'against': ['V', 'VS', 'ANTI', 'CON'],
     'answer': ['A', 'ANS', 'REPLY', 'SOLUTION'],
@@ -1018,6 +1031,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'house': ['HO', 'HOME', 'PAD', 'LODGE', 'MANOR', 'CONTAIN'],
     'home': ['IN', 'PAD', 'HOUSE', 'BASE', 'ABODE'],
     'lodge': ['STOW', 'PUT', 'HOUSE', 'CABIN', 'HUT', 'INN'],
+    'stick': ['ADHERE', 'CLING', 'GLUE', 'BOND', 'ATTACH', 'ROD', 'CANE', 'POLE'],
     'room': ['SPACE', 'HALL', 'DEN', 'CHAMBER'],
     'door': ['ENTRY', 'EXIT', 'GATE', 'ACCESS'],
     'window': ['PANE', 'OPENING', 'GAP'],
@@ -1086,6 +1100,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'date': ['DAY', 'TIME', 'FRUIT', 'APPOINTMENT'],
     'past': ['AGO', 'OVER', 'GONE', 'BY', 'HISTORY'],
     'present': ['NOW', 'GIFT', 'HERE', 'CURRENT'],
+    // Self-referential editorial (Times crosswords)
+    'in the times': ['HERE'],
+    'in this paper': ['HERE'],
+    'in this place': ['HERE'],
     'future': ['TOMORROW', 'AHEAD', 'COMING', 'DESTINY'],
     'now': ['AD', 'TODAY', 'PRESENT', 'CURRENTLY'],
     'then': ['NEXT', 'SO', 'THEREFORE'],

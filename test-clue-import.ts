@@ -4,6 +4,9 @@ const clue = "Public school lodge reported (5)";
 const answer = "STOWE";
 
 // Other test clues:
+// const clue = "Stick notice in The Times? (6)";
+// const answer = "ADHERE";
+
 // const clue = "Following delay of months, slander hospital department's union (9)";
 // const answer = "ALIGNMENT";
 

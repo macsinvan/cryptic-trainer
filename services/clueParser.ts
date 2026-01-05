@@ -30,8 +30,10 @@ const OBVIOUS_ABBREVIATIONS: Record<string, string[]> = {
     'ST': ['street', 'saint'],
     'RD': ['road'],
     'RE': ['about', 'concerning', 'regarding'],
-    'AD': ['advertisement', 'anno domini'],
+    'AD': ['advertisement', 'anno domini', 'notice'],
     'AM': ['morning', 'before noon'],
+    // Self-referential editorial (common in Times)
+    'HERE': ['in the times', 'in this paper', 'in this place', 'at this point'],
     'PM': ['afternoon', 'evening'],
     'AC': ['account', 'alternating current'],
     'AI': ['artificial intelligence'],
@@ -1974,9 +1976,26 @@ function generateStepExplanation(
             }
         }
 
-        case 'synonym':
-            // Simple synonym lookup in charade - no indicator, just word → synonym
+        case 'synonym': {
+            // Check for editorial abbreviations and self-references
+            const fodderLower = fodder.toLowerCase().replace(/\?$/, '').trim();
+
+            // Self-referential editorial device
+            if (fodderLower.includes('times') || fodderLower.includes('this paper') || fodderLower.includes('this place')) {
+                return `"${fodder}" is a self-referential device — "in this paper" / "in this place" = ${result}.`;
+            }
+
+            // Common newspaper abbreviations
+            if (fodderLower === 'notice' && result === 'AD') {
+                return `"${fodder}" gives ${result} — in newspaper cryptics, "notice" often means AD (advertisement).`;
+            }
+            if (fodderLower === 'advertisement' && result === 'AD') {
+                return `"${fodder}" gives ${result} (standard abbreviation).`;
+            }
+
+            // Default: simple synonym
             return `"${fodder}" gives ${result} (synonym).`;
+        }
 
         case 'anagram':
             // Anagram - letters rearranged
@@ -3670,7 +3689,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 if (charade?.success) {
                     const variables: Record<string, string> = {
                         'def_text': defText,
-                        'definition_match_type': definition ? defMatchType : 'cryptic'
+                        'definition_match_type': definition ? defMatchType : 'cryptic',
+                        'definition_position': position
                     };
 
                     charade.parts.forEach((part, idx) => {
@@ -3678,10 +3698,20 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                         variables[`indicator_${n}_text`] = '(synonym)';
                         variables[`fodder_${n}_text`] = part.text;
                         variables[`result_${n}`] = part.result;
+                        variables[`complexity_${n}`] = '2';  // Medium complexity for synonym lookups
                     });
 
                     const partsHint = charade.parts.map(p => `${p.text} → ${p.result}`).join(' + ');
                     variables['hint_1'] = `Charade: ${partsHint} = ${knownAnswer}`;
+
+                    const rawPatternData: PatternInstance = {
+                        id: `charade-${Date.now()}`,
+                        patternId: 'Charade',
+                        clueText: clue,
+                        answer: knownAnswer,
+                        variables,
+                        solveSteps: generateSolveSteps(variables, 'CHARADE', knownAnswer, coaching, clue)
+                    };
 
                     return {
                         success: true,
@@ -3692,14 +3722,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                             indicators: [],
                             fodders: charade.parts.map(p => p.text)
                         },
-                        patternData: {
-                            id: `charade-${Date.now()}`,
-                            patternId: 'Charade',
-                            clueText: clue,
-                            answer: knownAnswer,
-                            variables,
-                            solveSteps: generateSolveSteps(variables, 'CHARADE', knownAnswer, coaching, clue)
-                        }
+                        patternData: computeDerivedFields(rawPatternData)
                     };
                 }
             }
@@ -4654,6 +4677,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 charadevars[`indicator_${n}_text`] = '(synonym)';
                 charadevars[`fodder_${n}_text`] = part.text;
                 charadevars[`result_${n}`] = part.result;
+                charadevars[`complexity_${n}`] = '2';  // Medium complexity for synonym lookups
             });
 
             const partsHint = charade.parts.map(p => `${p.text} → ${p.result}`).join(' + ');
