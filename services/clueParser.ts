@@ -1655,6 +1655,10 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
         });
     }
 
+    // Thesaurus required: true if definition needed synonym lookup (uncommon answer)
+    // Answers that are direct matches or common words don't need a thesaurus
+    const thesaurusRequired = defMatchType === 'synonym';
+
     return {
         ...patternData,
         variables: reorderedVars,
@@ -1668,7 +1672,8 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
         definitionHint: defHint,
         techniquesUsed,
         setterHint,
-        solveExplanation
+        solveExplanation,
+        thesaurusRequired
     };
 }
 
@@ -2575,7 +2580,8 @@ function checkPhraseMatchesAnswer(phrase: string, answer: string): DefinitionMat
     // 1. Check phrase as a whole - is it in our synonym dictionary?
     const phraseKey = phraseWords.join(' ');
     const phraseSynonyms = lookupSynonyms(phraseKey);
-    if (phraseSynonyms.some(s => s.toUpperCase() === answerUpper)) {
+    // Normalize synonym (remove spaces/punctuation) before comparing to normalized answer
+    if (phraseSynonyms.some(s => s.toUpperCase().replace(/[^A-Z]/g, '') === answerUpper)) {
         return { phrase, matchType: 'synonym' };
     }
 
@@ -2590,16 +2596,17 @@ function checkPhraseMatchesAnswer(phrase: string, answer: string): DefinitionMat
                 return { phrase, matchType: 'direct' };
             }
 
-            // Synonym match
+            // Synonym match (normalize synonyms to handle multi-word answers like "GRUB KICK")
             const synonyms = lookupSynonyms(word);
-            if (synonyms.some(s => s.toUpperCase() === answerUpper)) {
+            if (synonyms.some(s => s.toUpperCase().replace(/[^A-Z]/g, '') === answerUpper)) {
                 return { phrase, matchType: 'synonym' };
             }
 
             // Reverse lookup: is word a synonym of something that maps to answer?
             // IMPORTANT: Require exact match on fodder, not partial match
             for (const [fodder, syns] of Object.entries(SYNONYM_DICTIONARY)) {
-                if (syns.includes(answerUpper) && fodder.toLowerCase() === word) {
+                // Normalize synonyms for comparison
+                if (syns.some(s => s.toUpperCase().replace(/[^A-Z]/g, '') === answerUpper) && fodder.toLowerCase() === word) {
                     return { phrase, matchType: 'synonym' };
                 }
             }
@@ -2611,7 +2618,7 @@ function checkPhraseMatchesAnswer(phrase: string, answer: string): DefinitionMat
         for (const word of phraseWords) {
             const crypticEntry = CRYPTIC_MEANINGS[word];
             if (crypticEntry) {
-                if (crypticEntry.synonyms.some(s => s.toUpperCase() === answerUpper)) {
+                if (crypticEntry.synonyms.some(s => s.toUpperCase().replace(/[^A-Z]/g, '') === answerUpper)) {
                     return {
                         phrase,
                         matchType: 'cryptic',
@@ -3644,7 +3651,11 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
                             // Resolve outer to its result
                             // "aggressive-submissive proclivity" = SM
+                            // Also handle charade prefix: "Good buzz" = G + KICK
                             let outerResult = '';
+                            let charadePrefix = '';  // For cases like "Good buzz" where "Good"=G is prefix
+                            let actualOuterText = outerText;  // The actual container word (e.g., "buzz")
+
                             // Check ABBREVIATION_EXPLANATIONS for full phrase
                             const outerAbbrevInfo = ABBREVIATION_EXPLANATIONS[outerText.toLowerCase()];
                             if (outerAbbrevInfo) {
@@ -3659,6 +3670,28 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                                     const syns = lookupSynonyms(outerText);
                                     if (syns.length > 0) {
                                         outerResult = syns[0];
+                                    } else {
+                                        // NEW: Check if outer has multiple words where first is abbreviation (charade prefix)
+                                        // e.g., "Good buzz" → "Good"=G (prefix) + "buzz"=KICK (container)
+                                        const outerWordList = outerText.split(/\s+/);
+                                        if (outerWordList.length >= 2) {
+                                            const firstWord = outerWordList[0].toLowerCase();
+                                            const restWords = outerWordList.slice(1).join(' ').toLowerCase();
+
+                                            // Check if first word is a single-letter abbreviation
+                                            const firstSyns = lookupSynonyms(firstWord);
+                                            const singleLetterAbbrev = firstSyns.find(s => s.length === 1);
+
+                                            if (singleLetterAbbrev) {
+                                                // Check if rest is the actual container
+                                                const restSyns = lookupSynonyms(restWords);
+                                                if (restSyns.length > 0 && restSyns[0].length >= 2) {
+                                                    charadePrefix = singleLetterAbbrev;
+                                                    outerResult = restSyns[0];
+                                                    actualOuterText = outerWordList.slice(1).join(' ');
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -3671,7 +3704,9 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                                 let combined = '';
                                 let insertionPoint = 0;
                                 let foundMatch = false;
+                                let usedCharadePrefix = false;
 
+                                // First try without charade prefix
                                 for (let tryPos = 1; tryPos < outerResult.length; tryPos++) {
                                     const tryResult = outerResult.slice(0, tryPos) + innerResult + outerResult.slice(tryPos);
                                     if (tryResult === answerClean) {
@@ -3679,6 +3714,21 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                                         insertionPoint = tryPos;
                                         foundMatch = true;
                                         break;
+                                    }
+                                }
+
+                                // If no match and we have a charade prefix, try with prefix
+                                if (!foundMatch && charadePrefix) {
+                                    for (let tryPos = 1; tryPos < outerResult.length; tryPos++) {
+                                        const containerResult = outerResult.slice(0, tryPos) + innerResult + outerResult.slice(tryPos);
+                                        const tryResult = charadePrefix + containerResult;
+                                        if (tryResult === answerClean) {
+                                            combined = containerResult;
+                                            insertionPoint = tryPos;
+                                            foundMatch = true;
+                                            usedCharadePrefix = true;
+                                            break;
+                                        }
                                     }
                                 }
 
@@ -3701,35 +3751,80 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                                     const outerFirst = outerResult.slice(0, insertionPoint);
                                     const outerLast = outerResult.slice(insertionPoint);
 
-                                    // Set up wordplay steps - clean, simple sequence:
-                                    // Step 1: Inner content
-                                    // Step 2: Container operation (produces final answer)
+                                    if (usedCharadePrefix) {
+                                        // Charade + Container pattern: G + K[RUB]ICK = GRUBKICK
+                                        // Step 1: Charade prefix (abbreviation)
+                                        const prefixWord = outerText.split(/\s+/)[0];
+                                        variables[`indicator_1_text`] = '';
+                                        variables[`fodder_1_text`] = prefixWord;
+                                        variables[`result_1`] = charadePrefix;
+                                        variables[`complexity_1`] = '1';
 
-                                    // Step 1: Inner content (abbreviation lookup)
-                                    variables[`indicator_1_text`] = '';
-                                    variables[`fodder_1_text`] = innerText;
-                                    variables[`result_1`] = innerResult;
-                                    variables[`hint_1`] = innerParts.map(p => `"${p.word}" → ${p.result}`).join(', ');
-                                    variables[`complexity_1`] = '1';
+                                        // Step 2: Inner content
+                                        variables[`indicator_2_text`] = '';
+                                        variables[`fodder_2_text`] = innerText;
+                                        variables[`result_2`] = innerResult;
+                                        variables[`hint_2`] = innerParts.map(p => `"${p.word}" → ${p.result}`).join(', ');
+                                        variables[`complexity_2`] = '1';
 
-                                    // Step 2: Container operation (produces final result)
-                                    variables[`indicator_2_text`] = ind.text;
-                                    variables[`fodder_2_text`] = outerText;
-                                    variables[`result_2`] = combined;  // Full result: SODOM
-                                    variables[`hint_2`] = `"${outerText}" → ${outerResult}, ${innerResult} inside → ${outerFirst}(${innerResult})${outerLast}`;
-                                    variables[`complexity_2`] = '2';
-                                    variables[`container_part_2`] = 'full';
+                                        // Step 3: Container operation
+                                        variables[`indicator_3_text`] = ind.text;
+                                        variables[`fodder_3_text`] = actualOuterText;
+                                        variables[`result_3`] = combined;
+                                        variables[`hint_3`] = `"${actualOuterText}" → ${outerResult}, ${innerResult} inside → ${outerFirst}(${innerResult})${outerLast}`;
+                                        variables[`complexity_3`] = '2';
+                                        variables[`container_part_3`] = 'full';
 
-                                    // Store container-specific vars for explanation template
-                                    variables['container_inner'] = innerResult;
-                                    variables['container_outer'] = outerResult;
-                                    variables['container_outer_first'] = outerFirst;
-                                    variables['container_outer_last'] = outerLast;
-                                    variables['container_indicator'] = ind.text;
-                                    variables['container_verified'] = 'true';  // Flag to skip result verification
+                                        // Step 4: Assembly
+                                        variables[`indicator_4_text`] = 'Assembly';
+                                        variables[`fodder_4_text`] = '';
+                                        variables[`result_4`] = answerClean;
+                                        variables[`complexity_4`] = '3';
+                                        variables['structure'] = `${charadePrefix} + ${combined} = ${answerClean}`;
 
-                                    // No assembly step needed - container operation produces final answer
-                                    synonymsResolved = 2;
+                                        // Store container-specific vars
+                                        variables['container_inner'] = innerResult;
+                                        variables['container_outer'] = outerResult;
+                                        variables['container_outer_first'] = outerFirst;
+                                        variables['container_outer_last'] = outerLast;
+                                        variables['container_indicator'] = ind.text;
+                                        variables['container_verified'] = 'true';
+                                        variables['charade_prefix'] = charadePrefix;
+
+                                        synonymsResolved = 3;
+                                        patternId = 'Charade with Container';
+                                    } else {
+                                        // Standard container pattern (no charade prefix)
+                                        // Set up wordplay steps - clean, simple sequence:
+                                        // Step 1: Inner content
+                                        // Step 2: Container operation (produces final answer)
+
+                                        // Step 1: Inner content (abbreviation lookup)
+                                        variables[`indicator_1_text`] = '';
+                                        variables[`fodder_1_text`] = innerText;
+                                        variables[`result_1`] = innerResult;
+                                        variables[`hint_1`] = innerParts.map(p => `"${p.word}" → ${p.result}`).join(', ');
+                                        variables[`complexity_1`] = '1';
+
+                                        // Step 2: Container operation (produces final result)
+                                        variables[`indicator_2_text`] = ind.text;
+                                        variables[`fodder_2_text`] = outerText;
+                                        variables[`result_2`] = combined;  // Full result: SODOM
+                                        variables[`hint_2`] = `"${outerText}" → ${outerResult}, ${innerResult} inside → ${outerFirst}(${innerResult})${outerLast}`;
+                                        variables[`complexity_2`] = '2';
+                                        variables[`container_part_2`] = 'full';
+
+                                        // Store container-specific vars for explanation template
+                                        variables['container_inner'] = innerResult;
+                                        variables['container_outer'] = outerResult;
+                                        variables['container_outer_first'] = outerFirst;
+                                        variables['container_outer_last'] = outerLast;
+                                        variables['container_indicator'] = ind.text;
+                                        variables['container_verified'] = 'true';  // Flag to skip result verification
+
+                                        // No assembly step needed - container operation produces final answer
+                                        synonymsResolved = 2;
+                                    }
                                 }
                             }
                         }

@@ -432,12 +432,18 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'exercise': ['PE', 'PT', 'DRILL', 'WORKOUT'],
     'game': ['MATCH', 'RU', 'FA', 'SPORT', 'CHESS', 'GO'],
     'sport': ['GAME', 'RU', 'FA', 'WEAR'],
+    'play in rugby': ['GRUB KICK', 'GRUBBER', 'KICK', 'PASS', 'TRY'],
+    'grub kick': ['GRUB KICK'],  // Rugby kick along the ground
     'team': ['XI', 'XV', 'SIDE', 'CREW', 'SQUAD'],
 
     // --- ACTIONS / VERBS ---
     'hit': ['BLOW', 'STRIKE', 'SMACK', 'BASH', 'PUNCH', 'SLAP'],
     'blow': ['HIT', 'STRIKE', 'PUFF', 'GUST', 'SHOCK'],
     'strike': ['HIT', 'BLOW', 'BASH'],
+    'buzz': ['KICK', 'THRILL', 'HUM', 'RING', 'CALL'],  // "get a buzz" = kick/thrill
+    'kick': ['BUZZ', 'BOOT', 'THRILL', 'PUNT'],
+    'polish': ['RUB', 'SHINE', 'WAX', 'BUFF'],
+    'rub': ['POLISH', 'BUFF', 'SHINE', 'MASSAGE'],
     'leave': ['DESERT', 'GO', 'QUIT', 'EXIT', 'ABANDON', 'DEPART'],
     'abandon': ['DESERT', 'LEAVE', 'QUIT', 'DROP'],
     'desert': ['LEAVE', 'ABANDON', 'QUIT', 'SAHARA', 'GOBI'],

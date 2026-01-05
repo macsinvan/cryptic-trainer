@@ -113,6 +113,9 @@ export interface PatternInstance {
     // Teaching fields - help student learn setter techniques
     techniquesUsed?: string[];       // e.g., ['abbreviation', 'container'] - cryptic vocabulary terms
     setterHint?: string;             // e.g., "The setter has used **abbreviations** and a **container** here. Can you spot the insertion indicator?"
+
+    // Answer metadata
+    thesaurusRequired?: boolean;     // True if answer is uncommon (e.g., GRUB KICK) - UI can show "Thesaurus may help"
 }
 
 // -------------------------------------
