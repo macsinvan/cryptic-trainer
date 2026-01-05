@@ -452,6 +452,12 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'walk': ['STROLL', 'HIKE', 'TREK', 'AMBLE', 'GAIT'],
 
     // --- QUALITY / STATE ---
+    'regrettably': ['DISAPPOINTINGLY', 'SADLY', 'UNFORTUNATELY', 'ALAS'],
+    'disappointingly': ['REGRETTABLY', 'SADLY'],
+    'furtive': ['SLY', 'SNEAKY', 'STEALTHY', 'COVERT', 'SECRET'],
+    'sly': ['FURTIVE', 'SNEAKY', 'CRAFTY', 'CUNNING', 'WILY'],
+    'settling': ['APPOINTING', 'DECIDING', 'RESOLVING', 'PAYING'],
+    'appointing': ['SETTLING', 'NAMING', 'CHOOSING', 'DESIGNATING'],
     'disgusting': ['RANK', 'VILE', 'FOUL', 'GROSS', 'NASTY'],
     'foul': ['RANK', 'VILE', 'GROSS', 'NASTY', 'SMELLY'],
     'smelly': ['RANK', 'FOUL', 'ODOROUS'],

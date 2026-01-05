@@ -638,6 +638,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'starters': { type: 'acrostic', definitionAtEnd: true },
     'openers of': { type: 'acrostic', definitionAtEnd: true },
     'fronts of': { type: 'acrostic', definitionAtEnd: true },
+    'initiates': { type: 'acrostic', definitionAtEnd: true },  // "couple that initiates divorce" = DI
 
     // --- HIDDEN ---
     'within': { type: 'hidden' },
