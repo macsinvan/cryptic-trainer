@@ -86,6 +86,7 @@ type StepType =
     | 'hidden'            // Answer hidden in clue text
     | 'reversal'          // Reverse letters
     | 'deletion'          // Remove letters
+    | 'homophone'         // Sounds like (lodge → STOW → STOWE)
     | 'unknown';          // Fallback
 ```
 
@@ -177,7 +178,20 @@ Key elements:
 - Explain the solution (need a synonym)
 - Show the chain: fodder → synonym → result
 
-#### 4. Assembly (complexity: 0)
+#### 4. Homophone (complexity: 2)
+Guides through sound-alike reasoning.
+
+```
+"reported" signals a homophone — we need a word that sounds like something.
+"lodge" → STOW (synonym). STOW sounds like STOWE.
+```
+
+Key elements:
+- Identify the indicator signal ("reported", "we hear", "sounds like")
+- Find synonym of fodder
+- Show that synonym sounds like the answer
+
+#### 5. Assembly (complexity: 0)
 Combines parts and links to definition.
 
 ```
@@ -332,6 +346,21 @@ Pattern: Charade with Letter Movement
 - Assembly: ALIGNM + ENT = ALIGNMENT = union
 
 Parsing summary: `slander → MALIGN → Move M → ALIGNM + hospital department's → ENT = ALIGNMENT`
+
+### Case 3: STOWE (Homophone)
+**Solved**: 2026-01-05
+
+Clue: "Public school lodge reported (5)"
+
+Pattern: Homophone
+- Definition: "Public school" → STOWE (synonym match, at start)
+- Wordplay: "lodge" + "reported" (homophone indicator)
+  - "lodge" → STOW (synonym)
+  - "reported" signals homophone
+  - STOW sounds like STOWE
+- Answer: STOWE
+
+Parsing summary: `lodge → STOW → STOWE = STOWE`
 
 ---
 

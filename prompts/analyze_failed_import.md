@@ -94,13 +94,13 @@ Based on the category:
 - Explain why this doesn't fit existing patterns
 - Recommend: skip, manual entry, or defer to later
 
-**CONSTRAINT: STOP HERE. Wait for user to say "approved" before any implementation.**
+**CONSTRAINT: STOP HERE. Ask "Want me to go ahead?" and wait for user to say "go" before any implementation.**
 
 ---
 
-## STEP 5: IMPLEMENTATION (Only After Approval)
+## STEP 5: IMPLEMENTATION (Only After "go")
 
-Only proceed when user explicitly approves.
+Only proceed when user says "go".
 
 Before making changes:
 1. List all files that will be modified
@@ -153,7 +153,7 @@ FIX CATEGORY: [A/B/C/D]
 PROPOSED FIX: [plain English description]
 FILES TO MODIFY: [list]
 RISK ASSESSMENT: [low/medium/high]
-AWAITING APPROVAL: YES
+AWAITING GO: YES
 ```
 
 ---
