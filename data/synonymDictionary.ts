@@ -355,6 +355,9 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // STOOGE: a pawn or puppet
     'pawn': ['STOOGE', 'PUPPET', 'TOOL', 'DUPE'],
     'puppet': ['STOOGE', 'PAWN', 'TOOL'],
+    'fool': ['ASS', 'IDIOT', 'DUNCE', 'CLOWN', 'MUG'],
+    'fools': ['ASSES', 'IDIOTS', 'DUNCES', 'MUGS'],
+    'asses': ['FOOLS', 'DONKEYS', 'IDIOTS'],
 
     // --- COMMON WORDS ---
     'the': ['T', 'TH'],
