@@ -309,6 +309,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'boat': ['SHIP', 'SS', 'ARK', 'CRAFT', 'DINGHY'],
     'plane': ['JET', 'AIRCRAFT', 'KITE'],
     'train': ['BR', 'LOCO', 'TUBE', 'COACH'],
+    'pipe': ['DUCT', 'TUBE', 'FLUE', 'MAIN'],
+    'duct': ['PIPE', 'TUBE', 'CHANNEL'],
 
     // --- EMOTIONS / STATES ---
     'anger': ['IRE', 'RAGE', 'FURY', 'WRATH'],
@@ -1290,12 +1292,15 @@ export function findSynonymForOperation(
 
 /**
  * Apply a letter extraction operation directly to fodder
- * Used for "end of X" type indicators
+ * Used for "end of X", "start of X", "cover from X" type indicators
  */
-export function extractLetter(fodder: string, position: 'first' | 'last'): string {
+export function extractLetter(fodder: string, position: 'first' | 'last' | 'ends'): string {
     const clean = fodder.replace(/[^a-zA-Z]/g, '');
     if (!clean) return '';
-    return position === 'first' ? clean[0].toUpperCase() : clean[clean.length - 1].toUpperCase();
+    if (position === 'first') return clean[0].toUpperCase();
+    if (position === 'last') return clean[clean.length - 1].toUpperCase();
+    if (position === 'ends') return clean[0].toUpperCase() + clean[clean.length - 1].toUpperCase();
+    return '';
 }
 
 /**

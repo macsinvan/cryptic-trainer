@@ -14,6 +14,7 @@
 - Letter Movement + Charade combo
 - Homophone
 - Substitution
+- Charade with Outer Letters
 
 ### Explanation Templates (Working)
 | StepType | Status |
@@ -22,11 +23,11 @@
 | letter_movement | ✅ Cold view template with full chain |
 | homophone | ✅ Cold view template |
 | assembly | ✅ Links to definition |
-| synonym | ⏳ Needs template |
-| anagram | ⏳ Needs template |
+| synonym | ✅ Cold view template |
+| anagram | ✅ Cold view template |
 | hidden | ⏳ Needs template |
 | reversal | ⏳ Needs template |
-| deletion | ⏳ Needs template |
+| deletion | ✅ Cold view template (outer letters) |
 
 ### Architecture
 - **Backend-first**: All logic in parser, UI is dumb
@@ -134,6 +135,7 @@
 | 4 | SODOM | Container | 2026-01-05 |
 | 5 | HAMFATTER | Charade (reversed order) | 2026-01-05 |
 | 6 | SOVEREIGN STATES | Anagram | 2026-01-05 |
+| 7 | DEDUCTED | Charade with Outer Letters | 2026-01-05 |
 
 ---
 

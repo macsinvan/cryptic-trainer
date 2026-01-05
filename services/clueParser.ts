@@ -1144,6 +1144,10 @@ const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'outsides of': { type: 'deletion_first', letterOp: 'ends' },
     'borders of': { type: 'deletion_first', letterOp: 'ends' },
     'edges of': { type: 'deletion_first', letterOp: 'ends' },
+    'cover': { type: 'deletion_first', letterOp: 'ends' },  // First and last letters
+    'cover from': { type: 'deletion_first', letterOp: 'ends' },
+    'at both ends': { type: 'deletion_first', letterOp: 'ends' },
+    'both ends of': { type: 'deletion_first', letterOp: 'ends' },
 
     // --- ANAGRAM ---
     'mixed': { type: 'anagram' },
@@ -1978,6 +1982,15 @@ function generateStepExplanation(
             // Anagram - letters rearranged
             return `"${indicator}" signals an anagram — rearrange the letters of "${fodder}" to get ${result}.`;
 
+        case 'deletion':
+            // Outer letters / deletion
+            if (result.length === 2) {
+                // Outer letters (first + last)
+                return `"${indicator}" signals outer letters — take the first and last letters of "${fodder}" to get ${result}.`;
+            }
+            // General deletion
+            return `"${indicator}" signals deletion — remove letters from "${fodder}" to get ${result}.`;
+
         default:
             return '';
     }
@@ -2029,6 +2042,9 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             } else if (INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.type === 'anagram') {
                 // Anagram indicator detected
                 stepType = 'anagram';
+            } else if (variables[`outer_letters_${i}`] === 'true' || INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.letterOp === 'ends') {
+                // Outer letters extraction
+                stepType = 'deletion';  // Use 'deletion' for outer letter extraction
             }
 
             // Build extra vars for letter_movement template
@@ -2287,6 +2303,8 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             lookFor = 'The answer is hiding in plain sight.';
         } else if (stepTypes.has('reversal')) {
             lookFor = 'Look for the reversal indicator.';
+        } else if (stepTypes.has('deletion')) {
+            lookFor = 'Look for indicators of letter extraction.';
         } else if (techniquesUsed.includes('charade')) {
             lookFor = 'How do the parts combine?';
         }
@@ -3955,8 +3973,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 variables[`fodder_${n}_text`] = fodder;
                 synonymsNeeded++;
 
-                if (entry.letterOp === 'first' || entry.letterOp === 'last') {
-                    // Letter extraction - no synonym needed, just extract letter
+                if (entry.letterOp === 'first' || entry.letterOp === 'last' || entry.letterOp === 'ends') {
+                    // Letter extraction - no synonym needed, just extract letter(s)
                     const letter = extractLetter(fodder, entry.letterOp);
                     variables[`result_${n}`] = letter;
                     synonymsResolved++;
@@ -4652,6 +4670,133 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
             confidence = 75;
             needsAIUpdated = false;
+        }
+    }
+
+    // Outer-letter charade fallback: handles patterns like "cover from X pipe Y at both ends"
+    // Where outer letters of words combine with synonyms
+    if (needsAIUpdated && knownAnswer && definition) {
+        const cleanClue = getClueWithoutCount(clue);
+        const words = cleanClue.split(/\s+/);
+        const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+
+        // Scan for outer-letter indicators directly from INDICATOR_DICTIONARY
+        const outerIndicators: { text: string; startWord: number; endWord: number }[] = [];
+        for (let i = 0; i < words.length; i++) {
+            for (let len = 3; len >= 1; len--) {
+                if (i + len > words.length) continue;
+                const phrase = words.slice(i, i + len).join(' ').toLowerCase();
+                const entry = INDICATOR_DICTIONARY[phrase];
+                if (entry && entry.letterOp === 'ends') {
+                    outerIndicators.push({ text: phrase, startWord: i, endWord: i + len });
+                    break; // Take longest match
+                }
+            }
+        }
+
+        if (outerIndicators.length >= 1) {
+            // Sort by position
+            outerIndicators.sort((a, b) => a.startWord - b.startWord);
+
+            // Build parts: outer-letter extractions + synonyms
+            const parts: { fodder: string; result: string; type: 'outer_letters' | 'synonym'; indicator?: string }[] = [];
+            const defWords = definition.split(/\s+/).length;
+            const startPos = defPosition === 'START' ? defWords : 0;
+            const endPos = defPosition === 'START' ? words.length : words.length - defWords;
+
+            // Mark which word indices are used by indicators
+            const usedByIndicator = new Set<number>();
+            for (const ind of outerIndicators) {
+                for (let i = ind.startWord; i < ind.endWord; i++) {
+                    usedByIndicator.add(i);
+                }
+            }
+
+            // Process each outer indicator
+            for (const ind of outerIndicators) {
+                // Look for fodder AFTER indicator (e.g., "cover from discharge")
+                if (ind.endWord < endPos && !usedByIndicator.has(ind.endWord)) {
+                    const fodderWord = words[ind.endWord];
+                    const result = extractLetter(fodderWord, 'ends');
+                    parts.push({ fodder: fodderWord, result, type: 'outer_letters', indicator: ind.text });
+                    usedByIndicator.add(ind.endWord);
+                }
+                // Look for fodder BEFORE indicator (e.g., "examined at both ends")
+                else if (ind.startWord > startPos && !usedByIndicator.has(ind.startWord - 1)) {
+                    const fodderWord = words[ind.startWord - 1];
+                    const result = extractLetter(fodderWord, 'ends');
+                    parts.push({ fodder: fodderWord, result, type: 'outer_letters', indicator: ind.text });
+                    usedByIndicator.add(ind.startWord - 1);
+                }
+            }
+
+            // Look for synonym parts in remaining words
+            for (let i = startPos; i < endPos; i++) {
+                if (usedByIndicator.has(i)) continue;
+                const word = words[i];
+                const syns = lookupSynonyms(word);
+                if (syns.length > 0) {
+                    parts.push({ fodder: word, result: syns[0], type: 'synonym' });
+                    usedByIndicator.add(i);
+                }
+            }
+
+            // Try all permutations of parts to find one that matches the answer
+            const tryPermutations = (arr: typeof parts): typeof parts[] => {
+                if (arr.length <= 1) return [arr];
+                const result: typeof parts[] = [];
+                for (let i = 0; i < arr.length; i++) {
+                    const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+                    for (const perm of tryPermutations(rest)) {
+                        result.push([arr[i], ...perm]);
+                    }
+                }
+                return result;
+            };
+
+            for (const ordering of tryPermutations(parts)) {
+                const combined = ordering.map(p => p.result).join('');
+                if (combined === answerClean) {
+                    // Success! Build variables
+                    const charadevars: Record<string, string> = {
+                        'def_text': definition,
+                        'definition_match_type': defMatchType,
+                        'definition_position': defPosition
+                    };
+
+                    ordering.forEach((part, idx) => {
+                        const n = idx + 1;
+                        if (part.type === 'outer_letters') {
+                            charadevars[`indicator_${n}_text`] = part.indicator || '(outer letters)';
+                        } else {
+                            charadevars[`indicator_${n}_text`] = '(synonym)';
+                        }
+                        charadevars[`fodder_${n}_text`] = part.fodder;
+                        charadevars[`result_${n}`] = part.result;
+                        charadevars[`complexity_${n}`] = '1';
+                        if (part.type === 'outer_letters') {
+                            charadevars[`outer_letters_${n}`] = 'true';
+                        }
+                    });
+
+                    const partsHint = ordering.map(p => `${p.fodder} → ${p.result}`).join(' + ');
+                    charadevars['hint_1'] = `Charade: ${partsHint} = ${knownAnswer}`;
+                    charadevars['structure'] = ordering.map(p => p.result).join(' + ') + ' = ' + answerClean;
+
+                    patternData = {
+                        id: `outer-letter-charade-${Date.now()}`,
+                        patternId: 'Charade with Outer Letters',
+                        clueText: clue,
+                        answer: knownAnswer,
+                        variables: charadevars,
+                        solveSteps: generateSolveSteps(charadevars, 'CHARADE', knownAnswer, coaching, clue)
+                    };
+
+                    confidence = 85;
+                    needsAIUpdated = false;
+                    break;
+                }
+            }
         }
     }
 

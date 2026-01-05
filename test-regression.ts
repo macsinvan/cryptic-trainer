@@ -80,6 +80,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['anagram'],
         expectedTechniques: ['anagram'],
     },
+    {
+        name: 'DEDUCTED (Charade with Outer Letters)',
+        clue: 'Took away cover from discharge pipe examined at both ends (8)',
+        answer: 'DEDUCTED',
+        expectedPattern: 'Charade with Outer Letters',
+        expectedDefinition: 'Took away',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['deletion', 'synonym'],
+        expectedTechniques: ['deletion', 'synonym', 'charade'],
+    },
 ];
 
 // Colors for output
