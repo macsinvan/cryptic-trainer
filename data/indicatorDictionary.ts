@@ -69,6 +69,8 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'at first': { type: 'deletion_first', letterOp: 'first' },
     'opener': { type: 'deletion_first', letterOp: 'first' },
     'opening': { type: 'deletion_first', letterOp: 'first' },
+    'intro': { type: 'deletion_first', letterOp: 'first' },  // "intro to Finnegans" = F
+    'intro to': { type: 'deletion_first', letterOp: 'first' },
     'leader': { type: 'deletion_first', letterOp: 'first' },
     'first of': { type: 'deletion_first', letterOp: 'first' },
     'primarily': { type: 'deletion_first', letterOp: 'first' },
@@ -702,6 +704,8 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'securing': { type: 'container' },
     'guarding': { type: 'container' },
     'trapping': { type: 'container' },
+    'involves': { type: 'container' },  // "that involves intro" = container
+    'involving': { type: 'container' },
 
     // --- HOMOPHONE ---
     'say': { type: 'homophone' },

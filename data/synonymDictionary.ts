@@ -451,6 +451,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'running': ['MANAGING', 'JOGGING'],
     'walk': ['STROLL', 'HIKE', 'TREK', 'AMBLE', 'GAIT'],
 
+    // --- CONSEQUENCES / RESULTS ---
+    'wake': ['AFTERMATH', 'CONSEQUENCE', 'RESULT', 'ROUSE', 'STIR'],
+    'aftermath': ['WAKE', 'CONSEQUENCE', 'RESULT', 'SEQUEL', 'FALLOUT'],
+
     // --- QUALITY / STATE ---
     'regrettably': ['DISAPPOINTINGLY', 'SADLY', 'UNFORTUNATELY', 'ALAS'],
     'disappointingly': ['REGRETTABLY', 'SADLY'],
