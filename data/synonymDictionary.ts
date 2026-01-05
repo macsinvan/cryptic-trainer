@@ -239,6 +239,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'soldier': ['GI', 'RE', 'RA', 'ANT', 'PRIVATE', 'TOMMY'],
     'doctor': ['DR', 'MD', 'DOC', 'GP', 'MO', 'QUACK'],
     'king': ['REX', 'K', 'ER', 'MONARCH', 'R'],
+    'head of state no longer': ['ER'],  // Elizabeth Regina - former monarch
     'knight': ['N', 'SIR', 'K'],
     'bishop': ['B', 'RR', 'BP'],
     'learner': ['L', 'PUPIL', 'STUDENT', 'NOVICE'],
@@ -271,6 +272,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'down': ['S', 'SOUTH'],
 
     // --- NUMBERS / AMOUNTS ---
+    'cardinals': ['NUMERIC'],  // Cardinal numbers are numeric (1, 2, 3 vs ordinals 1st, 2nd, 3rd)
     'one': ['I', 'A', 'AN', 'ACE', 'SINGLE', 'UNIT'],
     'two': ['II', 'PAIR', 'DUO', 'COUPLE', 'BRACE'],
     'three': ['III', 'TRIO', 'TER'],
@@ -741,7 +743,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'crucifix': ['ROOD'],
 
     // --- UNIONS/GROUPS/ALIGNMENT ---
-    'union': ['ALIGNMENT', 'ALLIANCE', 'MERGER', 'TU', 'NUS', 'WEDDING', 'MARRIAGE'],
+    'union': ['ALIGNMENT', 'ALLIANCE', 'MERGER', 'TU', 'NUS', 'NUM', 'WEDDING', 'MARRIAGE'],  // NUM = National Union of Mineworkers
     'alignment': ['UNION', 'ALLIANCE', 'AGREEMENT', 'LINE'],
     'slander': ['MALIGN', 'LIBEL', 'DEFAME', 'SMEAR', 'SLUR'],
     'malign': ['SLANDER', 'DEFAME', 'LIBEL', 'EVIL', 'BAD'],
@@ -780,6 +782,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'good': ['G', 'FINE', 'NICE', 'PI'],
     'half': ['SEMI', 'DEMI', 'HEMI'],
     'hospital': ['H', 'INFIRMARY'],
+    'in charge': ['IC'],
     'husband': ['H', 'MAN', 'HUBBY', 'SPOUSE'],
     'junction': ['J', 'JCT', 'JOIN', 'MEETING'],
     'line': ['L', 'ROW', 'RY', 'QUEUE', 'ROPE', 'CORD'],
