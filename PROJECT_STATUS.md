@@ -42,6 +42,26 @@
 
 ## Recent Sessions
 
+### 2026-01-05 (Session 5)
+**Focus:** Data-driven UI architecture
+
+**Changes:**
+- Added `DisplayBlock` interface for UI rendering
+- Added `solveExplanation: DisplayBlock[]` to PatternInstance
+- Parser now generates ordered display blocks:
+  1. Clue type (pattern name)
+  2. Setter hint (technique vocabulary)
+  3. Definition explanation
+  4. Wordplay step explanations
+  5. Assembly step (if present)
+  6. Parsing summary
+- Refactored ManualEntryMode.tsx to render from `solveExplanation` array
+- UI is now completely data-driven - just iterates and renders blocks
+- Added `techniquesUsed` and `setterHint` teaching fields
+- Updated parser_updates.md with new architecture docs
+
+---
+
 ### 2026-01-05 (Session 4)
 **Focus:** Container pattern implementation
 

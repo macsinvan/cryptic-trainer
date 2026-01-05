@@ -75,8 +75,16 @@ export interface WordplayStep {
     hint: string;
     complexity: number;  // 1=easy, 2=medium, 3=hard
     isAssembly: boolean; // True for Assembly steps (informational only)
-    stepType: 'abbreviation' | 'letter_movement' | 'assembly' | 'synonym' | 'anagram' | 'hidden' | 'reversal' | 'deletion' | 'homophone' | 'unknown';
+    stepType: 'abbreviation' | 'letter_movement' | 'assembly' | 'synonym' | 'anagram' | 'hidden' | 'reversal' | 'deletion' | 'homophone' | 'container' | 'unknown';
     explanation: string; // Pre-computed plain English explanation for UI
+}
+
+// Data-driven display block for UI rendering
+export interface DisplayBlock {
+    type: 'setter-hint' | 'clue-type' | 'parsing' | 'explanation';
+    content: string;
+    label?: string;           // Optional label (e.g., "Parsing", "Clue Type")
+    techniques?: string[];    // For setter-hint: list of techniques for tooltip rendering
 }
 
 export interface PatternInstance {
@@ -89,6 +97,9 @@ export interface PatternInstance {
     solveSteps?: string[]; // Step-by-step solve sequence for the battlecard
     analysis?: Record<string, unknown>; // Full analysis data for partial parsing
 
+    // DATA-DRIVEN UI: Parser returns ordered blocks, UI just renders them
+    solveExplanation?: DisplayBlock[];  // Ordered list of display blocks for UI
+
     // Pre-computed fields for UI (all logic in backend)
     wordplaySteps?: WordplayStep[];  // Ordered by complexity (easy first), Assembly last
     isComplete?: boolean;            // True if definition + all wordplay resolved
@@ -98,6 +109,10 @@ export interface PatternInstance {
     definitionExplanation?: string;  // Pre-computed plain English explanation for definition
     definitionPosition?: 'start' | 'end' | 'entire';  // Where definition appears in clue
     definitionHint?: string;         // For cryptic definitions, the cryptic twist explanation
+
+    // Teaching fields - help student learn setter techniques
+    techniquesUsed?: string[];       // e.g., ['abbreviation', 'container'] - cryptic vocabulary terms
+    setterHint?: string;             // e.g., "The setter has used **abbreviations** and a **container** here. Can you spot the insertion indicator?"
 }
 
 // -------------------------------------

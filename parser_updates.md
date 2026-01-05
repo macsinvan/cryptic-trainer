@@ -54,6 +54,9 @@ interface PatternInstance {
     variables: Record<string, string>;
     solveSteps?: string[];
 
+    // DATA-DRIVEN UI: Parser returns ordered blocks, UI just renders them
+    solveExplanation?: DisplayBlock[];  // Ordered list of display blocks for UI
+
     // PRE-COMPUTED FIELDS (UI-ready)
     wordplaySteps?: WordplayStep[];       // Sorted: easy first, Assembly last
     isComplete?: boolean;                  // True if definition + all wordplay resolved
@@ -63,6 +66,17 @@ interface PatternInstance {
     definitionExplanation?: string;        // Pre-computed plain English explanation
     definitionPosition?: 'start' | 'end' | 'entire';
     definitionHint?: string;               // For cryptic definitions
+
+    // Teaching fields
+    techniquesUsed?: string[];       // e.g., ['abbreviation', 'container']
+    setterHint?: string;             // e.g., "The setter has used **abbreviation**..."
+}
+
+interface DisplayBlock {
+    type: 'setter-hint' | 'clue-type' | 'parsing' | 'explanation';
+    content: string;
+    label?: string;           // Optional label (e.g., "Parsing", "Clue Type")
+    techniques?: string[];    // For setter-hint: list of techniques for tooltip
 }
 
 interface WordplayStep {
@@ -95,19 +109,54 @@ type StepType =
 The UI should NEVER compute derived values. It reads and renders:
 
 ```typescript
-// CORRECT - UI reads pre-computed values
+// CORRECT - Data-driven UI just iterates over solveExplanation
 const renderBattlecardReview = () => {
-    const wordplaySteps = activePatternData.wordplaySteps || [];
-    const hasMissingInfo = !activePatternData.isComplete;
-    const parsingSummary = activePatternData.parsingSummary || '';
-
     return (
-        <ul>
-            <li>{activePatternData.definitionExplanation}</li>
-            {wordplaySteps.map(step => <li>{step.explanation}</li>)}
-        </ul>
+        <div>
+            {(activePatternData.solveExplanation || []).map((block, i) => {
+                switch (block.type) {
+                    case 'clue-type':
+                        return <div key={i}><strong>{block.label}:</strong> {block.content}</div>;
+                    case 'setter-hint':
+                        return <div key={i} className="hint">{block.content}</div>;
+                    case 'parsing':
+                        return <div key={i} className="mono">{block.content}</div>;
+                    case 'explanation':
+                        return <div key={i}>{block.label && <small>{block.label}</small>}{block.content}</div>;
+                }
+            })}
+        </div>
     );
 };
+```
+
+### solveExplanation Block Order
+
+The parser generates blocks in this order:
+
+1. **clue-type** - Pattern name (e.g., "Homophone", "Container")
+2. **setter-hint** - Teaching hint with technique vocabulary
+3. **explanation (Definition)** - Definition explanation
+4. **explanation (Step N)** - Wordplay step explanations (sorted by complexity)
+5. **explanation (Assembly)** - Assembly step if present
+6. **parsing** - Final equation summary
+
+Example output for STOWE:
+```
+[1] CLUE-TYPE (Clue Type)
+    Homophone
+
+[2] SETTER-HINT
+    The setter has used **homophone** here. Look for the auditory indicator.
+
+[3] EXPLANATION (Definition)
+    The definition is "Public school" — found at the start. This maps to STOWE.
+
+[4] EXPLANATION (Step 1)
+    "reported" signals a homophone — we need a word that sounds like something...
+
+[5] PARSING (Parsing)
+    lodge → STOW → STOWE = STOWE
 ```
 
 ---

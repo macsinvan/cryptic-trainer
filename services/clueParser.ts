@@ -1,5 +1,5 @@
 
-import { PatternInstance, WordplayStep } from '../types';
+import { PatternInstance, WordplayStep, DisplayBlock } from '../types';
 import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS, ABBREVIATION_EXPLANATIONS, STANDALONE_SYNONYMS } from '../data/synonymDictionary';
 
 // --- SOLVE STEPS GENERATOR ---
@@ -1895,6 +1895,14 @@ interface HomophoneVars {
  * Templates are keyed by stepType.
  * Uses ABBREVIATION_EXPLANATIONS for teaching content.
  */
+interface ContainerVars {
+    outer: string;        // Full outer container (SM)
+    outerFirst: string;   // First part (S)
+    outerLast: string;    // Last part (M)
+    inner: string;        // Inner content (ODO)
+    part: 'first' | 'last';  // Which part this step represents
+}
+
 function generateStepExplanation(
     stepType: WordplayStep['stepType'],
     fodder: string,
@@ -1902,7 +1910,8 @@ function generateStepExplanation(
     indicator: string,
     letterMovementVars?: LetterMovementVars,
     definitionText?: string,
-    homophoneVars?: HomophoneVars
+    homophoneVars?: HomophoneVars,
+    containerVars?: ContainerVars
 ): string {
     switch (stepType) {
         case 'abbreviation': {
@@ -1946,6 +1955,21 @@ function generateStepExplanation(
                 ? `Combine the parts: ${fodder} = ${definitionText}`
                 : `Combine the parts: ${fodder}`;
 
+        case 'container': {
+            if (!containerVars) {
+                return '';
+            }
+            const { outer, outerFirst, outerLast, inner, part } = containerVars;
+            // Full container step - produces final answer
+            if (outer.length === 2) {
+                // 2-letter outer: unambiguous, only one insertion point
+                return `"${indicator}" signals a container — ${inner} goes inside ${outer}. "${fodder}" → ${outer}. With a 2-letter container, there's only one place for ${inner} to go: ${outerFirst}(${inner})${outerLast} = ${result}.`;
+            } else {
+                // Longer container - acknowledge the figuring out required
+                return `"${indicator}" signals a container — ${inner} goes inside ${outer}. "${fodder}" → ${outer}. We need to find where ${inner} fits inside ${outer} to make a word matching the definition. Result: ${result}.`;
+            }
+        }
+
         // TODO: Add more templates as we build them
         default:
             return '';
@@ -1982,6 +2006,9 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             let stepType: WordplayStep['stepType'] = 'unknown';
             if (isAssembly) {
                 stepType = 'assembly';
+            } else if (variables[`container_part_${i}`]) {
+                // Container part detected via stored variables
+                stepType = 'container' as WordplayStep['stepType'];
             } else if (!indicator && complexity === 1) {
                 stepType = 'abbreviation';
             } else if (indicator?.includes('delay') || indicator?.includes('movement')) {
@@ -2013,10 +2040,23 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
                 };
             }
 
+            // Build extra vars for container template
+            let containerVars: ContainerVars | undefined;
+            if (stepType === 'container') {
+                const part = variables[`container_part_${i}`] as 'first' | 'last';
+                containerVars = {
+                    outer: variables['container_outer'] || '',
+                    outerFirst: variables['container_outer_first'] || '',
+                    outerLast: variables['container_outer_last'] || '',
+                    inner: variables['container_inner'] || '',
+                    part: part || 'first'
+                };
+            }
+
             // Generate explanation based on stepType
             // Pass definitionText for assembly steps
             const defText = variables['def_text'] || '';
-            const explanation = generateStepExplanation(stepType, fodder || '', result, indicator || '', letterMovementVars, defText, homophoneVars);
+            const explanation = generateStepExplanation(stepType, fodder || '', result, indicator || '', letterMovementVars, defText, homophoneVars, containerVars);
 
             steps.push({
                 indicator: indicator || '',
@@ -2066,7 +2106,52 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
     const actualSteps = steps.filter(s => !s.isAssembly);
     const wordplayMissing = actualSteps.length === 0 ||
         actualSteps.some(s => !s.fodder || (!s.result && !s.synonym));
-    const isComplete = !defMissing && !wordplayMissing;
+
+    // VALIDATION: Check that all assembly components are traceable to step results
+    // This catches errors like showing "S + ODO + M" when steps only show "ODO" and "SM"
+    let assemblyTraceabilityOk = true;
+    const structure = variables['structure'] || '';
+    if (structure) {
+        // Parse structure like "S + ODO + M = SODOM" to get components [S, ODO, M]
+        const equalsIdx = structure.indexOf('=');
+        const componentsPart = equalsIdx > 0 ? structure.substring(0, equalsIdx) : structure;
+        const assemblyComponents = componentsPart.split('+').map(c => c.trim().toUpperCase()).filter(c => c);
+
+        // Collect all results from non-assembly steps
+        const stepResults = actualSteps
+            .map(s => s.result?.toUpperCase())
+            .filter((r): r is string => !!r);
+
+        // Check each assembly component is traceable
+        const untracedComponents: string[] = [];
+        for (const component of assemblyComponents) {
+            // Check 1: Exact match to a step result
+            if (stepResults.includes(component)) {
+                continue;
+            }
+
+            // Check 2: Component is a substring of a step result (split container)
+            // e.g., "S" and "M" are parts of "SM"
+            const isSubstringOfResult = stepResults.some(result => result.includes(component));
+            if (isSubstringOfResult) {
+                // This is the problem case - we're using parts of a result without explaining
+                // the split. Mark as untraced so isComplete becomes false.
+                untracedComponents.push(component);
+                continue;
+            }
+
+            // Component not found at all
+            untracedComponents.push(component);
+        }
+
+        if (untracedComponents.length > 0) {
+            assemblyTraceabilityOk = false;
+            // Store for debugging/display
+            reorderedVars['untraced_components'] = untracedComponents.join(', ');
+        }
+    }
+
+    const isComplete = !defMissing && !wordplayMissing && assemblyTraceabilityOk;
 
     // Compute parsingSummary
     // Use structural order (from 'structure' variable), not complexity order
@@ -2144,6 +2229,120 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
         }
     }
 
+    // Generate techniquesUsed and setterHint for teaching
+    const techniquesUsed: string[] = [];
+    const stepTypes = new Set(steps.filter(s => !s.isAssembly).map(s => s.stepType));
+
+    // Map stepTypes to technique vocabulary
+    if (stepTypes.has('abbreviation')) techniquesUsed.push('abbreviation');
+    if (stepTypes.has('container')) techniquesUsed.push('container');
+    if (stepTypes.has('homophone')) techniquesUsed.push('homophone');
+    if (stepTypes.has('anagram')) techniquesUsed.push('anagram');
+    if (stepTypes.has('hidden')) techniquesUsed.push('hidden word');
+    if (stepTypes.has('reversal')) techniquesUsed.push('reversal');
+    if (stepTypes.has('deletion')) techniquesUsed.push('deletion');
+    if (stepTypes.has('letter_movement')) techniquesUsed.push('letter movement');
+    if (stepTypes.has('synonym')) techniquesUsed.push('synonym');
+
+    // Check for charade (multiple non-assembly steps that combine)
+    const nonAssemblySteps = steps.filter(s => !s.isAssembly);
+    if (nonAssemblySteps.length > 1 && !stepTypes.has('container')) {
+        techniquesUsed.push('charade');
+    }
+
+    // Generate setterHint
+    let setterHint = '';
+    if (techniquesUsed.length > 0) {
+        // Format techniques with ** for bold (markdown)
+        const formattedTechniques = techniquesUsed.map(t => `**${t}**`);
+        const techniquesList = formattedTechniques.length === 1
+            ? formattedTechniques[0]
+            : formattedTechniques.length === 2
+                ? `${formattedTechniques[0]} and ${formattedTechniques[1]}`
+                : `${formattedTechniques.slice(0, -1).join(', ')}, and ${formattedTechniques[formattedTechniques.length - 1]}`;
+
+        // Build the hint with technique-specific prompts
+        let lookFor = '';
+        if (stepTypes.has('container')) {
+            lookFor = 'Can you spot the insertion indicator?';
+        } else if (stepTypes.has('homophone')) {
+            lookFor = 'Look for the auditory indicator.';
+        } else if (stepTypes.has('letter_movement')) {
+            lookFor = 'Watch for the movement indicator.';
+        } else if (stepTypes.has('anagram')) {
+            lookFor = 'Look for the anagram indicator.';
+        } else if (stepTypes.has('hidden')) {
+            lookFor = 'The answer is hiding in plain sight.';
+        } else if (stepTypes.has('reversal')) {
+            lookFor = 'Look for the reversal indicator.';
+        } else if (techniquesUsed.includes('charade')) {
+            lookFor = 'How do the parts combine?';
+        }
+
+        setterHint = `The setter has used ${techniquesList} here. ${lookFor}`;
+    }
+
+    // Build solveExplanation array - ordered display blocks for data-driven UI
+    // The UI just iterates and renders these - no field-specific logic in UI
+    const solveExplanation: DisplayBlock[] = [];
+
+    // 1. Clue type (first - establishes context)
+    if (patternData.patternId) {
+        solveExplanation.push({
+            type: 'clue-type',
+            content: patternData.patternId,
+            label: 'Clue Type'
+        });
+    }
+
+    // 2. Setter hint (primes student for what to look for)
+    if (setterHint) {
+        solveExplanation.push({
+            type: 'setter-hint',
+            content: setterHint,
+            techniques: techniquesUsed
+        });
+    }
+
+    // 3. Definition explanation
+    if (definitionExplanation) {
+        solveExplanation.push({
+            type: 'explanation',
+            content: definitionExplanation,
+            label: 'Definition'
+        });
+    }
+
+    // 4. Wordplay step explanations (in complexity order - easy first)
+    steps.forEach((step, idx) => {
+        if (step.explanation && !step.isAssembly) {
+            solveExplanation.push({
+                type: 'explanation',
+                content: step.explanation,
+                label: `Step ${idx + 1}`
+            });
+        }
+    });
+
+    // 5. Assembly step (if present - shows how parts combine)
+    const assemblyStep = steps.find(s => s.isAssembly);
+    if (assemblyStep?.explanation) {
+        solveExplanation.push({
+            type: 'explanation',
+            content: assemblyStep.explanation,
+            label: 'Assembly'
+        });
+    }
+
+    // 6. Parsing summary (final equation)
+    if (parsingSummary) {
+        solveExplanation.push({
+            type: 'parsing',
+            content: parsingSummary,
+            label: 'Parsing'
+        });
+    }
+
     return {
         ...patternData,
         variables: reorderedVars,
@@ -2154,7 +2353,10 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
         definitionMatchType: defMatchType,
         definitionExplanation,
         definitionPosition: defPosition,
-        definitionHint: defHint
+        definitionHint: defHint,
+        techniquesUsed,
+        setterHint,
+        solveExplanation
     };
 }
 
@@ -4026,54 +4228,54 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                             }
 
                             // Perform container operation: insert inner in middle of outer
-                            // S + ODO + M = SODOM (inner ODO goes between S and M)
+                            // Container semantics: inner goes INSIDE outer
+                            // For 2-letter outer (SM), there's only one split: S + [inner] + M
+                            // For longer outer, default to split after first letter (most common)
                             if (innerResult && outerResult && outerResult.length >= 2) {
-                                // Try different insertion points to find what produces the answer
-                                let containerSuccess = false;
-                                let insertionPoint = 1;  // Default: after first letter
+                                // Pure wordplay: determine split from container structure, not answer
+                                // Default insertion point is after first letter of outer
+                                const insertionPoint = 1;
+                                const combined = outerResult.slice(0, insertionPoint) + innerResult + outerResult.slice(insertionPoint);
 
-                                for (let pos = 1; pos < outerResult.length; pos++) {
-                                    const combined = outerResult.slice(0, pos) + innerResult + outerResult.slice(pos);
-                                    if (combined === answerClean) {
-                                        containerSuccess = true;
-                                        insertionPoint = pos;
-                                        break;
-                                    }
-                                }
+                                // Verify: combined letters should match answer (count and letters)
+                                const combinedSorted = combined.split('').sort().join('');
+                                const answerSorted = answerClean.split('').sort().join('');
+                                const lettersMatch = combinedSorted === answerSorted;
+                                const countMatches = combined.length === answerClean.length;
 
-                                if (containerSuccess) {
+                                if (lettersMatch && countMatches) {
                                     const outerFirst = outerResult.slice(0, insertionPoint);
                                     const outerLast = outerResult.slice(insertionPoint);
 
-                                    // Set up wordplay steps
-                                    // Step 1: Inner content (easy - abbreviation lookup)
+                                    // Set up wordplay steps - clean, simple sequence:
+                                    // Step 1: Inner content
+                                    // Step 2: Container operation (produces final answer)
+
+                                    // Step 1: Inner content (abbreviation lookup)
                                     variables[`indicator_1_text`] = '';
                                     variables[`fodder_1_text`] = innerText;
                                     variables[`result_1`] = innerResult;
                                     variables[`hint_1`] = innerParts.map(p => `"${p.word}" → ${p.result}`).join(', ');
                                     variables[`complexity_1`] = '1';
 
-                                    // Step 2: Outer container (easy - abbreviation lookup)
-                                    variables[`indicator_2_text`] = '';
+                                    // Step 2: Container operation (produces final result)
+                                    variables[`indicator_2_text`] = ind.text;
                                     variables[`fodder_2_text`] = outerText;
-                                    variables[`result_2`] = outerResult;
-                                    variables[`hint_2`] = `"${outerText}" → ${outerResult}`;
-                                    variables[`complexity_2`] = '1';
-
-                                    // Step 3: Container operation (assembly)
-                                    const structure = `${outerFirst} + ${innerResult} + ${outerLast} = ${answerClean}`;
-                                    variables[`indicator_3_text`] = 'Assembly';
-                                    variables[`fodder_3_text`] = structure;
-                                    variables[`hint_3`] = `Container: ${outerFirst}(${innerResult})${outerLast} = ${answerClean}`;
-                                    variables['structure'] = structure;
+                                    variables[`result_2`] = combined;  // Full result: SODOM
+                                    variables[`hint_2`] = `"${outerText}" → ${outerResult}, ${innerResult} inside → ${outerFirst}(${innerResult})${outerLast}`;
+                                    variables[`complexity_2`] = '2';
+                                    variables[`container_part_2`] = 'full';
 
                                     // Store container-specific vars for explanation template
                                     variables['container_inner'] = innerResult;
                                     variables['container_outer'] = outerResult;
+                                    variables['container_outer_first'] = outerFirst;
+                                    variables['container_outer_last'] = outerLast;
                                     variables['container_indicator'] = ind.text;
                                     variables['container_verified'] = 'true';  // Flag to skip result verification
 
-                                    synonymsResolved = 2;  // Both inner and outer resolved
+                                    // No assembly step needed - container operation produces final answer
+                                    synonymsResolved = 2;
                                 }
                             }
                         }

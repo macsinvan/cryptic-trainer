@@ -5,7 +5,7 @@ import { getClueCount, saveClue, saveParserIssue, ParserIssue } from '../service
 import { parseFreeformInput, FreeformParseResult } from '../services/freeformParser';
 import { parseClue } from '../services/clueParser';
 import { solveClue, SolvedClue, testHypotheses, HypothesisInput } from '../services/aiService';
-import { ClueEvaluation, PatternInstance } from '../types';
+import { ClueEvaluation, PatternInstance, DisplayBlock } from '../types';
 import { ClueSolver } from './ClueSolver';
 
 interface ManualEntryModeProps {
@@ -417,7 +417,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                 </p>
               </div>
             ) : !hasMissingInfo && !isAccepted ? (
-              // COMPLETE: Show solved battlecard style
+              // COMPLETE: Data-driven solved battlecard - UI just renders solveExplanation array
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="bg-indigo-600 text-white p-1.5 rounded">
@@ -426,46 +426,69 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                   <h3 className="font-bold text-indigo-900 uppercase tracking-widest text-sm">Solved — What We Learned</h3>
                 </div>
 
-                {/* Clue Type */}
-                {fullAnalysis.type && (
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest">Clue Type:</span>
-                    <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-bold">{fullAnalysis.type}</span>
-                  </div>
-                )}
+                {/* Data-driven rendering - iterate over solveExplanation blocks */}
+                <div className="space-y-4">
+                  {(activePatternData.solveExplanation || []).map((block: DisplayBlock, i: number) => {
+                    // Render different block types with appropriate styling
+                    switch (block.type) {
+                      case 'setter-hint':
+                        return (
+                          <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <p className="text-sm text-amber-800" dangerouslySetInnerHTML={{
+                              __html: block.content.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-amber-900">$1</strong>')
+                            }} />
+                            {block.techniques && block.techniques.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {block.techniques.map((tech, ti) => (
+                                  <span key={ti} className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-medium">
+                                    {tech}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
 
-                {/* Parsing Summary */}
-                {parsingSummary && (
-                  <div className="bg-white/70 border border-indigo-200 rounded-lg p-4 mb-4 font-mono text-sm text-indigo-800">
-                    <span className="text-indigo-400 text-xs font-sans font-bold uppercase tracking-widest block mb-1">Parsing</span>
-                    {parsingSummary}
-                  </div>
-                )}
+                      case 'clue-type':
+                        return (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest">{block.label || 'Clue Type'}:</span>
+                            <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-bold">{block.content}</span>
+                          </div>
+                        );
 
-                {/* Learnings - all explanations pre-computed by parser */}
-                <ul className="space-y-3">
-                  {/* Definition learning */}
-                  <li className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
-                    <div className="flex gap-3 text-sm text-indigo-900 leading-relaxed">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
-                      <div className="flex-1">
-                        <p>{activePatternData.definitionExplanation}</p>
-                      </div>
-                    </div>
-                  </li>
+                      case 'parsing':
+                        return (
+                          <div key={i} className="bg-white/70 border border-indigo-200 rounded-lg p-4 font-mono text-sm text-indigo-800">
+                            <span className="text-indigo-400 text-xs font-sans font-bold uppercase tracking-widest block mb-1">{block.label || 'Parsing'}</span>
+                            {block.content}
+                          </div>
+                        );
 
-                  {/* Wordplay learnings - uses pre-computed explanations from parser */}
-                  {wordplaySteps.map((step, i) => (
-                    <li key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
-                      <div className="flex gap-3 text-sm text-indigo-900 leading-relaxed">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
-                        <div className="flex-1">
-                          <p>{step.explanation}</p>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                      case 'explanation':
+                        return (
+                          <div key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
+                            {block.label && (
+                              <span className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest block mb-1">{block.label}</span>
+                            )}
+                            <div className="flex gap-3 text-sm text-indigo-900 leading-relaxed">
+                              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
+                              <div className="flex-1">
+                                <p>{block.content}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+
+                      default:
+                        return (
+                          <div key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
+                            <p className="text-sm text-indigo-900">{block.content}</p>
+                          </div>
+                        );
+                    }
+                  })}
+                </div>
               </div>
             ) : isAccepted ? (
               // SAVED: Show confirmation

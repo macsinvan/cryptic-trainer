@@ -13,6 +13,8 @@ interface TestCase {
     expectedDefinition: string;
     expectedDefinitionPosition: 'START' | 'END';
     expectedStepTypes: string[];
+    // Teaching fields
+    expectedTechniques: string[];
     // For no-answer cold parsing
     expectedColdDefinitionCandidates?: string[];
     expectedColdIndicators?: string[];
@@ -28,6 +30,7 @@ const testCases: TestCase[] = [
         expectedDefinition: 'Public school',
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['homophone'],
+        expectedTechniques: ['homophone'],
         expectedColdDefinitionCandidates: ['Public', 'Public school'],
         expectedColdIndicators: ['reported'],
         expectedColdFodder: ['lodge'],
@@ -40,6 +43,7 @@ const testCases: TestCase[] = [
         expectedDefinition: 'union',
         expectedDefinitionPosition: 'END',
         expectedStepTypes: ['abbreviation', 'letter_movement', 'assembly'],
+        expectedTechniques: ['abbreviation', 'letter movement', 'charade'],
         expectedColdDefinitionCandidates: ['union'],
         expectedColdIndicators: ['following delay of'],
         expectedColdFodder: ['slander'],
@@ -51,7 +55,8 @@ const testCases: TestCase[] = [
         expectedPattern: 'Container',
         expectedDefinition: 'Depraved scene',
         expectedDefinitionPosition: 'START',
-        expectedStepTypes: ['abbreviation', 'assembly'],
+        expectedStepTypes: ['abbreviation', 'container'],
+        expectedTechniques: ['abbreviation', 'container'],
         expectedColdDefinitionCandidates: ['Depraved', 'Depraved scene'],
         expectedColdIndicators: ['embodied by'],
     },
@@ -113,9 +118,27 @@ function runTests() {
             }
 
             // Check that at least one explanation contains definition link
-            const allExplanations = result.patternData?.wordplaySteps?.map(s => s.explanation).join(' ') || '';
+            const stepExplanations = result.patternData?.wordplaySteps?.map(s => s.explanation).join(' ') || '';
+            const defExplanation = result.patternData?.definitionExplanation || '';
+            const allExplanations = stepExplanations + ' ' + defExplanation;
             if (!allExplanations.toLowerCase().includes(tc.expectedDefinition.toLowerCase())) {
                 errors.push(`Explanations should link to definition "${tc.expectedDefinition.toLowerCase()}"`);
+            }
+
+            // Check techniques used
+            const actualTechniques = result.patternData?.techniquesUsed || [];
+            for (const expected of tc.expectedTechniques) {
+                if (!actualTechniques.includes(expected)) {
+                    errors.push(`Missing technique: "${expected}"`);
+                }
+            }
+
+            // Check setterHint exists and contains techniques
+            const setterHint = result.patternData?.setterHint || '';
+            if (!setterHint) {
+                errors.push('setterHint is empty');
+            } else if (!setterHint.includes('The setter has used')) {
+                errors.push('setterHint should start with "The setter has used"');
             }
         }
 
