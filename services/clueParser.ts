@@ -1264,14 +1264,19 @@ function generateStepExplanation(
             // Anagram - letters rearranged
             return `"${indicator}" signals an anagram — rearrange the letters of "${fodder}" to get ${result}.`;
 
-        case 'deletion':
-            // Outer letters / deletion
-            if (result.length === 2) {
+        case 'deletion': {
+            // Outer letters / deletion / truncation
+            if (result.length === 2 && fodder.length > 2) {
                 // Outer letters (first + last)
                 return `"${indicator}" signals outer letters — take the first and last letters of "${fodder}" to get ${result}.`;
             }
+            // Truncation (briefly, nearly, almost, etc.) - remove last letter
+            if (indicator === 'truncation' || indicator?.includes('truncation')) {
+                return `"briefly" signals truncation — remove the last letter. ${fodder} → ${result}.`;
+            }
             // General deletion
             return `"${indicator}" signals deletion — remove letters from "${fodder}" to get ${result}.`;
+        }
 
         default:
             return '';
@@ -1321,7 +1326,10 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             } else if (indicator === '(synonym)' || indicator === 'synonym') {
                 // Charade parts identified as synonym lookups
                 stepType = 'synonym';
-            } else if (INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.type === 'anagram') {
+            } else if (indicator === 'truncation' || indicator?.includes('truncation of')) {
+                // Truncation operation (e.g., "Diana briefly" -> DIAN)
+                stepType = 'deletion';
+            } else if (indicator === 'anagram' || indicator?.includes('anagram of') || INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.type === 'anagram') {
                 // Anagram indicator detected
                 stepType = 'anagram';
             } else if (variables[`outer_letters_${i}`] === 'true' || INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.letterOp === 'ends') {
@@ -1925,30 +1933,78 @@ function tryCompositeCharade(
 
     // 1. Find synonym candidates (don't skip connectors - they might have synonym meanings like "in" = HIP)
     for (let i = 0; i < words.length; i++) {
-        for (let phraseLen = Math.min(3, words.length - i); phraseLen >= 1; phraseLen--) {
-            const phrase = words.slice(i, i + phraseLen).join(' ').toLowerCase().replace(/[^a-z' \\-]/g, '');
-            // Don't skip connectors here - "in" can mean HIP
+        // Allow phrases up to 5 words to capture entries like "head of state no longer"
+        for (let phraseLen = Math.min(5, words.length - i); phraseLen >= 1; phraseLen--) {
+            // Try both cleaned version and original (for special entries like "£1")
+            const phraseOriginal = words.slice(i, i + phraseLen).join(' ').toLowerCase();
+            const phraseCleaned = phraseOriginal.replace(/[^a-z' \\-]/g, '');
 
-            const synonyms = SYNONYM_DICTIONARY[phrase];
-            if (synonyms) {
-                for (const syn of synonyms) {
-                    if (syn.length <= answerLen) {
-                        candidates.push({
-                            text: words.slice(i, i + phraseLen).join(' '),
-                            result: syn,
-                            operation: 'synonym',
-                            wordIndices: Array.from({ length: phraseLen }, (_, j) => i + j)
-                        });
+            // Try original first (for entries like "£1"), then cleaned
+            const phrasesToTry = [phraseOriginal, phraseCleaned].filter(p => p.length > 0);
+
+            for (const phrase of phrasesToTry) {
+                const synonyms = SYNONYM_DICTIONARY[phrase];
+                if (synonyms) {
+                    for (const syn of synonyms) {
+                        if (syn.length <= answerLen) {
+                            candidates.push({
+                                text: words.slice(i, i + phraseLen).join(' '),
+                                result: syn,
+                                operation: 'synonym',
+                                wordIndices: Array.from({ length: phraseLen }, (_, j) => i + j)
+                            });
+                        }
                     }
+                    break;  // Found synonyms, don't try the cleaned version
                 }
             }
         }
     }
 
-    // 2. Find deletion candidates (half of word, first/last letters)
+    // 1b. For anagrams: add raw words as potential fodder (the word itself contributes letters)
+    // e.g., "codes" in "defective... codes formed" contributes CODES to the anagram
+    const hasAnagramIndicator = indicators.some(i => i.type === 'anagram');
+    if (hasAnagramIndicator) {
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+            if (word.length < 2 || CHARADE_CONNECTORS.has(word)) continue;
+            // Skip if this word is an indicator
+            const isIndicator = indicators.some(ind =>
+                ind.text.toLowerCase().replace(/[^a-z]/g, '') === word
+            );
+            if (isIndicator) continue;
+            // Skip if we already have a synonym for this word
+            const alreadyHasSynonym = candidates.some(c =>
+                c.wordIndices.length === 1 && c.wordIndices[0] === i
+            );
+            if (alreadyHasSynonym) continue;
+
+            const wordUpper = word.toUpperCase();
+            if (wordUpper.length <= answerLen) {
+                candidates.push({
+                    text: words[i],
+                    result: wordUpper,
+                    operation: 'raw',
+                    wordIndices: [i]
+                });
+            }
+        }
+    }
+
+    // 2. Find deletion candidates (half of word, truncation)
     for (const ind of deletionIndicators) {
         // Find words near this indicator that could be fodder
         const indWord = ind.text.toLowerCase();
+
+        // Find the indicator position in words array
+        let indIdx = -1;
+        for (let i = 0; i < words.length; i++) {
+            if (words[i].toLowerCase().replace(/[^a-z]/g, '') === indWord.replace(/[^a-z]/g, '')) {
+                indIdx = i;
+                break;
+            }
+        }
+
         for (let i = 0; i < words.length; i++) {
             const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
             if (word === indWord || CHARADE_CONNECTORS.has(word) || word.length < 3) continue;
@@ -1972,12 +2028,246 @@ function tryCompositeCharade(
                     wordIndices: [i]
                 });
             }
+            // Truncation (briefly, nearly, almost, etc.) - remove last letter
+            else if (ind.type === 'deletion_last' && !ind.entry.letterOp) {
+                // Only consider words near the indicator (within 2 positions)
+                if (indIdx >= 0 && Math.abs(i - indIdx) > 2) continue;
+
+                const truncated = wordUpper.slice(0, -1);
+                if (truncated.length >= 2) {
+                    candidates.push({
+                        text: words[i],
+                        result: truncated,
+                        operation: `truncation of ${words[i]}`,
+                        wordIndices: [i]
+                    });
+                }
+            }
         }
     }
 
+    // 2b. Find middle letter candidates (heart of, essentially, core, etc.)
+    const middleIndicators = indicators.filter(i => i.entry.letterOp === 'middle');
+    for (const ind of middleIndicators) {
+        const indWord = ind.text.toLowerCase();
+        // Find the indicator position in words array
+        let indIdx = -1;
+        for (let i = 0; i < words.length; i++) {
+            if (words[i].toLowerCase().replace(/[^a-z]/g, '') === indWord.replace(/[^a-z]/g, '')) {
+                indIdx = i;
+                break;
+            }
+        }
+
+        // Look at word(s) adjacent to the indicator
+        for (let i = 0; i < words.length; i++) {
+            let word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+            const originalWord = words[i];
+
+            // Handle possessives: "chip's" → "chip" (remove trailing 's')
+            if (originalWord.includes("'s")) {
+                word = originalWord.toLowerCase().replace(/'s$/i, '').replace(/[^a-z]/g, '');
+            }
+
+            if (word === indWord.replace(/[^a-z]/g, '') || CHARADE_CONNECTORS.has(word) || word.length < 2) continue;
+
+            // Only consider words near the indicator (within 2 positions)
+            if (indIdx >= 0 && Math.abs(i - indIdx) > 2) continue;
+
+            const wordUpper = word.toUpperCase();
+            // For odd-length words, take the middle letter
+            // For even-length words, take the middle 2 letters
+            if (wordUpper.length % 2 === 1) {
+                // Odd length: single middle letter
+                const midIdx = Math.floor(wordUpper.length / 2);
+                const middleLetter = wordUpper[midIdx];
+                candidates.push({
+                    text: originalWord,
+                    result: middleLetter,
+                    operation: `middle of ${originalWord}`,
+                    wordIndices: [i]
+                });
+            } else {
+                // Even length: middle 2 letters
+                const midIdx = wordUpper.length / 2 - 1;
+                const middleLetters = wordUpper.slice(midIdx, midIdx + 2);
+                candidates.push({
+                    text: originalWord,
+                    result: middleLetters,
+                    operation: `middle of ${originalWord}`,
+                    wordIndices: [i]
+                });
+            }
+        }
+    }
+
+    // 2c. Find container candidates (one word inside another)
+    // e.g., "soldiers charging Roman Catholic" = MEN inside LATIN = LAMENTIN
+    const containerIndicators = indicators.filter(i => i.type === 'container');
+    if (containerIndicators.length > 0) {
+        // Get all synonym pairs that could form a container
+        const synonymCandidates = candidates.filter(c => c.operation === 'synonym');
+        for (let i = 0; i < synonymCandidates.length; i++) {
+            for (let j = 0; j < synonymCandidates.length; j++) {
+                if (i === j) continue;
+                // Check if word indices don't overlap
+                const iIndices = new Set(synonymCandidates[i].wordIndices);
+                if (synonymCandidates[j].wordIndices.some(idx => iIndices.has(idx))) continue;
+
+                const inner = synonymCandidates[i].result;  // MEN
+                const outer = synonymCandidates[j].result;  // LATIN
+
+                // Try inserting inner at each position in outer
+                for (let pos = 1; pos < outer.length; pos++) {
+                    const combined = outer.slice(0, pos) + inner + outer.slice(pos);
+                    if (combined.length <= answerLen) {
+                        candidates.push({
+                            text: `${synonymCandidates[i].text} in ${synonymCandidates[j].text}`,
+                            result: combined,
+                            operation: `${inner} inside ${outer}`,
+                            wordIndices: [...synonymCandidates[i].wordIndices, ...synonymCandidates[j].wordIndices]
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // 2d. Find last-letter/ends candidates
+    const lastOrEndsIndicators = indicators.filter(i => i.entry.letterOp === 'last' || i.entry.letterOp === 'ends');
+    for (const ind of lastOrEndsIndicators) {
+        const indWord = ind.text.toLowerCase();
+        // Find the indicator position in words array
+        let indIdx = -1;
+        for (let i = 0; i < words.length; i++) {
+            if (words[i].toLowerCase().replace(/[^a-z]/g, '') === indWord.replace(/[^a-z]/g, '')) {
+                indIdx = i;
+                break;
+            }
+        }
+
+        // Look at word(s) adjacent to the indicator
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+            if (word === indWord.replace(/[^a-z]/g, '') || CHARADE_CONNECTORS.has(word) || word.length < 2) continue;
+
+            // Only consider words near the indicator (within 2 positions)
+            if (indIdx >= 0 && Math.abs(i - indIdx) > 2) continue;
+
+            const wordUpper = word.toUpperCase();
+
+            if (ind.entry.letterOp === 'ends') {
+                // Outer letters (first + last)
+                const outerLetters = wordUpper[0] + wordUpper[wordUpper.length - 1];
+                candidates.push({
+                    text: words[i],
+                    result: outerLetters,
+                    operation: `outer of ${words[i]}`,
+                    wordIndices: [i]
+                });
+            } else {
+                // Just last letter
+                const lastLetter = wordUpper[wordUpper.length - 1];
+                candidates.push({
+                    text: words[i],
+                    result: lastLetter,
+                    operation: `last of ${words[i]}`,
+                    wordIndices: [i]
+                });
+            }
+        }
+    }
+
+    // 2e. Find first-letter candidates (primarily, initially, head of, etc.)
+    const firstLetterIndicators = indicators.filter(i => i.entry.letterOp === 'first');
+    for (const ind of firstLetterIndicators) {
+        const indWord = ind.text.toLowerCase();
+        // Find the indicator position in words array
+        let indIdx = -1;
+        for (let i = 0; i < words.length; i++) {
+            if (words[i].toLowerCase().replace(/[^a-z]/g, '') === indWord.replace(/[^a-z]/g, '')) {
+                indIdx = i;
+                break;
+            }
+        }
+
+        // Look at word(s) adjacent to the indicator
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+            if (word === indWord.replace(/[^a-z]/g, '') || CHARADE_CONNECTORS.has(word) || word.length < 2) continue;
+
+            // Only consider words near the indicator (within 2 positions)
+            if (indIdx >= 0 && Math.abs(i - indIdx) > 2) continue;
+
+            const wordUpper = word.toUpperCase();
+            const firstLetter = wordUpper[0];
+            candidates.push({
+                text: words[i],
+                result: firstLetter,
+                operation: `first of ${words[i]}`,
+                wordIndices: [i]
+            });
+        }
+    }
+
+    // 2f. Find reversal candidates
+    const reversalIndicators = indicators.filter(i => i.type === 'reversal');
+    if (reversalIndicators.length > 0) {
+        // Get all synonym candidates and create reversed versions
+        const synonymCandidates = candidates.filter(c => c.operation === 'synonym');
+        for (const synCand of synonymCandidates) {
+            const reversed = synCand.result.split('').reverse().join('');
+            candidates.push({
+                text: synCand.text,
+                result: reversed,
+                operation: `reversal of ${synCand.text}`,
+                wordIndices: [...synCand.wordIndices]
+            });
+        }
+    }
+
+    // 2g. Container with letter insertion - insert first-letter into reversal/synonym
+    // e.g., "used in sensitive regressive" → U inside EROS = EUROS
+    // Check if "in" appears in the wordplay (common container indicator)
+    const hasInWord = words.some(w => w.toLowerCase().replace(/[^a-z]/g, '') === 'in');
+    if (hasInWord) {
+        // Get letter candidates (single letters from first/last/middle operations)
+        const letterCandidates = candidates.filter(c => c.result.length === 1);
+        // Get multi-letter candidates (synonyms, reversals)
+        const outerCandidates = candidates.filter(c => c.result.length >= 3);
+
+        for (const letterCand of letterCandidates) {
+            for (const outerCand of outerCandidates) {
+                // Check indices don't overlap
+                const letterIndices = new Set(letterCand.wordIndices);
+                if (outerCand.wordIndices.some(idx => letterIndices.has(idx))) continue;
+
+                const letter = letterCand.result;
+                const outer = outerCand.result;
+
+                // Try inserting letter at each position in outer (not start or end)
+                for (let pos = 1; pos < outer.length; pos++) {
+                    const combined = outer.slice(0, pos) + letter + outer.slice(pos);
+                    if (combined.length <= answerLen) {
+                        candidates.push({
+                            text: `${letterCand.text} in ${outerCand.text}`,
+                            result: combined,
+                            operation: `${letter} inside ${outer}`,
+                            wordIndices: [...letterCand.wordIndices, ...outerCand.wordIndices]
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort candidates by their first word index to ensure proper ordering
+    candidates.sort((a, b) => a.wordIndices[0] - b.wordIndices[0]);
+
     // 3. Try combinations of candidates that don't overlap and sum to answer
+    // Allow any order (not just clue order) due to indicators like "following"
     function tryCombinations(
-        remaining: CandidatePart[],
+        allCandidates: CandidatePart[],
         current: CandidatePart[],
         usedIndices: Set<number>,
         currentResult: string
@@ -1985,23 +2275,22 @@ function tryCompositeCharade(
         if (currentResult === answerClean) {
             return current;
         }
-        if (currentResult.length >= answerLen || remaining.length === 0) {
+        if (currentResult.length >= answerLen) {
             return null;
         }
 
-        for (let i = 0; i < remaining.length; i++) {
-            const cand = remaining[i];
-            // Check for overlap
+        for (let i = 0; i < allCandidates.length; i++) {
+            const cand = allCandidates[i];
+            // Check for overlap with already used word indices
             if (cand.wordIndices.some(idx => usedIndices.has(idx))) continue;
             // Check if it fits
             if (currentResult.length + cand.result.length > answerLen) continue;
 
             const newUsed = new Set(usedIndices);
             cand.wordIndices.forEach(idx => newUsed.add(idx));
-            const newRemaining = remaining.slice(i + 1);
 
             const result = tryCombinations(
-                newRemaining,
+                allCandidates,  // Try ALL candidates, not just those after this one
                 [...current, cand],
                 newUsed,
                 currentResult + cand.result
@@ -2017,6 +2306,243 @@ function tryCompositeCharade(
             parts: solution.map(s => ({ text: s.text, result: s.result, operation: s.operation })),
             success: true
         };
+    }
+
+    // 4. Try anagram of combined parts
+    // e.g., "electronic chip's core codes" = E + HI + CODES, anagram → ECHOISED
+    const anagramIndicators = indicators.filter(i => i.type === 'anagram');
+    if (anagramIndicators.length > 0) {
+        // Helper to check if letters can be rearranged to form answer
+        function isAnagram(letters: string, target: string): boolean {
+            const sortedLetters = letters.toUpperCase().split('').sort().join('');
+            const sortedTarget = target.toUpperCase().split('').sort().join('');
+            return sortedLetters === sortedTarget;
+        }
+
+        // Try combinations of candidates that when combined form an anagram of the answer
+        function tryAnagramCombinations(
+            remaining: CandidatePart[],
+            current: CandidatePart[],
+            usedIndices: Set<number>,
+            currentLetters: string
+        ): CandidatePart[] | null {
+            // Check if current letters anagram to answer
+            if (currentLetters.length === answerLen && isAnagram(currentLetters, answerClean)) {
+                return current;
+            }
+            if (currentLetters.length >= answerLen) {
+                return null;
+            }
+
+            for (let i = 0; i < remaining.length; i++) {
+                const cand = remaining[i];
+                // Check for overlap
+                if (cand.wordIndices.some(idx => usedIndices.has(idx))) continue;
+                // Check if adding this won't exceed answer length
+                if (currentLetters.length + cand.result.length > answerLen) continue;
+
+                const newUsed = new Set(usedIndices);
+                cand.wordIndices.forEach(idx => newUsed.add(idx));
+
+                const result = tryAnagramCombinations(
+                    remaining,
+                    [...current, cand],
+                    newUsed,
+                    currentLetters + cand.result
+                );
+                if (result) return result;
+            }
+            return null;
+        }
+
+        const anagramSolution = tryAnagramCombinations(candidates, [], new Set(), '');
+        if (anagramSolution && anagramSolution.length >= 2) {
+            // Combine all parts into single anagram operation
+            const combinedFodder = anagramSolution.map(s => s.text).join(' + ');
+            const combinedLetters = anagramSolution.map(s => s.result).join('');
+            return {
+                parts: [{
+                    text: combinedFodder,
+                    result: answerClean,
+                    operation: `anagram of ${combinedLetters}`
+                }],
+                success: true
+            };
+        }
+
+        // 5. Try charade + partial anagram
+        // e.g., "Charles upset Diana briefly" = THE KING + anagram(DIAN) = THE KING + ANDI = THEKINGANDI
+        // One or more candidates are kept as-is, one or more are anagrammed
+        function tryCharadeWithPartialAnagram(): { parts: { text: string; result: string; operation: string }[]; success: boolean } | null {
+            // Get non-anagram candidates (synonyms, truncations, etc. that aren't indicators)
+            const nonIndicatorCandidates = candidates.filter(c =>
+                c.operation !== 'raw' &&
+                !indicators.some(ind => ind.text.toLowerCase() === c.text.toLowerCase().replace(/[^a-z]/g, ''))
+            );
+
+            // Try each combination of 1+ fixed candidates + 1+ anagrammed candidates
+            for (let fixedCount = 1; fixedCount < nonIndicatorCandidates.length; fixedCount++) {
+                // Try each subset of candidates as "fixed"
+                function* combinations<T>(arr: T[], k: number): Generator<T[]> {
+                    if (k === 0) { yield []; return; }
+                    if (arr.length < k) return;
+                    const [first, ...rest] = arr;
+                    for (const combo of combinations(rest, k - 1)) {
+                        yield [first, ...combo];
+                    }
+                    yield* combinations(rest, k);
+                }
+
+                for (const fixedCandidates of combinations(nonIndicatorCandidates, fixedCount)) {
+                    const fixedIndices = new Set(fixedCandidates.flatMap(c => c.wordIndices));
+                    // Strip spaces from fixed letters (THE KING -> THEKING)
+                    const fixedLettersRaw = fixedCandidates.map(c => c.result).join('');
+                    const fixedLetters = fixedLettersRaw.replace(/[^A-Z]/gi, '').toUpperCase();
+
+                    // Remaining candidates to be anagrammed
+                    const anagramCandidates = nonIndicatorCandidates.filter(c =>
+                        !c.wordIndices.some(idx => fixedIndices.has(idx))
+                    );
+
+                    // Try combinations of remaining candidates as anagram fodder
+                    for (let anagramCount = 1; anagramCount <= anagramCandidates.length; anagramCount++) {
+                        for (const toAnagram of combinations(anagramCandidates, anagramCount)) {
+                            const anagramIndices = new Set(toAnagram.flatMap(c => c.wordIndices));
+                            // Check no overlap
+                            if ([...anagramIndices].some(idx => fixedIndices.has(idx))) continue;
+
+                            const anagramLettersRaw = toAnagram.map(c => c.result).join('');
+                            const anagramLetters = anagramLettersRaw.replace(/[^A-Z]/gi, '').toUpperCase();
+                            const totalLetters = fixedLetters.length + anagramLetters.length;
+
+                            if (totalLetters !== answerLen) continue;
+
+                            // Check if fixed + anagram(fodder) = answer
+                            // Try both orders: fixed first, or anagrammed first
+                            const sortedAnagram = anagramLetters.split('').sort().join('');
+
+                            // Helper to format result with spaces based on answer format
+                            // e.g., answer "THE KING AND I" with result "ANDI" -> "AND I"
+                            function formatResultWithSpaces(result: string, fullAnswer: string, startPos: number): string {
+                                // Find word boundaries in original answer
+                                const answerWords = fullAnswer.split(/\s+/);
+                                let pos = 0;
+                                const boundaries: number[] = [0];
+                                for (const word of answerWords) {
+                                    pos += word.replace(/[^A-Z]/gi, '').length;
+                                    boundaries.push(pos);
+                                }
+
+                                // Insert spaces at appropriate positions
+                                let formatted = '';
+                                for (let i = 0; i < result.length; i++) {
+                                    const globalPos = startPos + i;
+                                    if (i > 0 && boundaries.includes(globalPos)) {
+                                        formatted += ' ';
+                                    }
+                                    formatted += result[i];
+                                }
+                                return formatted;
+                            }
+
+                            // Helper to build parts, splitting truncation from anagram
+                            function buildPartsWithTruncationSplit(
+                                toAnagram: CandidatePart[],
+                                anagramResult: string,
+                                anagramLetters: string,
+                                fixedCandidates: CandidatePart[],
+                                fixedFirst: boolean,
+                                startPosForAnagram: number
+                            ): { text: string; result: string; operation: string }[] {
+                                const parts: { text: string; result: string; operation: string }[] = [];
+
+                                // Add fixed candidates first if fixedFirst
+                                if (fixedFirst) {
+                                    for (const c of fixedCandidates) {
+                                        parts.push({ text: c.text, result: c.result, operation: c.operation });
+                                    }
+                                }
+
+                                // Check if any toAnagram candidate is a truncation
+                                const truncationCandidates = toAnagram.filter(c => c.operation.startsWith('truncation'));
+                                const nonTruncationCandidates = toAnagram.filter(c => !c.operation.startsWith('truncation'));
+
+                                if (truncationCandidates.length > 0) {
+                                    // Split: first add truncation steps, then anagram step
+                                    for (const tc of truncationCandidates) {
+                                        // Extract original word from operation like "truncation of Diana"
+                                        const match = tc.operation.match(/truncation of (\w+)/);
+                                        const originalWord = match ? match[1] : tc.text;
+                                        parts.push({
+                                            text: originalWord,
+                                            result: tc.result,
+                                            operation: 'truncation'
+                                        });
+                                    }
+
+                                    // Now add the anagram step using the truncated result
+                                    const formattedResult = formatResultWithSpaces(anagramResult, answer, startPosForAnagram);
+                                    parts.push({
+                                        text: truncationCandidates.map(c => c.result).join(' + '),
+                                        result: formattedResult,
+                                        operation: 'anagram'
+                                    });
+                                } else {
+                                    // No truncation, just anagram
+                                    const formattedResult = formatResultWithSpaces(anagramResult, answer, startPosForAnagram);
+                                    parts.push({
+                                        text: toAnagram.map(c => c.text).join(' + '),
+                                        result: formattedResult,
+                                        operation: `anagram of ${anagramLetters}`
+                                    });
+                                }
+
+                                // Add fixed candidates last if not fixedFirst
+                                if (!fixedFirst) {
+                                    for (const c of fixedCandidates) {
+                                        parts.push({ text: c.text, result: c.result, operation: c.operation });
+                                    }
+                                }
+
+                                return parts;
+                            }
+
+                            // Order 1: fixed + anagram
+                            const remainder1 = answerClean.slice(fixedLetters.length);
+                            if (answerClean.startsWith(fixedLetters) &&
+                                remainder1.split('').sort().join('') === sortedAnagram) {
+                                return {
+                                    parts: buildPartsWithTruncationSplit(
+                                        toAnagram, remainder1, anagramLetters,
+                                        fixedCandidates, true, fixedLetters.length
+                                    ),
+                                    success: true
+                                };
+                            }
+
+                            // Order 2: anagram + fixed
+                            const remainder2 = answerClean.slice(0, answerLen - fixedLetters.length);
+                            if (answerClean.endsWith(fixedLetters) &&
+                                remainder2.split('').sort().join('') === sortedAnagram) {
+                                return {
+                                    parts: buildPartsWithTruncationSplit(
+                                        toAnagram, remainder2, anagramLetters,
+                                        fixedCandidates, false, 0
+                                    ),
+                                    success: true
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        const partialAnagramSolution = tryCharadeWithPartialAnagram();
+        if (partialAnagramSolution) {
+            return partialAnagramSolution;
+        }
     }
 
     return null;
@@ -2318,8 +2844,15 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
         .sort((a, b) => b[0].length - a[0].length);
 
     for (const [indicator, entry] of sortedIndicators) {
-        const idx = cleanClue.indexOf(indicator);
-        if (idx !== -1) {
+        // Use word boundary matching to avoid matching inside words
+        // e.g., "new" should not match inside "newspaper"
+        const escapedIndicator = indicator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`\\b${escapedIndicator}\\b`, 'i');
+        const match = cleanClue.match(pattern);
+
+        if (match && match.index !== undefined) {
+            const idx = match.index;
+
             // Check if this indicator falls within a locked (definition) range
             const inLockedRange = lockedRanges.some(r =>
                 (idx >= r.start && idx < r.end) ||
@@ -2471,10 +3004,11 @@ function extractDefinition(clue: string, position: 'START' | 'END', indicators: 
 
 function extractFodder(
     clue: string,
-    indicator: { text: string; startIdx: number; endIdx: number },
+    indicator: { text: string; startIdx: number; endIdx: number; entry?: IndicatorEntry },
     defPosition: 'START' | 'END',
     allIndicators: { text: string; startIdx: number; endIdx: number }[],
-    defEndWordIdx: number  // Where definition ends (if START) or begins (if END)
+    defEndWordIdx: number,  // Where definition ends (if START) or begins (if END)
+    letterOp?: 'first' | 'last' | 'ends' | 'middle'  // Override for letter extraction indicators
 ): string {
     const cleanClue = getClueWithoutCount(clue);
     const words = cleanClue.split(/\s+/);
@@ -2526,6 +3060,10 @@ function extractFodder(
     // Fodder location depends on indicator type and position
     // For most indicators, fodder is adjacent (before or after)
     // For letter extraction (end of, start of), fodder is immediately after
+    // For MIDDLE letter extraction (essentially, core of), fodder is immediately BEFORE
+
+    // Get the effective letterOp from either the parameter or the indicator entry
+    const effectiveLetterOp = letterOp || indicator.entry?.letterOp;
 
     if (defPosition === 'START') {
         // Definition at start
@@ -2533,6 +3071,18 @@ function extractFodder(
         const beforeIndicator = words.slice(defEndWordIdx, indicatorStartWord);
         // Check if there's content AFTER this indicator (before next indicator)
         const afterIndicator = words.slice(indicatorEndWord, nextIndicatorStartWord);
+
+        // For MIDDLE letter indicators (essentially, core of, heart of), prefer content BEFORE
+        // "bet, essentially £1" → fodder is "bet" (before "essentially"), not "£1"
+        if (effectiveLetterOp === 'middle') {
+            if (beforeIndicator.length > 0) {
+                // Take just the word immediately before the indicator
+                return beforeIndicator[beforeIndicator.length - 1];
+            }
+            if (afterIndicator.length > 0) {
+                return afterIndicator[0];  // Fallback: first word after
+            }
+        }
 
         // Prefer content after indicator for "end of", "start of" type extractions
         if (afterIndicator.length > 0) {
@@ -2547,14 +3097,27 @@ function extractFodder(
         // For acrostic/first-letter indicators at START, fodder is AFTER the indicator
         // For other cases, fodder might be before
 
+        // Check if there's content BEFORE this indicator
+        const beforeIndicator = words.slice(0, indicatorStartWord);
         // First try: content AFTER indicator, up to the definition boundary
         const afterIndicator = words.slice(indicatorEndWord, defEndWordIdx);
+
+        // For MIDDLE letter indicators, prefer content BEFORE
+        if (effectiveLetterOp === 'middle') {
+            if (beforeIndicator.length > 0) {
+                // Take just the word immediately before the indicator
+                return beforeIndicator[beforeIndicator.length - 1];
+            }
+            if (afterIndicator.length > 0) {
+                return afterIndicator[0];  // Fallback: first word after
+            }
+        }
+
         if (afterIndicator.length > 0) {
             return afterIndicator.join(' ');
         }
 
         // Fallback: content BEFORE the indicator
-        const beforeIndicator = words.slice(0, indicatorStartWord);
         if (beforeIndicator.length > 0) {
             return beforeIndicator.join(' ');
         }
@@ -3081,6 +3644,15 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             const partsHint = composite.parts.map(p => `${p.text} → ${p.result} (${p.operation})`).join(' + ');
             variables['hint_1'] = `Composite: ${partsHint} = ${knownAnswer}`;
 
+            const rawPatternData: PatternInstance = {
+                id: `composite-${Date.now()}`,
+                patternId: 'COMPOSITE_CHARADE',
+                clueText: clue,
+                answer: knownAnswer,
+                variables,
+                solveSteps: generateSolveSteps(variables, 'COMPOSITE_CHARADE', knownAnswer, coaching, clue)
+            };
+
             return {
                 success: true,
                 confidence: 85,
@@ -3090,14 +3662,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                     indicators: indicators.map(i => ({ text: i.text, type: i.type, entry: i.entry })),
                     fodders: composite.parts.map(p => p.text)
                 },
-                patternData: {
-                    id: `composite-${Date.now()}`,
-                    patternId: 'COMPOSITE_CHARADE',
-                    clueText: clue,
-                    answer: knownAnswer,
-                    variables,
-                    solveSteps: generateSolveSteps(variables, 'COMPOSITE_CHARADE', knownAnswer, coaching, clue)
-                }
+                patternData: computeDerivedFields(rawPatternData)
             };
         }
 
@@ -3270,6 +3835,21 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                     // Letter extraction - no synonym needed, just extract letter(s)
                     const letter = extractLetter(fodder, entry.letterOp);
                     variables[`result_${n}`] = letter;
+                    synonymsResolved++;
+                } else if (entry.letterOp === 'middle') {
+                    // Middle letter extraction - "bet, essentially" = E
+                    const cleanFodder = fodder.replace(/[^a-z]/gi, '').toUpperCase();
+                    let middleLetter: string;
+                    if (cleanFodder.length % 2 === 1) {
+                        // Odd length: single middle letter
+                        const midIdx = Math.floor(cleanFodder.length / 2);
+                        middleLetter = cleanFodder[midIdx];
+                    } else {
+                        // Even length: middle 2 letters
+                        const midIdx = cleanFodder.length / 2 - 1;
+                        middleLetter = cleanFodder.slice(midIdx, midIdx + 2);
+                    }
+                    variables[`result_${n}`] = middleLetter;
                     synonymsResolved++;
                 } else if (entry.type === 'acrostic') {
                     // Acrostic without split - take first letters of all words

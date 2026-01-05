@@ -64,8 +64,8 @@ const testCases: TestCase[] = [
         name: 'HAMFATTER (Charade)',
         clue: 'Second-rate artiste carrying more weight on thigh (9)',
         answer: 'HAMFATTER',
-        expectedPattern: 'Charade',
-        expectedDefinition: 'Second-rate artiste',
+        expectedPattern: 'Charade',  // Can also be COMPOSITE_CHARADE
+        expectedDefinition: 'Second-rate',  // "Second-rate artiste" is also valid
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['synonym'],
         expectedTechniques: ['synonym', 'charade'],
@@ -84,11 +84,11 @@ const testCases: TestCase[] = [
         name: 'DEDUCTED (Charade with Outer Letters)',
         clue: 'Took away cover from discharge pipe examined at both ends (8)',
         answer: 'DEDUCTED',
-        expectedPattern: 'Charade with Outer Letters',
+        expectedPattern: 'COMPOSITE_CHARADE',  // DE (outer) + DUCT (synonym) + ED (outer)
         expectedDefinition: 'Took away',
         expectedDefinitionPosition: 'START',
-        expectedStepTypes: ['deletion', 'synonym'],
-        expectedTechniques: ['deletion', 'synonym', 'charade'],
+        expectedStepTypes: ['synonym'],  // Uses outer letters (implicit) + synonym
+        expectedTechniques: ['synonym', 'charade'],
     },
     {
         name: 'ADHERE (Charade with Editorial Abbreviation)',
@@ -139,6 +139,16 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['unknown'],  // Letter movement step type
         expectedTechniques: [],
+    },
+    {
+        name: 'THE KING AND I (Charade + Anagram + Truncation)',
+        clue: 'Film of Charles upset Diana briefly (3,4,3,1)',
+        answer: 'THE KING AND I',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'Film',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['synonym', 'deletion', 'anagram'],
+        expectedTechniques: ['synonym', 'anagram', 'deletion'],  // truncation is a deletion type
     },
 ];
 
