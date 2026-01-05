@@ -75,6 +75,59 @@ export const STANDALONE_SYNONYMS: Record<string, string> = {
     'regarding': 'RE',
     'energy': 'E',
     'power': 'P',
+
+    // Variables / Math
+    'variable': 'Y',
+    'unknown': 'X',
+    'axes': 'XY',
+
+    // Latin abbreviations
+    'that is': 'IE',
+    'for example': 'EG',
+    'namely': 'IE',
+
+    // Quality / Size
+    'good': 'G',
+    'small': 'S',
+    'large': 'L',
+    'medium': 'M',
+    'extra large': 'XL',
+
+    // Music / Sound
+    'quiet': 'P',
+    'piano': 'P',
+    'loud': 'F',
+    'forte': 'F',
+
+    // Places / Regions
+    'ulster': 'NI',
+    'northern ireland': 'NI',
+    'british': 'B',
+    'over': 'O',
+
+    // Quality marks
+    'quality benchmark': 'BS',
+    'british standard': 'BS',
+
+    // Roman numerals
+    'one': 'I',
+    'five': 'V',
+    'ten': 'X',
+    'fifty': 'L',
+    'hundred': 'C',
+    '500': 'D',
+    'thousand': 'M',
+
+    // Model / Year
+    'model': 'T',
+    'your': 'YR',
+
+    // Bee
+    'bee': 'B',
+
+    // Seconds
+    'second': 'S',
+    'seconds': 'S',
 };
 
 // --- CRYPTIC DEFINITION MEANINGS ---
@@ -283,6 +336,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'five': ['V', 'CINQUE'],
     'six': ['VI', 'SIXER'],
     'ten': ['X', 'IO'],
+    'cheer': ['TEN'],  // Homophone: "cheer" sounds like "ten" (chin chin / santé)
     'fifty': ['L'],
     'hundred': ['C', 'TON', 'CENTURY'],
     'thousand': ['M', 'K', 'G'],
@@ -1441,6 +1495,146 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
 
     // --- CELLS / ROOMS ---
     'cell': ['ROOM', 'UNIT', 'BATTERY'],
+
+    // --- WORK / ACTIONS ---
+    'stops working': ['DOWNS TOOLS'],
+    'wretched': ['DOWNS', 'LOW', 'POOR', 'MISERABLE'],
+    'school equipment': ['TOOLS'],
+
+    // --- MILITARY ---
+    'soldier': ['GI', 'ANT', 'PRIVATE', 'TOMMY', 'SQUADDIE'],
+    'marine': ['SEA', 'ROYAL', 'RM'],
+    'support': ['AEGIS', 'AID', 'BACK', 'PROP'],
+
+    // --- POLITICS / PARTIES ---
+    'conservative': ['TORY', 'CON', 'C', 'RIGHT'],
+    'tory': ['CONSERVATIVE', 'CON', 'C'],
+    'ranks': ['LINES', 'ROWS', 'TIERS', 'FILES'],
+    'lines': ['RANKS', 'ROWS', 'QUEUES'],
+
+    // --- ALCOHOL / DRINKS ---
+    'spirit': ['GIN', 'RUM', 'VODKA', 'BOTTLE', 'GHOST'],
+    'bottle': ['SPIRIT', 'NERVE', 'JAR', 'FLASK'],
+    'gin tipple': ['SLING'],
+    'sling': ['GIN TIPPLE', 'THROW', 'CAST'],
+
+    // --- BUSINESS / DATA ---
+    'that businessmen might use': ['ANALYTICS'],
+
+    // --- FOOD / COOKING ---
+    'toast': ['HEALTH', 'BREAD', 'WARM'],
+    'health': ['TOAST', 'FITNESS', 'WELLNESS'],
+    'worst to eat': ['UNHEALTHIEST'],
+    'cooking': ['ON', 'BAKING', 'ROASTING'],
+    'substance': ['STUFF', 'MATTER', 'MATERIAL'],
+    'stuff': ['SUBSTANCE', 'FILL', 'CRAM'],
+    'side of turkey': ['SAGE AND ONION STUFFING', 'STUFFING'],
+
+    // --- ADHESIVES ---
+    'adhesive': ['EPOXY RESIN', 'GLUE', 'PASTE', 'CEMENT'],
+
+    // --- RELIGION / BLESSINGS ---
+    'christmas blessing': ['URBI ET ORBI'],
+
+    // --- PEOPLE / TYPES ---
+    'lecherous type': ['SATYR'],
+    'was': ['SAT', 'EXISTED', 'LIVED'],
+    'sat': ['WAS', 'PERCHED', 'RESTED'],
+    'one lecturing': ['ORATOR'],
+    'men': ['OR', 'GUYS', 'MALES', 'CHAPS'],
+
+    // --- EMOTIONS / STATES ---
+    'slushy': ['SENTIMENTAL'],
+    'drove': ['SENT', 'URGED', 'PROPELLED'],
+    'sent': ['DROVE', 'DISPATCHED', 'MAILED'],
+    'out to lunch': ['MENTAL', 'CRAZY', 'MAD'],
+    'mental': ['MAD', 'CRAZY', 'PSYCHOLOGICAL'],
+    'amazed': ['IN WONDER'],
+    'embarrassed': ['RED', 'ASHAMED', 'ABASHED'],
+    'red': ['EMBARRASSED', 'COMMUNIST', 'SCARLET'],
+    'present': ['NOW', 'GIFT', 'HERE', 'CURRENT'],
+    'now': ['PRESENT', 'CURRENTLY', 'TODAY'],
+
+    // --- BODY / ANATOMY ---
+    'type of nut': ['LUG'],
+    'lug': ['NUT', 'EAR', 'CARRY', 'HAUL'],
+
+    // --- LOCATIONS / GEOGRAPHY ---
+    'new london location': ['CONNECTICUT'],
+    'bridge': ['CONNECT', 'SPAN', 'LINK'],
+    'connect': ['BRIDGE', 'LINK', 'JOIN'],
+    'dock': ['CUT', 'PIER', 'WHARF', 'BERTH'],
+    'cut': ['DOCK', 'SLICE', 'SNIP', 'TRIM'],
+    'wild': ['SERENGETI', 'SAVAGE', 'FERAL', 'UNTAMED'],
+    'capital': ['TBILISI', 'MONEY', 'FUNDS', 'CITY'],
+
+    // --- FLOWERS ---
+    'flower': ['ROSE', 'BLOOM', 'RIVER', 'LILY', 'DAISY'],
+    'rose': ['FLOWER', 'BLOOM', 'PINK', 'GOT UP'],
+
+    // --- RECORDS / HISTORY ---
+    'records': ['ANNALS', 'LOGS', 'FILES', 'ALBUMS', 'IF'],  // IF = vinyl record (45 rpm single)
+    'annals': ['RECORDS', 'HISTORY', 'CHRONICLES'],
+
+    // --- TIME / SEASONS ---
+    'season': ['AGE', 'WINTER', 'SUMMER', 'SPRING', 'AUTUMN', 'SALT'],
+    'age': ['SEASON', 'ERA', 'EPOCH', 'PERIOD'],
+    'stocking': ['NYLON', 'SOCK', 'FILLER'],
+    'nylon': ['STOCKING', 'SYNTHETIC'],
+
+    // --- CLOTHING / MATERIALS ---
+    'threw': ['CAST', 'HURLED', 'TOSSED', 'LOBBED'],
+    'cast': ['THREW', 'ACTORS', 'MOULD', 'PLASTER'],
+
+    // --- FAMILY ---
+    'sister': ['SIS', 'NUN', 'SIBLING'],
+    'sis': ['SISTER'],
+    'christmas': ['NOEL', 'XMAS', 'YULE'],
+    'noel': ['CHRISTMAS', 'CAROL'],
+
+    // --- HIDDEN WORDS ---
+    'christmas guide': ['STAR'],
+
+    // --- SCOFF / MOCK ---
+    'scoff': ['RAIL', 'MOCK', 'JEER', 'DERIDE', 'EAT'],
+    'rail': ['SCOFF', 'BAR', 'TRACK', 'COMPLAIN'],
+    'one with pork pies': ['LIAR'],
+    'pork pies': ['LIES'],  // Cockney rhyming slang
+
+    // --- BLOOMING / EXTREME ---
+    'blooming': ['OUT', 'FLOWERING', 'DAMN'],
+    'out': ['BLOOMING', 'AWAY', 'UNCONSCIOUS'],
+    'extreme': ['LAST', 'ULTRA', 'SEVERE', 'RADICAL'],
+    'last': ['EXTREME', 'FINAL', 'END', 'ENDURE'],
+
+    // --- PREPARE / SET ---
+    'prepare': ['SET', 'READY', 'MAKE', 'PRIME'],
+    'set': ['PREPARE', 'GROUP', 'READY', 'GEL'],
+    'appointments': ['DATES', 'MEETINGS', 'ENGAGEMENTS'],
+    'dates': ['APPOINTMENTS', 'FRUIT', 'OUTINGS'],
+    'most dignified': ['SEDATEST'],
+
+    // --- SMELLS ---
+    'something smelly': ['INCENSE'],
+    'incense': ['ANGER', 'PERFUME', 'IRRITATE'],
+    'nettles': ['INCENSES', 'ANNOYS', 'IRRITATES'],
+
+    // --- SWEET ---
+    'sweet stuff': ['RIBOSE', 'SUGAR', 'CANDY'],
+
+    // --- TOP / CAP ---
+    'top': ['CAP', 'LID', 'PEAK', 'BEST', 'SHIRT'],
+    'cap': ['TOP', 'HAT', 'LID', 'LIMIT'],
+
+    // --- BANK / GRADIENT ---
+    'bank': ['GRADIENT', 'SLOPE', 'SHORE', 'RELY'],
+    'gradient': ['BANK', 'SLOPE', 'INCLINE'],
+    'stamp': ['DIE', 'MARK', 'STOMP', 'IMPRINT'],
+    'die': ['STAMP', 'EXPIRE', 'PERISH', 'CUBE'],
+
+    // --- SETTLER ---
+    'settler': ['COLONIST'],
+    'colonist': ['SETTLER', 'PIONEER'],
 };
 
 // --- LOOKUP FUNCTIONS ---

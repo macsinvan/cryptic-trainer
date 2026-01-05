@@ -769,6 +769,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'so they say': { type: 'homophone' },
     'recounted': { type: 'homophone' },
     'broadcast': { type: 'homophone' },
+    'broadcasting': { type: 'homophone' },  // "broadcasting cheer" = TEN (sounds like "ten")
     'on the radio': { type: 'homophone' },
     'for auditors': { type: 'homophone' },
     'to the audience': { type: 'homophone' },
@@ -788,4 +789,37 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'in place of': { type: 'substitution' },
     'instead of': { type: 'substitution' },
     'for': { type: 'substitution' },
+
+    // --- ADDITIONAL ANAGRAM ---
+    'pants': { type: 'anagram' },  // "Lacy satin pants" = anagram
+    'broadcast': { type: 'anagram' },  // "broadcast" = anagram
+    'odd': { type: 'anagram' },  // "odd" = anagram
+    'somehow': { type: 'anagram' },  // "somehow" = anagram
+    'possibly': { type: 'anagram' },  // "possibly" = anagram
+    'criminal': { type: 'anagram' },  // "criminal" = anagram
+
+    // --- ADDITIONAL REVERSAL ---
+    'served up': { type: 'reversal' },  // "served up" = reversed (down clue)
+    'given back': { type: 'reversal' },  // "given back" = reversed
+    'sent over': { type: 'reversal' },  // "sent over" = reversed
+    'fired up': { type: 'reversal' },  // "fired up" = reversed (down clue)
+    'back-to-back': { type: 'reversal' },  // "back-to-back" = reversal
+
+    // --- ADDITIONAL CONTAINER ---
+    'captured by': { type: 'container' },  // "captured by" = container
+    'embraced by': { type: 'container' },  // "embraced by" = container
+    'keeps': { type: 'container' },  // "keeps" = container
+    'to keep': { type: 'container' },  // "to keep" = container
+    'to hide': { type: 'container' },  // "to hide" = container
+    'gift-wrapped': { type: 'container' },  // "gift-wrapped" = container
+    'to coat': { type: 'container' },  // "to coat" = container
+    'coating': { type: 'container' },  // "coating" = container
+    'enters': { type: 'container' },  // "enters" = container
+    'covered by': { type: 'container' },  // "covered by" = container
+
+    // --- ADDITIONAL FIRST LETTER ---
+    'beginning to': { type: 'deletion_first', letterOp: 'first' },  // "beginning to scare" = S
+
+    // --- HOMOPHONE ---
+    "it's said": { type: 'homophone' },  // "it's said" = homophone
 };
