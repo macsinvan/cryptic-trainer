@@ -4,6 +4,9 @@ const clue = "Public school lodge reported (5)";
 const answer = "STOWE";
 
 // Other test clues:
+// const clue = "Catch securing edges of door-plate in tank (6)";
+// const answer = "HEADER";
+
 // const clue = "Stick notice in The Times? (6)";
 // const answer = "ADHERE";
 

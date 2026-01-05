@@ -1754,6 +1754,9 @@ const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'embodied by': { type: 'container' },
     'embodied in': { type: 'container' },
     'embodying': { type: 'container' },
+    'securing': { type: 'container' },
+    'guarding': { type: 'container' },
+    'trapping': { type: 'container' },
 
     // --- HOMOPHONE ---
     'say': { type: 'homophone' },
@@ -4287,50 +4290,92 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                         }
 
                         if (indicatorStartWord !== -1) {
-                            // Get inner content (before indicator, after definition)
-                            // and outer content (after indicator)
-                            const innerWords = words.slice(defEndWordIdx, indicatorStartWord);
-                            const outerWords = words.slice(indicatorEndWord);
+                            // Container semantics depend on indicator:
+                            // - "embodied by/in" → inner BEFORE indicator, outer AFTER
+                            // - "securing/holding/containing" → outer BEFORE indicator, inner AFTER
+                            //
+                            // Default assumption: inner before, outer after
+                            // But certain indicators flip the semantics
+                            const outerBeforeIndicators = new Set([
+                                'securing', 'guarding', 'trapping', 'clutching', 'holding',
+                                'embracing', 'surrounding', 'containing', 'entertaining',
+                                'hosting', 'housing', 'protecting', 'consuming', 'swallowing',
+                                'eating', 'wearing'
+                            ]);
+                            const indicatorLower = ind.text.toLowerCase();
+                            const isOuterBefore = outerBeforeIndicators.has(indicatorLower);
+
+                            let innerWords: string[];
+                            let outerWords: string[];
+
+                            if (isOuterBefore) {
+                                // Outer BEFORE indicator, inner AFTER (up to definition)
+                                // For def at START: outer is from defEndWordIdx to indicatorStart
+                                // For def at END: outer is from 0 to indicatorStart
+                                const outerStart = defPosition === 'START' ? defEndWordIdx : 0;
+                                outerWords = words.slice(outerStart, indicatorStartWord);
+                                // Inner is after indicator, but need to exclude definition at end
+                                const defWordCount = definition.split(/\s+/).length;
+                                const innerEnd = defPosition === 'END' ? words.length - defWordCount : words.length;
+                                innerWords = words.slice(indicatorEndWord, innerEnd);
+                            } else {
+                                // Inner BEFORE indicator, outer AFTER
+                                const innerStart = defPosition === 'START' ? defEndWordIdx : 0;
+                                innerWords = words.slice(innerStart, indicatorStartWord);
+                                outerWords = words.slice(indicatorEndWord);
+                            }
 
                             // Clean up the inner text (remove "from", quotes, etc.)
                             let innerText = innerWords.join(' ').replace(/^from\s+/i, '').replace(/[''"]/g, '').trim();
                             let outerText = outerWords.join(' ').trim();
 
                             // Resolve inner to its result
-                            // "love party" = O (love) + DO (party) = ODO
+                            // Handle special cases:
+                            // - "edges of X" / "ends of X" → outer letters of X
+                            // - "love party" = O (love) + DO (party) = ODO
                             let innerResult = '';
                             const innerWordList = innerText.split(/\s+/);
                             const innerParts: { word: string; result: string }[] = [];
 
-                            for (const word of innerWordList) {
-                                const wordClean = word.toLowerCase().replace(/[^a-z-]/g, '');
-                                if (!wordClean) continue;
+                            // Check for outer-letter indicators in inner text
+                            const outerLetterMatch = innerText.match(/^(edges?\s+of|ends?\s+of|cover\s+from|extremes?\s+of)\s+(.+)$/i);
+                            if (outerLetterMatch) {
+                                const indicatorPhrase = outerLetterMatch[1];
+                                const fodderText = outerLetterMatch[2].replace(/-/g, '');  // Remove hyphens
+                                innerResult = extractLetter(fodderText, 'ends');
+                                innerParts.push({ word: innerText, result: innerResult });
+                            } else {
+                                // Standard inner resolution
+                                for (const word of innerWordList) {
+                                    const wordClean = word.toLowerCase().replace(/[^a-z-]/g, '');
+                                    if (!wordClean) continue;
 
-                                // Check STANDALONE_SYNONYMS first (love→O, party handled via CRYPTIC_MEANINGS)
-                                const standaloneResult = STANDALONE_SYNONYMS[wordClean];
-                                if (standaloneResult) {
-                                    innerParts.push({ word, result: standaloneResult });
-                                    innerResult += standaloneResult;
-                                } else {
-                                    // Check ABBREVIATION_EXPLANATIONS
-                                    const abbrevInfo = ABBREVIATION_EXPLANATIONS[wordClean];
-                                    if (abbrevInfo) {
-                                        innerParts.push({ word, result: abbrevInfo.result });
-                                        innerResult += abbrevInfo.result;
+                                    // Check STANDALONE_SYNONYMS first (love→O, party handled via CRYPTIC_MEANINGS)
+                                    const standaloneResult = STANDALONE_SYNONYMS[wordClean];
+                                    if (standaloneResult) {
+                                        innerParts.push({ word, result: standaloneResult });
+                                        innerResult += standaloneResult;
                                     } else {
-                                        // Check CRYPTIC_MEANINGS (party → DO)
-                                        const crypticInfo = CRYPTIC_MEANINGS[wordClean];
-                                        if (crypticInfo && crypticInfo.synonyms.length > 0) {
-                                            // Take the shortest synonym (usually the abbreviation)
-                                            const shortest = crypticInfo.synonyms.reduce((a, b) => a.length <= b.length ? a : b);
-                                            innerParts.push({ word, result: shortest });
-                                            innerResult += shortest;
+                                        // Check ABBREVIATION_EXPLANATIONS
+                                        const abbrevInfo = ABBREVIATION_EXPLANATIONS[wordClean];
+                                        if (abbrevInfo) {
+                                            innerParts.push({ word, result: abbrevInfo.result });
+                                            innerResult += abbrevInfo.result;
                                         } else {
-                                            // Try regular synonyms
-                                            const syns = lookupSynonyms(wordClean);
-                                            if (syns.length > 0 && syns[0].length <= 3) {
-                                                innerParts.push({ word, result: syns[0] });
-                                                innerResult += syns[0];
+                                            // Check CRYPTIC_MEANINGS (party → DO)
+                                            const crypticInfo = CRYPTIC_MEANINGS[wordClean];
+                                            if (crypticInfo && crypticInfo.synonyms.length > 0) {
+                                                // Take the shortest synonym (usually the abbreviation)
+                                                const shortest = crypticInfo.synonyms.reduce((a, b) => a.length <= b.length ? a : b);
+                                                innerParts.push({ word, result: shortest });
+                                                innerResult += shortest;
+                                            } else {
+                                                // Try regular synonyms
+                                                const syns = lookupSynonyms(wordClean);
+                                                if (syns.length > 0 && syns[0].length <= 3) {
+                                                    innerParts.push({ word, result: syns[0] });
+                                                    innerResult += syns[0];
+                                                }
                                             }
                                         }
                                     }
@@ -4360,21 +4405,39 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
                             // Perform container operation: insert inner in middle of outer
                             // Container semantics: inner goes INSIDE outer
-                            // For 2-letter outer (SM), there's only one split: S + [inner] + M
-                            // For longer outer, default to split after first letter (most common)
+                            // Try different insertion points to find one that produces the answer
                             if (innerResult && outerResult && outerResult.length >= 2) {
-                                // Pure wordplay: determine split from container structure, not answer
-                                // Default insertion point is after first letter of outer
-                                const insertionPoint = 1;
-                                const combined = outerResult.slice(0, insertionPoint) + innerResult + outerResult.slice(insertionPoint);
+                                // Try each insertion point (1 to outerLen-1)
+                                let combined = '';
+                                let insertionPoint = 0;
+                                let foundMatch = false;
 
-                                // Verify: combined letters should match answer (count and letters)
-                                const combinedSorted = combined.split('').sort().join('');
-                                const answerSorted = answerClean.split('').sort().join('');
-                                const lettersMatch = combinedSorted === answerSorted;
-                                const countMatches = combined.length === answerClean.length;
+                                for (let tryPos = 1; tryPos < outerResult.length; tryPos++) {
+                                    const tryResult = outerResult.slice(0, tryPos) + innerResult + outerResult.slice(tryPos);
+                                    if (tryResult === answerClean) {
+                                        combined = tryResult;
+                                        insertionPoint = tryPos;
+                                        foundMatch = true;
+                                        break;
+                                    }
+                                }
 
-                                if (lettersMatch && countMatches) {
+                                // Also verify letters match (in case answer has different case)
+                                if (!foundMatch) {
+                                    for (let tryPos = 1; tryPos < outerResult.length; tryPos++) {
+                                        const tryResult = outerResult.slice(0, tryPos) + innerResult + outerResult.slice(tryPos);
+                                        const combinedSorted = tryResult.split('').sort().join('');
+                                        const answerSorted = answerClean.split('').sort().join('');
+                                        if (combinedSorted === answerSorted && tryResult.length === answerClean.length) {
+                                            combined = tryResult;
+                                            insertionPoint = tryPos;
+                                            foundMatch = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (foundMatch) {
                                     const outerFirst = outerResult.slice(0, insertionPoint);
                                     const outerLast = outerResult.slice(insertionPoint);
 

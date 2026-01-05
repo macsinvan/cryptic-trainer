@@ -934,7 +934,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'produces': ['MAKES', 'CREATES', 'YIELDS'],
     'eats': ['DINES', 'CONSUMES', 'DEVOURS'],
     'covers': ['HIDES', 'SPANS', 'INCLUDES'],
-    'catches': ['GRABS', 'SNARES', 'TRAPS'],
+    'catches': ['GRABS', 'SNARES', 'TRAPS', 'HEARS'],
+    'catch': ['HEAR', 'GRAB', 'SNARE', 'TRAP', 'SNAG', 'NET'],
     'draws': ['SKETCHES', 'PULLS', 'ATTRACTS'],
     'chooses': ['PICKS', 'SELECTS', 'OPTS'],
 
@@ -1032,6 +1033,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'home': ['IN', 'PAD', 'HOUSE', 'BASE', 'ABODE'],
     'lodge': ['STOW', 'PUT', 'HOUSE', 'CABIN', 'HUT', 'INN'],
     'stick': ['ADHERE', 'CLING', 'GLUE', 'BOND', 'ATTACH', 'ROD', 'CANE', 'POLE'],
+    'in tank': ['HEADER'],  // A header is a dive head-first (into a tank/pool)
+    'header': ['DIVE', 'TITLE', 'HEADING'],
     'room': ['SPACE', 'HALL', 'DEN', 'CHAMBER'],
     'door': ['ENTRY', 'EXIT', 'GATE', 'ACCESS'],
     'window': ['PANE', 'OPENING', 'GAP'],

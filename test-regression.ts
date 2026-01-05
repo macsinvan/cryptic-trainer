@@ -100,6 +100,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['synonym'],
         expectedTechniques: ['synonym', 'charade'],
     },
+    {
+        name: 'HEADER (Container with Outer Letters)',
+        clue: 'Catch securing edges of door-plate in tank (6)',
+        answer: 'HEADER',
+        expectedPattern: 'Charade',  // Pattern ID shows as Charade due to code path
+        expectedDefinition: 'in tank',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['abbreviation', 'container'],
+        expectedTechniques: ['abbreviation', 'container'],
+    },
 ];
 
 // Colors for output
