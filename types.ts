@@ -75,7 +75,7 @@ export interface WordplayStep {
     hint: string;
     complexity: number;  // 1=easy, 2=medium, 3=hard
     isAssembly: boolean; // True for Assembly steps (informational only)
-    stepType: 'abbreviation' | 'letter_movement' | 'assembly' | 'synonym' | 'anagram' | 'hidden' | 'reversal' | 'deletion' | 'unknown';
+    stepType: 'abbreviation' | 'letter_movement' | 'assembly' | 'synonym' | 'anagram' | 'hidden' | 'reversal' | 'deletion' | 'homophone' | 'unknown';
     explanation: string; // Pre-computed plain English explanation for UI
 }
 

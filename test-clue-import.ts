@@ -1,7 +1,7 @@
 import { parseClue } from './services/clueParser';
 
-const clue = "Following delay of months, slander hospital department's union (9)";
-const answer = "ALIGNMENT";
+const clue = "Public school lodge reported (5)";
+const answer = "STOWE";
 
 const result = parseClue(clue, answer);
 

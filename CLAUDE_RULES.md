@@ -4,101 +4,85 @@
 
 ---
 
-## GOLDEN RULE
+## INTERACTIVE PROTOCOL
 
-**YOU CANNOT EDIT ANY FILE WITHOUT APPROVAL.**
+This is the mandatory workflow for every interaction. No exceptions.
 
-This is enforced by a two-phase commit system. Attempts to edit without approval will be **HARD BLOCKED** by the system. No exceptions. No workarounds.
+### Step 1: Summarize Understanding
 
----
+Before doing anything, summarize your understanding of the user's input in plain English.
 
-## TWO-PHASE COMMIT WORKFLOW
+### Step 2: Analyze & Plan
 
-### Phase 1: Propose (MANDATORY)
+| If Bug | If Feature |
+|--------|------------|
+| Find the root cause | Explain your plan |
+| Plain English summary | Plain English summary |
 
-Before ANY edit, you MUST:
+### Step 3: Permissions
 
-1. **Write a proposal** to `.claude/pending_proposal.md` containing:
-   - File(s) to be modified
-   - Current behavior
-   - New behavior
-   - Why the change is needed
-   - What could break
+| Action | Permission |
+|--------|------------|
+| Read files | ✅ No permission needed |
+| Search codebase | ✅ No permission needed |
+| Run tests | ✅ No permission needed |
+| **Edit any file** | ❌ **MUST ASK FIRST** |
 
-2. **Ask for approval** in conversation
-3. **STOP and wait** - Do not attempt any edit
+### Step 4: Ask for Go
 
-### Phase 2: Execute (ONLY AFTER APPROVAL)
+Before editing ANY file, you MUST:
 
-1. User says "approved" (or similar)
-2. System creates single-use approval token
-3. You may now make the approved edit
-4. Token is consumed - next edit requires new proposal
-
-### What Happens If You Skip This
-
-- Edit attempt → **HARD BLOCK**
-- No dialog, no asking - just blocked
-- You must start over with Phase 1
+1. Provide a plain English summary of what you will change
+2. Ask: **"Want me to go ahead?"** (or similar)
+3. **WAIT** for user approval
 
 ---
 
-## PROPOSAL TEMPLATE
+## EXAMPLE WORKFLOW
 
-Write to `.claude/pending_proposal.md`:
+```
+User: "The definition is showing at the wrong position"
 
-```markdown
-## Proposal: [Brief Title]
+Claude: "My understanding: The definition position is displaying incorrectly
+in the UI.
 
-### Files to Modify
-- `path/to/file.ts` - [what changes]
+Let me investigate the root cause...
 
-### Current Behavior
-[What it does now]
+[reads files, searches code]
 
-### New Behavior
-[What it will do after]
+Root cause: The `definition_position` variable isn't being passed to
+computeDerivedFields().
 
-### Why Needed
-[Justification]
+Fix: Add `definition_position` to the variables object in clueParser.ts
+line 3448.
 
-### Risk Assessment
-[What could break, LOW/MEDIUM/HIGH]
+Want me to go ahead?"
+
+User: "go"
+
+Claude: [makes the edit]
 ```
 
 ---
 
-## PROTECTED FILES (Extra Caution)
+## WHAT NOT TO DO
 
-These files are critical. Be especially careful:
-- `services/clueManager.ts` - Data persistence
-- `services/clueParser.ts` - Core parsing logic
-- `services/freeformParser.ts` - Import parsing
-- `types.ts` - Type definitions
-- `data/seedClues.ts` - Seed data
+❌ Start editing without explaining what you'll change
+❌ Make multiple file edits without checking in
+❌ Assume approval from previous session
+❌ Skip the summary step
 
 ---
 
-## ALLOWED WITHOUT PROPOSAL
+## DESIGN DOCUMENTATION
 
-- Reading files
-- Running tests/builds
-- Searching/exploring codebase
-- Answering questions
-- Writing to `.claude/pending_proposal.md` (this is the proposal itself)
-
----
-
-## REMEMBER
-
-1. No proposal file → BLOCKED
-2. Proposal not approved → BLOCKED
-3. Token expired (5 min) → BLOCKED
-4. Token already used → BLOCKED
-5. Each edit needs fresh approval
-
-**There are no exceptions. The system enforces this.**
+| Document | Purpose |
+|----------|---------|
+| `CLAUDE_RULES.md` | This file — interactive protocol (read first) |
+| `parser_updates.md` | Parser architecture & explanation templates |
+| `MASTER_APP_SPECIFICATION.md` | Full app specification |
+| `INTERACTIVE_SOLVE_FLOW.md` | Solve UI specification |
 
 ---
 
-*Last updated: 2026-01-03*
+*Last updated: 2026-01-05*

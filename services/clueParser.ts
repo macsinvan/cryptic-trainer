@@ -1591,6 +1591,7 @@ const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'we hear': { type: 'homophone' },
     'heard': { type: 'homophone' },
     'sounds like': { type: 'homophone' },
+    'reported': { type: 'homophone' },
     'reportedly': { type: 'homophone' },
     'spoken': { type: 'homophone' },
     'vocal': { type: 'homophone' },
@@ -1718,6 +1719,14 @@ interface LetterMovementVars {
 }
 
 /**
+ * Extra variables for homophone explanation template
+ */
+interface HomophoneVars {
+    base: string;           // "STOW" (the synonym that sounds like the answer)
+    result: string;         // "STOWE" (the answer)
+}
+
+/**
  * Generate plain English explanation for a wordplay step.
  * Templates are keyed by stepType.
  * Uses ABBREVIATION_EXPLANATIONS for teaching content.
@@ -1728,7 +1737,8 @@ function generateStepExplanation(
     result: string,
     indicator: string,
     letterMovementVars?: LetterMovementVars,
-    definitionText?: string
+    definitionText?: string,
+    homophoneVars?: HomophoneVars
 ): string {
     switch (stepType) {
         case 'abbreviation': {
@@ -1752,6 +1762,15 @@ function generateStepExplanation(
             const { letterSource, letter, synonymFodder, synonym, movedResult } = letterMovementVars;
             // Cold view template - guides student to discover they need a synonym, then shows solution
             return `"${indicator}" signals letter movement — a letter needs to move position. "${letterSource}" = ${letter} (standard abbreviation). The ${letter} must be inside a word. But "${synonymFodder}" doesn't contain ${letter}! So we need a synonym for "${synonymFodder}" that contains ${letter}. ${synonymFodder} → ${synonym} → ${movedResult}`;
+        }
+
+        case 'homophone': {
+            if (!homophoneVars) {
+                return ''; // Missing data
+            }
+            const { base, result: homophoneResult } = homophoneVars;
+            // Cold view template for homophone - guides student through the sound-alike reasoning
+            return `"${indicator}" signals a homophone — we need a word that sounds like something. "${fodder}" → ${base} (synonym). ${base} sounds like ${homophoneResult}.`;
         }
 
         case 'assembly':
@@ -1801,6 +1820,9 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
                 stepType = 'abbreviation';
             } else if (indicator?.includes('delay') || indicator?.includes('movement')) {
                 stepType = 'letter_movement';
+            } else if (variables[`homophone_base_${i}`]) {
+                // Homophone detected via stored variables
+                stepType = 'homophone';
             }
             // TODO: Add more stepType detection as we build templates
 
@@ -1816,10 +1838,19 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
                 };
             }
 
+            // Build extra vars for homophone template
+            let homophoneVars: HomophoneVars | undefined;
+            if (stepType === 'homophone') {
+                homophoneVars = {
+                    base: variables[`homophone_base_${i}`] || '',
+                    result: variables[`homophone_result_${i}`] || ''
+                };
+            }
+
             // Generate explanation based on stepType
             // Pass definitionText for assembly steps
             const defText = variables['def_text'] || '';
-            const explanation = generateStepExplanation(stepType, fodder || '', result, indicator || '', letterMovementVars, defText);
+            const explanation = generateStepExplanation(stepType, fodder || '', result, indicator || '', letterMovementVars, defText, homophoneVars);
 
             steps.push({
                 indicator: indicator || '',
@@ -3439,6 +3470,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             'deletion_last': 'Deletion',
             'letter_movement': 'Letter Movement',
             'charade': 'Charade',
+            'homophone': 'Homophone',
         };
 
         if (indicators.length === 1) {
@@ -3659,6 +3691,73 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                                     }
                                 }
                             }
+                        }
+                    }
+                } else if (entry.type === 'homophone') {
+                    // Homophone - find a synonym of fodder that sounds like the answer
+                    if (knownAnswer) {
+                        const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+
+                        // Get synonyms for the fodder word
+                        const fodderSynonyms = lookupSynonyms(fodder);
+
+                        // Check if any synonym sounds like the answer (differs by one letter, typically E)
+                        // Common homophones: STOW/STOWE, NIGHT/KNIGHT, HEIR/AIR, etc.
+                        let homophoneMatch: { fodderSynonym: string; sounds_like: string } | null = null;
+
+                        for (const syn of fodderSynonyms) {
+                            // Check if synonym + E = answer (common pattern)
+                            if (syn + 'E' === answerClean) {
+                                homophoneMatch = { fodderSynonym: syn, sounds_like: answerClean };
+                                break;
+                            }
+                            // Check if synonym - E = answer
+                            if (syn.endsWith('E') && syn.slice(0, -1) === answerClean) {
+                                homophoneMatch = { fodderSynonym: syn, sounds_like: answerClean };
+                                break;
+                            }
+                            // Check for other common homophone patterns
+                            // NIGHT/KNIGHT, RIGHT/WRITE, etc.
+                            const homophonePairs: Record<string, string[]> = {
+                                'NIGHT': ['KNIGHT'],
+                                'KNIGHT': ['NIGHT'],
+                                'RIGHT': ['WRITE', 'RITE'],
+                                'WRITE': ['RIGHT', 'RITE'],
+                                'AIR': ['HEIR', 'ERE'],
+                                'HEIR': ['AIR'],
+                                'HEAR': ['HERE'],
+                                'HERE': ['HEAR'],
+                                'SALE': ['SAIL'],
+                                'SAIL': ['SALE'],
+                                'TALE': ['TAIL'],
+                                'TAIL': ['TALE'],
+                                'MALE': ['MAIL'],
+                                'MAIL': ['MALE'],
+                                'PALE': ['PAIL'],
+                                'PAIL': ['PALE'],
+                            };
+                            if (homophonePairs[syn]?.includes(answerClean)) {
+                                homophoneMatch = { fodderSynonym: syn, sounds_like: answerClean };
+                                break;
+                            }
+                            // Direct match (sounds exactly like answer)
+                            if (syn === answerClean) {
+                                homophoneMatch = { fodderSynonym: syn, sounds_like: answerClean };
+                                break;
+                            }
+                        }
+
+                        if (homophoneMatch) {
+                            variables[`indicator_${n}_text`] = ind.text;
+                            variables[`fodder_${n}_text`] = fodder;
+                            variables[`synonym_${n}`] = homophoneMatch.fodderSynonym;
+                            variables[`result_${n}`] = answerClean;
+                            variables[`hint_${n}`] = `"${fodder}" → ${homophoneMatch.fodderSynonym}, sounds like ${answerClean}`;
+                            variables[`complexity_${n}`] = '2';  // Medium complexity
+                            // Store homophone-specific vars for explanation template
+                            variables[`homophone_base_${n}`] = homophoneMatch.fodderSynonym;
+                            variables[`homophone_result_${n}`] = answerClean;
+                            synonymsResolved++;
                         }
                     }
                 } else if (entry.type === 'letter_movement') {

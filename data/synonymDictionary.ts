@@ -555,7 +555,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'university': ['U', 'VARSITY', 'OXFORD', 'CAMBRIDGE'],
     'uni': ['U'],
     'college': ['U', 'ETON'],
-    'school': ['SCH', 'ETON', 'HARROW'],
+    'school': ['SCH', 'ETON', 'HARROW', 'STOWE', 'RUGBY'],
+    'public school': ['ETON', 'HARROW', 'STOWE', 'RUGBY', 'WINCHESTER'],
     'teacher': ['SIR', 'MISS', 'MA', 'MASTER'],
     'pupil': ['L', 'LEARNER', 'EYE', 'STUDENT'],
     'student': ['L', 'PUPIL', 'FRESHER'],
@@ -983,6 +984,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // --- BUILDINGS / PLACES ---
     'house': ['HO', 'HOME', 'PAD', 'LODGE', 'MANOR', 'CONTAIN'],
     'home': ['IN', 'PAD', 'HOUSE', 'BASE', 'ABODE'],
+    'lodge': ['STOW', 'PUT', 'HOUSE', 'CABIN', 'HUT', 'INN'],
     'room': ['SPACE', 'HALL', 'DEN', 'CHAMBER'],
     'door': ['ENTRY', 'EXIT', 'GATE', 'ACCESS'],
     'window': ['PANE', 'OPENING', 'GAP'],

@@ -89,10 +89,9 @@ cryptic-trainer/
 │   └── hooks/                 # Hook scripts
 │
 ├── MASTER_APP_SPECIFICATION.md      # This document
-├── CLAUDE_RULES.md                  # AI assistant rules
+├── CLAUDE_RULES.md                  # Interactive protocol (read first)
 ├── INTERACTIVE_SOLVE_FLOW.md        # Solver UX documentation
-├── EXPRESS_SETTER_COACHING_METHODOLOGY.md  # Coaching approach
-├── parser_updates.md                # Parser change log
+├── parser_updates.md                # Parser architecture & templates
 └── README.md                        # Project readme
 ```
 
@@ -1058,104 +1057,65 @@ npx tsc --noEmit
 
 ---
 
-## 15. Claude Code Controls — Two-Phase Commit System
+## 15. Claude Code Controls — Interactive Protocol
 
 ### Purpose
 
-Prevent uncontrolled changes to the codebase using a **hard enforcement** system. Claude cannot edit any file without explicit user approval. This is not a soft prompt — it's a system-level block.
+Ensure Claude follows a consistent workflow for every interaction, with explicit user approval before any file edits.
 
-### The Problem with Soft Controls
+### The Interactive Protocol
 
-Soft controls (asking Claude to follow rules, UI approval dialogs) fail because:
-- Claude may "forget" or ignore rules mid-conversation
-- UI dialogs ask the user AFTER Claude decided to edit
-- No enforcement = no guarantee
-
-### Solution: Two-Phase Commit
+The full protocol is defined in `CLAUDE_RULES.md` and injected into every prompt via hook.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  PHASE 1: PROPOSE                                            │
+│  STEP 1: SUMMARIZE UNDERSTANDING                             │
 ├─────────────────────────────────────────────────────────────┤
-│  Claude writes proposal → .claude/pending_proposal.md        │
-│  Claude asks user → "Do you approve?"                        │
-│  Claude STOPS and waits                                      │
+│  Before doing anything, summarize the user's input           │
+│  in plain English.                                           │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  USER APPROVAL                                               │
+│  STEP 2: ANALYZE & PLAN                                      │
 ├─────────────────────────────────────────────────────────────┤
-│  User says "approved"                                        │
-│  Hook detects → creates .claude/approval_granted (token)     │
-│  Token: single-use, 5-minute expiry                          │
+│  If BUG → Find root cause, plain English summary             │
+│  If FEATURE → Explain plan, plain English summary            │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  PHASE 2: EXECUTE                                            │
+│  STEP 3: ASK FOR GO                                          │
 ├─────────────────────────────────────────────────────────────┤
-│  Claude attempts Edit/Write                                  │
-│  Hook checks: valid token exists?                            │
-│  YES → Allow edit, consume token                             │
-│  NO  → HARD BLOCK (not ask, block)                           │
+│  Before editing ANY file:                                    │
+│  • Provide plain English summary of changes                  │
+│  • Ask: "Want me to go ahead?"                               │
+│  • WAIT for user approval                                    │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 4: EXECUTE (after "go")                                │
+├─────────────────────────────────────────────────────────────┤
+│  Make the approved edit                                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Why This Is 100% Enforceable
+### Permissions
 
-| Check | Failure Mode |
-|-------|--------------|
-| No token file | BLOCKED |
-| Token expired (>5 min) | BLOCKED |
-| Token already used | BLOCKED |
-| Token corrupted | BLOCKED |
+| Action | Permission |
+|--------|------------|
+| Read files | ✅ No permission needed |
+| Search codebase | ✅ No permission needed |
+| Run tests | ✅ No permission needed |
+| **Edit any file** | ❌ **MUST ASK FIRST** |
 
-There is no path to edit without a valid token. Claude cannot create the token — only the user saying "approved" triggers it.
+### Enforcement Mechanism
 
-### Hook Files
+The protocol is enforced by injecting `CLAUDE_RULES.md` into every prompt:
 
 | File | Purpose |
 |------|---------|
 | `.claude/settings.json` | Hook configuration |
-| `.claude/hooks/check_approval.py` | Listens for "approved", creates token, injects rules |
-| `.claude/hooks/gate_edits.py` | Hard blocks Edit/Write without valid token |
-| `CLAUDE_RULES.md` | Rules document (injected into every prompt) |
-
-### Token File Structure
-
-`.claude/approval_granted`:
-```json
-{
-  "timestamp": 1704307200.0,
-  "expires": 1704307500.0,
-  "proposal": "First 500 chars of proposal...",
-  "used": false
-}
-```
-
-After edit: `"used": true` → token invalidated.
-
-### Proposal Template
-
-Claude writes to `.claude/pending_proposal.md`:
-
-```markdown
-## Proposal: [Brief Title]
-
-### Files to Modify
-- `path/to/file.ts` - [what changes]
-
-### Current Behavior
-[What it does now]
-
-### New Behavior
-[What it will do after]
-
-### Why Needed
-[Justification]
-
-### Risk Assessment
-[What could break, LOW/MEDIUM/HIGH]
-```
+| `.claude/hooks/check_approval.py` | Injects CLAUDE_RULES.md into every prompt |
+| `CLAUDE_RULES.md` | Interactive protocol rules |
 
 ### settings.json Configuration
 
@@ -1167,13 +1127,6 @@ Claude writes to `.claude/pending_proposal.md`:
         "type": "command",
         "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_approval.py\""
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "type": "command",
-        "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate_edits.py\""
-      }
     ]
   }
 }
@@ -1182,27 +1135,9 @@ Claude writes to `.claude/pending_proposal.md`:
 ### Implementing in Other Projects
 
 1. **Create `.claude/hooks/` directory**
-2. **Copy hook files**: `check_approval.py`, `gate_edits.py`
-3. **Create `CLAUDE_RULES.md`** with two-phase commit instructions
-4. **Configure `.claude/settings.json`** with hooks
-5. **Test**: Attempt an edit without approval — should be blocked
-
-### Protected Files (Extra Caution)
-
-These files are critical infrastructure:
-- `services/clueManager.ts` - Data persistence
-- `services/clueParser.ts` - Core parsing logic
-- `services/freeformParser.ts` - Import parsing
-- `types.ts` - Type definitions
-- `data/seedClues.ts` - Seed data
-
-### Allowed Without Approval
-
-- Reading files
-- Running tests/builds
-- Bash commands (non-destructive)
-- Searching/exploring codebase
-- Writing to `.claude/pending_proposal.md` (the proposal itself)
+2. **Copy `check_approval.py`** hook
+3. **Create `CLAUDE_RULES.md`** with your interactive protocol
+4. **Configure `.claude/settings.json`** with UserPromptSubmit hook
 
 ---
 
@@ -1269,10 +1204,9 @@ After any parser change, verify these clues still parse:
 | `components/ClueSolver.tsx` | Solve session engine + dynamic definition tips |
 | `components/DataManager.tsx` | Cloud Hub + Failed Imports viewer |
 | **Controls** | |
-| `CLAUDE_RULES.md` | Master rules for Claude Code |
+| `CLAUDE_RULES.md` | Interactive protocol (read first) |
 | `.claude/settings.json` | Hook configuration |
-| `.claude/hooks/inject_rules.py` | Rule injection hook |
-| `.claude/hooks/gate_edits.py` | Edit/Write gate hook |
+| `.claude/hooks/check_approval.py` | Injects CLAUDE_RULES.md into every prompt |
 | **Prompts** | |
 | `prompts/analyze_failed_import.md` | Protocol for analyzing failed imports |
 | **Documentation** | |
