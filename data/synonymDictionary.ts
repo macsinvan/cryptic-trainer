@@ -559,6 +559,12 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'picnic': ['WALK', 'EASY', 'BREEZE', 'CINCH'],
     'walk in the park': ['PICNIC', 'BREEZE', 'CINCH', 'DODDLE'],
     'easy task': ['PICNIC', 'BREEZE', 'CINCH'],
+    'sensitive': ['SORE', 'TENDER', 'TOUCHY', 'RAW'],
+    'sore': ['SENSITIVE', 'TENDER', 'PAINFUL', 'ANGRY'],
+    'summit': ['PEAK', 'TOP', 'APEX', 'ACME', 'ZENITH'],
+    'peak': ['SUMMIT', 'TOP', 'APEX', 'ACME'],
+    'continental jargon': ['EUROSPEAK'],  // EU bureaucratic language
+    'eurospeak': ['JARGON', 'EUROBABBLE'],
     'rock': ['STONE', 'JEWEL', 'GEM', 'DIAMOND', 'SWAY', 'REEL', 'SHAKE', 'BOULDER', 'CRAG'],
     'stone': ['ROCK', 'GEM', 'JEWEL', 'PIT', 'SEED', 'ST', 'WEIGHT'],
     'wife': ['W', 'SPOUSE', 'MISSUS', 'BRIDE'],

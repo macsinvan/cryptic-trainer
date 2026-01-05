@@ -609,6 +609,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'retreating': { type: 'reversal' },
     'retiring': { type: 'reversal' },
     'receding': { type: 'reversal' },
+    'regressive': { type: 'reversal' },
 
     // --- LETTER MOVEMENT ---
     'moved to the end': { type: 'letter_movement' },
