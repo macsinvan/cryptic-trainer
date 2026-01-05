@@ -187,7 +187,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
 
     // --- WATER / STREAMS ---
     'stream': ['BROOK', 'CREEK', 'FLOW', 'RUN', 'BECK', 'BURN', 'RILL'],
-    'river': ['PO', 'DEE', 'EXE', 'CAM', 'AVON', 'NILE', 'THAMES'],
+    'river': ['PO', 'DEE', 'EXE', 'CAM', 'AVON', 'NILE', 'THAMES', 'DONAU', 'DANUBE'],
+    'river for locals': ['DONAU'],  // German name for Danube
+    'danube': ['DONAU'],  // German: Donau
+    'donau': ['DANUBE'],  // English: Danube
     'brook': ['STREAM', 'BECK', 'BURN', 'RILL'],
     'water': ['H2O', 'AQUA', 'SEA', 'RAIN'],
     'sea': ['MED', 'MAIN', 'OCEAN', 'DEEP', 'BRINE'],
@@ -213,7 +216,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'fish': ['COD', 'RAY', 'EEL', 'BASS', 'CARP', 'SOLE', 'DACE'],
     'dog': ['CUR', 'PUP', 'HOUND', 'MUTT', 'SETTER', 'POINTER', 'LAB', 'BOXER', 'POM'],
     'cat': ['TOM', 'TABBY', 'MOGGY', 'KITTY', 'PUSS', 'FELIX'],
-    'horse': ['NAG', 'STEED', 'MARE', 'COLT', 'GEE'],
+    'horse': ['NAG', 'STEED', 'MARE', 'COLT', 'GEE', 'EQUID'],
+    'equid': ['HORSE', 'DONKEY', 'ZEBRA'],  // Equine family member
     'snake': ['ASP', 'BOA', 'ADDER', 'VIPER', 'COBRA'],
     'insect': ['ANT', 'BEE', 'FLY', 'MOTH', 'WASP', 'BUG'],
     'ant': ['EMMET'],
@@ -329,6 +333,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'angry': ['IRATE', 'MAD', 'CROSS', 'SORE'],
     'happy': ['GAY', 'GLAD', 'JOLLY', 'MERRY'],
     'sad': ['BLUE', 'LOW', 'DOWN', 'GLUM'],
+    'feeling sorrow': ['LAMENTING', 'MOURNING', 'GRIEVING'],
+    'lamenting': ['MOURNING', 'GRIEVING', 'BEWAILING', 'RUING'],
     'fear': ['AWE', 'DREAD', 'TERROR', 'FRIGHT'],
     'hate': ['LOATHE', 'DETEST', 'ABHOR'],
     'i hate this': ['BOO', 'HISS'],  // Expression of disapproval
@@ -719,7 +725,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'old testament': ['OT'],
     'new testament': ['NT'],
     'church of england': ['CE', 'COE'],
-    'roman catholic': ['RC'],
+    'roman catholic': ['RC', 'LATIN'],  // Latin = Roman Catholic (the Latin church)
     'prayer': ['AVE', 'ORISON', 'PLEA'],
     'hymn': ['SONG', 'PSALM', 'PAEAN'],
     'cross': ['X', 'ROOD', 'ANGRY', 'IRATE'],
@@ -781,6 +787,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'post meridiem': ['PM'],
     'pound': ['L', 'LB', 'QUID', 'NICKER'],
     'pounds': ['L', 'LBS', 'QUIDS'],
+    '£1': ['QUID', 'POUND', 'NICKER'],  // One pound
+    'quid': ['POUND', 'NICKER'],
     'question': ['Q', 'QUERY', 'ASK', 'QU'],
     'railway': ['RY', 'LINE', 'BR', 'GWR', 'LMS'],
     'shilling': ['S', 'BOB'],

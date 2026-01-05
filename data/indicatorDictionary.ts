@@ -81,6 +81,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'centre of': { type: 'deletion_first', letterOp: 'middle' },
     'center of': { type: 'deletion_first', letterOp: 'middle' },
     'middle of': { type: 'deletion_first', letterOp: 'middle' },
+    'essentially': { type: 'deletion_first', letterOp: 'middle' },  // "bet, essentially" = E (middle letter)
     'missing': { type: 'deletion_last' },
     'dropping': { type: 'deletion_last' },
     'losing': { type: 'deletion_last' },
@@ -686,6 +687,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'conveys': { type: 'container' },
     'to protect': { type: 'container' },
     'protecting': { type: 'container' },
+    'protects': { type: 'hidden' },  // "London authority protects" = hidden word
     'occupying': { type: 'container' },
     'to consume': { type: 'container' },
     'consuming': { type: 'container' },
@@ -693,6 +695,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'eating': { type: 'container' },
     'interrupting': { type: 'container' },
     'entering': { type: 'container' },
+    'charging': { type: 'container' },  // "soldiers charging" = soldiers going into
     'wearing': { type: 'container' },
     'introduced to': { type: 'container' },
     'introduced into': { type: 'container' },
