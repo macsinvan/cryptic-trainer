@@ -402,6 +402,9 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'soft': ['P', 'PIANO', 'GENTLE', 'QUIET'],
     'song': ['AIR', 'LAY', 'NUMBER', 'TUNE', 'ARIA'],
     'music': ['TUNE', 'MELODY', 'AIR'],
+    'crash': ['DIN', 'BANG', 'SMASH', 'COLLISION', 'IN'],  // "crash a party" = get IN uninvited
+    'din': ['NOISE', 'RACKET', 'CRASH', 'CLAMOUR'],
+    'noise': ['DIN', 'RACKET', 'SOUND'],
 
     // --- STYLE / FASHION ---
     'trendy': ['HIP', 'IN', 'COOL', 'HOT'],
@@ -447,6 +450,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'rent': ['RIP', 'TEAR', 'SPLIT', 'LET', 'HIRE'],
     'tear': ['RIP', 'RENT', 'SPLIT', 'DROP', 'CRY'],
     'rip': ['TEAR', 'RENT', 'SPLIT'],
+    'saw': ['RIP', 'ADAGE', 'PROVERB', 'SAYING'],  // "an old saw" = proverb; also saw → rip (cut)
     'hole': ['O', 'GAP', 'PIT', 'VOID'],
     'book': ['B', 'VOL', 'TOME', 'NT', 'OT'],
     'novel': ['BOOK', 'NEW', 'FRESH', 'ORIGINAL'],
@@ -511,6 +515,12 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'bear': ['STAND', 'CARRY', 'BRUIN', 'URSINE', 'TOLERATE', 'ENDURE'],
     'stand': ['BEAR', 'STALL', 'RACK', 'TOLERATE', 'BOOTH', 'ENDURE'],
     'over': ['O', 'DONE', 'FINISHED', 'ACROSS', 'ENDED'],  // O in cricket, also meanings
+
+    // --- LEGAL / LAW ---
+    'legal draft': ['BILL'],  // A bill is a draft law
+    'draft': ['BILL', 'SKETCH', 'PLAN', 'CONSCRIPT'],
+    'bill': ['BEAK', 'AC', 'NOTE', 'TAB', 'AD', 'LAW', 'ACT'],
+    'law': ['ACT', 'BILL', 'STATUTE', 'RULE'],
 
     // --- WEAPONS / BLADES ---
     'weapon': ['GUN', 'ARM', 'SWORD', 'LANCE', 'SPEAR', 'BLOWPIPE'],
@@ -795,7 +805,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'company': ['CO', 'FIRM', 'TROOP', 'CIA'],
     'court': ['CT', 'LAW', 'WOO'],
     'dead': ['D', 'LATE', 'GONE', 'OB'],
-    'died': ['D', 'OB'],
+    'died': ['D', 'OB', 'EXPIRED'],
+    'met maker': ['EXPIRED', 'DIED'],  // "met one's maker" = died
+    'expired': ['DIED', 'ENDED', 'LAPSED'],
+    'dee': ['D'],  // The letter D
     'eastern': ['E', 'ORIENTAL'],
     'electronic': ['E'],
     'for example': ['EG', 'SAY'],
@@ -1206,6 +1219,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'completely': ['ALL', 'FULLY', 'TOTALLY', 'WHOLLY', 'ENTIRELY'],
     'totally': ['ALL', 'FULLY', 'COMPLETELY', 'WHOLLY'],
     'entirely': ['ALL', 'FULLY', 'COMPLETELY', 'WHOLLY'],
+    'incorporate': ['BUILD IN', 'INCLUDE', 'EMBED', 'INTEGRATE'],
+    'include': ['INCORPORATE', 'CONTAIN', 'COMPRISE'],
     'anything': ['AUGHT', 'ANY'],
     'part': ['BIT', 'PIECE', 'ROLE', 'SHARE', 'PORTION'],
     'piece': ['BIT', 'PART', 'ITEM', 'MAN', 'GUN'],

@@ -170,6 +170,26 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['synonym'],
         expectedTechniques: ['synonym', 'charade'],
     },
+    {
+        name: 'BUILD IN (Homophone + Charade)',
+        clue: 'Incorporate legal draft delivered prior to crash (5,2)',
+        answer: 'BUILD IN',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'Incorporate',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['homophone', 'synonym'],
+        expectedTechniques: ['homophone', 'synonym', 'charade'],
+    },
+    {
+        name: 'EXPIRED (Container + Reversal + Charade)',
+        clue: "Met maker of saw that's turned up in River Dee (7)",
+        answer: 'EXPIRED',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'Met maker',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['container', 'synonym'],
+        expectedTechniques: ['container', 'reversal', 'synonym'],
+    },
 ];
 
 // Colors for output

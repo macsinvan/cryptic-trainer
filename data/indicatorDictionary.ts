@@ -606,6 +606,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'heading west': { type: 'reversal' },
     'westward': { type: 'reversal' },
     'turned': { type: 'reversal' },
+    'turned up': { type: 'reversal' },  // In down clues, "turned up" = reversed
     'the wrong way': { type: 'reversal' },
     'mounting': { type: 'reversal' },
     'rising': { type: 'reversal' },
@@ -641,6 +642,9 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'lowering head': { type: 'letter_movement' },  // Move first letter down/to end
     'lowering': { type: 'letter_movement' },
     'following': { type: 'charade' },
+    'prior to': { type: 'charade' },
+    'before': { type: 'charade' },
+    'after': { type: 'charade' },
     'following delay': { type: 'letter_movement' },
     'following delay of': { type: 'letter_movement' },
     'delay of': { type: 'letter_movement' },
@@ -754,6 +758,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'orally': { type: 'homophone' },
     'verbally': { type: 'homophone' },
     'by the sound of it': { type: 'homophone' },
+    'delivered': { type: 'homophone' },  // As in "delivered aloud"
 
     // --- SUBSTITUTION ---
     'as substitute for': { type: 'substitution' },

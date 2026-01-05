@@ -18,7 +18,7 @@ const OBVIOUS_ABBREVIATIONS: Record<string, string[]> = {
     'L': ['left', 'large', 'lake', 'latin', 'learner', 'fifty'],
     'R': ['right', 'river', 'king', 'queen', 'runs'],
     'C': ['century', 'cold', 'carbon', 'circa', 'hundred'],
-    'D': ['day', 'daughter', 'died', 'penny', 'five hundred'],
+    'D': ['day', 'daughter', 'died', 'penny', 'five hundred', 'dee'],  // dee = the letter D
     'I': ['one', 'island', 'iodine', 'current'],
     'O': ['love', 'zero', 'old', 'oxygen', 'over'],
     'P': ['page', 'piano', 'quiet', 'parking'],
@@ -1219,6 +1219,12 @@ function generateStepExplanation(
         }
 
         case 'homophone': {
+            // Handle composite charade path where indicator contains "homophone of X"
+            if (indicator?.includes('homophone of')) {
+                const match = indicator.match(/homophone of (\w+)/i);
+                const base = match ? match[1] : '';
+                return `"${fodder}" → ${base} (synonym). ${base} sounds like ${result} — a homophone.`;
+            }
             if (!homophoneVars) {
                 return ''; // Missing data
             }
@@ -1237,6 +1243,23 @@ function generateStepExplanation(
                 : `Combine the parts: ${fodder}`;
 
         case 'container': {
+            // Check if indicator contains "inside" pattern (from composite charade)
+            if (indicator?.includes(' inside ')) {
+                // Parse "PIR (reversal) inside EXE" or "PIR inside EXE" format
+                const reversalMatch = indicator.match(/(\w+)\s+\(reversal\)\s+inside\s+(\w+)/i);
+                const simpleMatch = indicator.match(/(\w+)\s+inside\s+(\w+)/i);
+
+                if (reversalMatch) {
+                    const inner = reversalMatch[1];
+                    const outer = reversalMatch[2];
+                    const original = inner.split('').reverse().join('');
+                    return `"${fodder}" combines reversal and container — ${original} reversed gives ${inner}, which goes inside ${outer} to form ${result}.`;
+                } else if (simpleMatch) {
+                    const inner = simpleMatch[1];
+                    const outer = simpleMatch[2];
+                    return `"${fodder}" involves a container — ${inner} goes inside ${outer} to form ${result}.`;
+                }
+            }
             if (!containerVars) {
                 return '';
             }
@@ -1249,6 +1272,19 @@ function generateStepExplanation(
                 // Longer container - acknowledge the figuring out required
                 return `"${indicator}" signals a container — ${inner} goes inside ${outer}. "${fodder}" → ${outer}. We need to find where ${inner} fits inside ${outer} to make a word matching the definition. Result: ${result}.`;
             }
+        }
+
+        case 'reversal': {
+            // Check if indicator contains "reversal of" pattern (from composite charade)
+            if (indicator?.includes('reversal of')) {
+                const reversalMatch = indicator.match(/reversal of (\w+)/i);
+                if (reversalMatch) {
+                    const original = reversalMatch[1];
+                    return `"${fodder}" reversed — "${original}" turned around gives ${result}.`;
+                }
+            }
+            // Generic reversal
+            return `"${indicator}" signals reversal — turn the letters around to get ${result}.`;
         }
 
         case 'synonym': {
@@ -1325,15 +1361,18 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             let stepType: WordplayStep['stepType'] = 'unknown';
             if (isAssembly) {
                 stepType = 'assembly';
-            } else if (variables[`container_part_${i}`]) {
-                // Container part detected via stored variables
+            } else if (variables[`container_part_${i}`] || indicator?.includes(' inside ')) {
+                // Container part detected via stored variables OR operation like "PIR inside EXE"
                 stepType = 'container' as WordplayStep['stepType'];
+            } else if (indicator?.includes('reversal of')) {
+                // Reversal operation (e.g., "reversal of RIP")
+                stepType = 'reversal';
             } else if (!indicator && complexity === 1) {
                 stepType = 'abbreviation';
             } else if (indicator?.includes('delay') || indicator?.includes('movement')) {
                 stepType = 'letter_movement';
-            } else if (variables[`homophone_base_${i}`]) {
-                // Homophone detected via stored variables
+            } else if (variables[`homophone_base_${i}`] || indicator?.includes('homophone of')) {
+                // Homophone detected via stored variables or indicator text
                 stepType = 'homophone';
             } else if (indicator === '(synonym)' || indicator === 'synonym') {
                 // Charade parts identified as synonym lookups
@@ -1567,13 +1606,19 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
     const techniquesUsed: string[] = [];
     const stepTypes = new Set(steps.filter(s => !s.isAssembly).map(s => s.stepType));
 
+    // Also check step indicators for embedded operations (e.g., "PIR (reversal) inside EXE" combines reversal+container)
+    const allIndicators = steps.filter(s => !s.isAssembly).map(s => s.indicator).join(' ');
+    const hasEmbeddedReversal = allIndicators.includes('reversal of') ||
+        allIndicators.includes('(reversal)') ||
+        steps.some(s => s.fodder?.toLowerCase().includes('turned') || s.fodder?.toLowerCase().includes('reversed'));
+
     // Map stepTypes to technique vocabulary
     if (stepTypes.has('abbreviation')) techniquesUsed.push('abbreviation');
     if (stepTypes.has('container')) techniquesUsed.push('container');
     if (stepTypes.has('homophone')) techniquesUsed.push('homophone');
     if (stepTypes.has('anagram')) techniquesUsed.push('anagram');
     if (stepTypes.has('hidden')) techniquesUsed.push('hidden word');
-    if (stepTypes.has('reversal')) techniquesUsed.push('reversal');
+    if (stepTypes.has('reversal') || hasEmbeddedReversal) techniquesUsed.push('reversal');
     if (stepTypes.has('deletion')) techniquesUsed.push('deletion');
     if (stepTypes.has('letter_movement')) techniquesUsed.push('letter movement');
     if (stepTypes.has('synonym')) techniquesUsed.push('synonym');
@@ -2292,34 +2337,76 @@ function tryCompositeCharade(
         }
     }
 
-    // 2g. Container with letter insertion - insert first-letter into reversal/synonym
+    // 2f2. Find homophone candidates (when homophone indicator present)
+    const homophoneIndicators = indicators.filter(i => i.type === 'homophone');
+    if (homophoneIndicators.length > 0) {
+        const homophonePairs: Record<string, string[]> = {
+            'NIGHT': ['KNIGHT'], 'KNIGHT': ['NIGHT'],
+            'RIGHT': ['WRITE', 'RITE'], 'WRITE': ['RIGHT', 'RITE'],
+            'AIR': ['HEIR', 'ERE'], 'HEIR': ['AIR'],
+            'HEAR': ['HERE'], 'HERE': ['HEAR'],
+            'SALE': ['SAIL'], 'SAIL': ['SALE'],
+            'TALE': ['TAIL'], 'TAIL': ['TALE'],
+            'MALE': ['MAIL'], 'MAIL': ['MALE'],
+            'PALE': ['PAIL'], 'PAIL': ['PALE'],
+            'BILL': ['BUILD'], 'BUILD': ['BILL'],
+            'STOW': ['STOWE'], 'STOWE': ['STOW'],
+        };
+
+        // Get synonym candidates and create homophone versions
+        const synonymCandidates = candidates.filter(c => c.operation === 'synonym');
+        for (const synCand of synonymCandidates) {
+            const synUpper = synCand.result.toUpperCase();
+            const homophones = homophonePairs[synUpper];
+            if (homophones) {
+                for (const homophone of homophones) {
+                    if (homophone.length <= answerLen) {
+                        candidates.push({
+                            text: synCand.text,
+                            result: homophone,
+                            operation: `homophone of ${synCand.result}`,
+                            wordIndices: [...synCand.wordIndices]
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // 2g. Container with insertion - insert content into outer container
     // e.g., "used in sensitive regressive" → U inside EROS = EUROS
+    // e.g., "PIR in EXE" → EXPIRE (multi-letter insertion)
     // Check if "in" appears in the wordplay (common container indicator)
     const hasInWord = words.some(w => w.toLowerCase().replace(/[^a-z]/g, '') === 'in');
     if (hasInWord) {
-        // Get letter candidates (single letters from first/last/middle operations)
-        const letterCandidates = candidates.filter(c => c.result.length === 1);
-        // Get multi-letter candidates (synonyms, reversals)
-        const outerCandidates = candidates.filter(c => c.result.length >= 3);
+        // Get inner candidates (any length for insertion)
+        const innerCandidates = candidates.filter(c => c.result.length >= 1 && c.result.length <= answerLen - 2);
+        // Get outer candidates (container - at least 2 letters to wrap around)
+        const outerCandidates = candidates.filter(c => c.result.length >= 2);
 
-        for (const letterCand of letterCandidates) {
+        for (const innerCand of innerCandidates) {
             for (const outerCand of outerCandidates) {
                 // Check indices don't overlap
-                const letterIndices = new Set(letterCand.wordIndices);
-                if (outerCand.wordIndices.some(idx => letterIndices.has(idx))) continue;
+                const innerIndices = new Set(innerCand.wordIndices);
+                if (outerCand.wordIndices.some(idx => innerIndices.has(idx))) continue;
 
-                const letter = letterCand.result;
+                const inner = innerCand.result;
                 const outer = outerCand.result;
 
-                // Try inserting letter at each position in outer (not start or end)
+                // Try inserting inner at each position in outer (not start or end)
                 for (let pos = 1; pos < outer.length; pos++) {
-                    const combined = outer.slice(0, pos) + letter + outer.slice(pos);
+                    const combined = outer.slice(0, pos) + inner + outer.slice(pos);
                     if (combined.length <= answerLen) {
+                        // Preserve reversal info in operation if inner was reversed
+                        const isInnerReversal = innerCand.operation?.includes('reversal of');
+                        const operationDesc = isInnerReversal
+                            ? `${inner} (reversal) inside ${outer}`
+                            : `${inner} inside ${outer}`;
                         candidates.push({
-                            text: `${letterCand.text} in ${outerCand.text}`,
+                            text: `${innerCand.text} in ${outerCand.text}`,
                             result: combined,
-                            operation: `${letter} inside ${outer}`,
-                            wordIndices: [...letterCand.wordIndices, ...outerCand.wordIndices]
+                            operation: operationDesc,
+                            wordIndices: [...innerCand.wordIndices, ...outerCand.wordIndices]
                         });
                     }
                 }
@@ -4215,6 +4302,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                                 'MAIL': ['MALE'],
                                 'PALE': ['PAIL'],
                                 'PAIL': ['PALE'],
+                                'BILL': ['BUILD'],
+                                'BUILD': ['BILL'],
                             };
                             if (homophonePairs[syn]?.includes(answerClean)) {
                                 homophoneMatch = { fodderSynonym: syn, sounds_like: answerClean };
