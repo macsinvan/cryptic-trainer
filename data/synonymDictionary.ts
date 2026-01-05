@@ -538,6 +538,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
 
     // --- MISCELLANEOUS ---
     'alarm': ['FRIGHT', 'SCARE', 'PANIC', 'BELL', 'ALERT'],
+    'imitative words': ['ECHOISED', 'ONOMATOPOEIA'],  // Words that sound like what they describe
+    'echoised': ['IMITATED', 'ECHOED'],
     'fit': ['APT', 'ABLE', 'SUIT', 'RIGHT', 'PROPER', 'SEIZURE'],
     'following': ['F', 'AFTER', 'NEXT', 'FANS', 'POST'],
     'shade': ['HUE', 'TINT', 'VISOR', 'BLIND', 'TONE'],
@@ -777,6 +779,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'dead': ['D', 'LATE', 'GONE', 'OB'],
     'died': ['D', 'OB'],
     'eastern': ['E', 'ORIENTAL'],
+    'electronic': ['E'],
     'for example': ['EG', 'SAY'],
     'that is': ['IE', 'NAMELY'],
     'good': ['G', 'FINE', 'NICE', 'PI'],

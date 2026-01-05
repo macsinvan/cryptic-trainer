@@ -82,6 +82,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'center of': { type: 'deletion_first', letterOp: 'middle' },
     'middle of': { type: 'deletion_first', letterOp: 'middle' },
     'essentially': { type: 'deletion_first', letterOp: 'middle' },  // "bet, essentially" = E (middle letter)
+    'core': { type: 'deletion_first', letterOp: 'middle' },  // "chip's core" = HI (middle letters)
     'missing': { type: 'deletion_last' },
     'dropping': { type: 'deletion_last' },
     'losing': { type: 'deletion_last' },
