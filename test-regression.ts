@@ -44,6 +44,17 @@ const testCases: TestCase[] = [
         expectedColdIndicators: ['following delay of'],
         expectedColdFodder: ['slander'],
     },
+    {
+        name: 'SODOM (Container)',
+        clue: "Depraved scene from 'love party' embodied by aggressive-submissive proclivity (5)",
+        answer: 'SODOM',
+        expectedPattern: 'Container',
+        expectedDefinition: 'Depraved scene',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['abbreviation', 'assembly'],
+        expectedColdDefinitionCandidates: ['Depraved', 'Depraved scene'],
+        expectedColdIndicators: ['embodied by'],
+    },
 ];
 
 // Colors for output

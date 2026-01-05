@@ -422,6 +422,22 @@ Pattern: Homophone
 
 Parsing summary: `lodge → STOW → STOWE = STOWE`
 
+### Case 4: SODOM (Container)
+**Solved**: 2026-01-05
+
+Clue: "Depraved scene from 'love party' embodied by aggressive-submissive proclivity (5)"
+
+Pattern: Container
+- Definition: "Depraved scene" → SODOM (synonym match, at start)
+- Wordplay:
+  - Inner content: "love party" = O (love) + DO (party) = ODO
+  - Outer container: "aggressive-submissive proclivity" = SM
+  - Container indicator: "embodied by"
+  - Container operation: S + ODO + M = SODOM (inner goes inside outer)
+- Answer: SODOM
+
+Parsing summary: `love party → ODO + aggressive-submissive proclivity → SM = SODOM`
+
 ---
 
 ## Regression Testing

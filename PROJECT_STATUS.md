@@ -42,6 +42,21 @@
 
 ## Recent Sessions
 
+### 2026-01-05 (Session 4)
+**Focus:** Container pattern implementation
+
+**Changes:**
+- Implemented container pattern processing for SODOM clue
+  - Inner content extraction: "love party" = O + DO = ODO
+  - Outer container resolution: "aggressive-submissive proclivity" = SM
+  - Container operation: S + ODO + M = SODOM
+- Added "embodied by/in/ing" to container indicators
+- Added abbreviations: love→O, party→DO, aggressive-submissive→SM
+- Added SODOM to regression test suite
+- All 3 regression tests passing (STOWE, ALIGNMENT, SODOM)
+
+---
+
 ### 2026-01-05 (Session 3)
 **Focus:** Cold parsing algorithm + regression tests
 
@@ -96,6 +111,7 @@
 | 1 | TONSURE | Acrostic + Charade | 2026-01-02 |
 | 2 | ALIGNMENT | Letter Movement + Charade | 2026-01-04 |
 | 3 | STOWE | Homophone | 2026-01-05 |
+| 4 | SODOM | Container | 2026-01-05 |
 
 ---
 

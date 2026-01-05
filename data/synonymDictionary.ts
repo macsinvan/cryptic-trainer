@@ -46,6 +46,13 @@ export const STANDALONE_SYNONYMS: Record<string, string> = {
     'queen': 'ER',
     'king': 'R',
 
+    // Lifestyle/proclivity
+    'sadomasochism': 'SM',
+    'sadomasochistic': 'SM',
+    'aggressive-submissive': 'SM',
+    'sadism': 'S',
+    'masochism': 'M',
+
     // Direction
     'north': 'N',
     'south': 'S',
@@ -122,6 +129,18 @@ export const ABBREVIATION_EXPLANATIONS: Record<string, { result: string; explana
         result: 'DR',
         explanation: 'DR is the standard abbreviation for doctor (as in Dr. Smith).'
     },
+    'aggressive-submissive proclivity': {
+        result: 'SM',
+        explanation: 'SM is the abbreviation for sadomasochism, a lifestyle proclivity involving dominant/submissive dynamics.'
+    },
+    'love': {
+        result: 'O',
+        explanation: 'In tennis scoring, "love" means zero, represented by O (the shape of zero).'
+    },
+    'party': {
+        result: 'DO',
+        explanation: 'A "do" is informal British English for a party or social gathering.'
+    },
     'northern': {
         result: 'N',
         explanation: 'N represents north/northern, as seen on maps and compasses.'
@@ -141,6 +160,11 @@ export const ABBREVIATION_EXPLANATIONS: Record<string, { result: string; explana
 };
 
 export const SYNONYM_DICTIONARY: Record<string, string[]> = {
+    // --- BIBLICAL / PLACES ---
+    'depraved scene': ['SODOM'],
+    'depraved': ['SODOM', 'VILE', 'WICKED', 'CORRUPT'],
+    'scene of depravity': ['SODOM'],
+
     // --- PROXIMITY / POSITION ---
     'close': ['NEAR', 'NIGH', 'SHUT', 'END'],
     'close to': ['NEAR', 'BY', 'AT'],

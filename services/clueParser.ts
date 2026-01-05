@@ -1,6 +1,6 @@
 
 import { PatternInstance, WordplayStep } from '../types';
-import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS, ABBREVIATION_EXPLANATIONS } from '../data/synonymDictionary';
+import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS, ABBREVIATION_EXPLANATIONS, STANDALONE_SYNONYMS } from '../data/synonymDictionary';
 
 // --- SOLVE STEPS GENERATOR ---
 // Generates step-by-step solve sequence for the battlecard
@@ -107,7 +107,7 @@ const INDICATOR_WORDS = new Set([
     // Hidden indicators
     'hidden', 'hiding', 'within', 'inside', 'contained', 'holding',
     // Container indicators
-    'around', 'surrounding', 'outside', 'embracing', 'holding',
+    'around', 'surrounding', 'outside', 'embracing', 'holding', 'embodied', 'embodying',
     // Homophone indicators
     'sounds', 'heard', 'spoken', 'said', 'vocal', 'audibly', 'reported', 'reportedly',
     // Deletion indicators
@@ -1745,6 +1745,9 @@ const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'introduced into': { type: 'container' },
     'inserted in': { type: 'container' },
     'inserted into': { type: 'container' },
+    'embodied by': { type: 'container' },
+    'embodied in': { type: 'container' },
+    'embodying': { type: 'container' },
 
     // --- HOMOPHONE ---
     'say': { type: 'homophone' },
@@ -3923,6 +3926,158 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                             synonymsResolved++;
                         }
                     }
+                } else if (entry.type === 'container') {
+                    // Container - inner content goes inside outer container
+                    // Pattern: [inner] embodied by [outer] OR [outer] containing [inner]
+                    if (knownAnswer) {
+                        const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+                        const cleanClue = getClueWithoutCount(clue);
+                        const words = cleanClue.split(/\s+/);
+                        const indicatorWords = ind.text.split(/\s+/);
+
+                        // Find indicator position in word array
+                        let indicatorStartWord = -1;
+                        let indicatorEndWord = -1;
+                        for (let i = 0; i <= words.length - indicatorWords.length; i++) {
+                            let match = true;
+                            for (let j = 0; j < indicatorWords.length; j++) {
+                                if (!cleanText(words[i + j]).includes(indicatorWords[j].toLowerCase())) {
+                                    match = false;
+                                    break;
+                                }
+                            }
+                            if (match) {
+                                indicatorStartWord = i;
+                                indicatorEndWord = i + indicatorWords.length;
+                                break;
+                            }
+                        }
+
+                        if (indicatorStartWord !== -1) {
+                            // Get inner content (before indicator, after definition)
+                            // and outer content (after indicator)
+                            const innerWords = words.slice(defEndWordIdx, indicatorStartWord);
+                            const outerWords = words.slice(indicatorEndWord);
+
+                            // Clean up the inner text (remove "from", quotes, etc.)
+                            let innerText = innerWords.join(' ').replace(/^from\s+/i, '').replace(/[''"]/g, '').trim();
+                            let outerText = outerWords.join(' ').trim();
+
+                            // Resolve inner to its result
+                            // "love party" = O (love) + DO (party) = ODO
+                            let innerResult = '';
+                            const innerWordList = innerText.split(/\s+/);
+                            const innerParts: { word: string; result: string }[] = [];
+
+                            for (const word of innerWordList) {
+                                const wordClean = word.toLowerCase().replace(/[^a-z-]/g, '');
+                                if (!wordClean) continue;
+
+                                // Check STANDALONE_SYNONYMS first (love→O, party handled via CRYPTIC_MEANINGS)
+                                const standaloneResult = STANDALONE_SYNONYMS[wordClean];
+                                if (standaloneResult) {
+                                    innerParts.push({ word, result: standaloneResult });
+                                    innerResult += standaloneResult;
+                                } else {
+                                    // Check ABBREVIATION_EXPLANATIONS
+                                    const abbrevInfo = ABBREVIATION_EXPLANATIONS[wordClean];
+                                    if (abbrevInfo) {
+                                        innerParts.push({ word, result: abbrevInfo.result });
+                                        innerResult += abbrevInfo.result;
+                                    } else {
+                                        // Check CRYPTIC_MEANINGS (party → DO)
+                                        const crypticInfo = CRYPTIC_MEANINGS[wordClean];
+                                        if (crypticInfo && crypticInfo.synonyms.length > 0) {
+                                            // Take the shortest synonym (usually the abbreviation)
+                                            const shortest = crypticInfo.synonyms.reduce((a, b) => a.length <= b.length ? a : b);
+                                            innerParts.push({ word, result: shortest });
+                                            innerResult += shortest;
+                                        } else {
+                                            // Try regular synonyms
+                                            const syns = lookupSynonyms(wordClean);
+                                            if (syns.length > 0 && syns[0].length <= 3) {
+                                                innerParts.push({ word, result: syns[0] });
+                                                innerResult += syns[0];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Resolve outer to its result
+                            // "aggressive-submissive proclivity" = SM
+                            let outerResult = '';
+                            // Check ABBREVIATION_EXPLANATIONS for full phrase
+                            const outerAbbrevInfo = ABBREVIATION_EXPLANATIONS[outerText.toLowerCase()];
+                            if (outerAbbrevInfo) {
+                                outerResult = outerAbbrevInfo.result;
+                            } else {
+                                // Check STANDALONE_SYNONYMS for hyphenated terms
+                                const outerStandalone = STANDALONE_SYNONYMS[outerText.toLowerCase().replace(/\s+proclivity$/i, '')];
+                                if (outerStandalone) {
+                                    outerResult = outerStandalone;
+                                } else {
+                                    // Try phrase lookup in synonyms
+                                    const syns = lookupSynonyms(outerText);
+                                    if (syns.length > 0) {
+                                        outerResult = syns[0];
+                                    }
+                                }
+                            }
+
+                            // Perform container operation: insert inner in middle of outer
+                            // S + ODO + M = SODOM (inner ODO goes between S and M)
+                            if (innerResult && outerResult && outerResult.length >= 2) {
+                                // Try different insertion points to find what produces the answer
+                                let containerSuccess = false;
+                                let insertionPoint = 1;  // Default: after first letter
+
+                                for (let pos = 1; pos < outerResult.length; pos++) {
+                                    const combined = outerResult.slice(0, pos) + innerResult + outerResult.slice(pos);
+                                    if (combined === answerClean) {
+                                        containerSuccess = true;
+                                        insertionPoint = pos;
+                                        break;
+                                    }
+                                }
+
+                                if (containerSuccess) {
+                                    const outerFirst = outerResult.slice(0, insertionPoint);
+                                    const outerLast = outerResult.slice(insertionPoint);
+
+                                    // Set up wordplay steps
+                                    // Step 1: Inner content (easy - abbreviation lookup)
+                                    variables[`indicator_1_text`] = '';
+                                    variables[`fodder_1_text`] = innerText;
+                                    variables[`result_1`] = innerResult;
+                                    variables[`hint_1`] = innerParts.map(p => `"${p.word}" → ${p.result}`).join(', ');
+                                    variables[`complexity_1`] = '1';
+
+                                    // Step 2: Outer container (easy - abbreviation lookup)
+                                    variables[`indicator_2_text`] = '';
+                                    variables[`fodder_2_text`] = outerText;
+                                    variables[`result_2`] = outerResult;
+                                    variables[`hint_2`] = `"${outerText}" → ${outerResult}`;
+                                    variables[`complexity_2`] = '1';
+
+                                    // Step 3: Container operation (assembly)
+                                    const structure = `${outerFirst} + ${innerResult} + ${outerLast} = ${answerClean}`;
+                                    variables[`indicator_3_text`] = 'Assembly';
+                                    variables[`fodder_3_text`] = structure;
+                                    variables[`hint_3`] = `Container: ${outerFirst}(${innerResult})${outerLast} = ${answerClean}`;
+                                    variables['structure'] = structure;
+
+                                    // Store container-specific vars for explanation template
+                                    variables['container_inner'] = innerResult;
+                                    variables['container_outer'] = outerResult;
+                                    variables['container_indicator'] = ind.text;
+                                    variables['container_verified'] = 'true';  // Flag to skip result verification
+
+                                    synonymsResolved = 2;  // Both inner and outer resolved
+                                }
+                            }
+                        }
+                    }
                 } else if (entry.type === 'letter_movement') {
                     // Letter movement - create battlecard steps where results combine to answer
                     if (knownAnswer) {
@@ -4106,8 +4261,9 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                     }
                 }
             }
-        } else if (!resultsMatchAnswer && synonymsResolved > 0) {
+        } else if (!resultsMatchAnswer && synonymsResolved > 0 && !variables['container_verified']) {
             // Single part clue failed - clear incorrect results
+            // Skip for container patterns which have already been verified
             for (let i = 1; i <= indicators.length; i++) {
                 delete variables[`synonym_${i}`];
                 delete variables[`result_${i}`];
