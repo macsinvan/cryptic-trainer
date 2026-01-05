@@ -42,7 +42,34 @@
 
 ## Recent Sessions
 
-### 2026-01-05
+### 2026-01-05 (Session 3)
+**Focus:** Cold parsing algorithm + regression tests
+
+**Changes:**
+- Implemented cold parsing algorithm (parse without answer)
+  - Eliminate wordplay words first (indicators + fodder)
+  - Build multi-word definition hypotheses from remaining words
+  - Auto-derive answer from dictionary lookups
+- Added multi-word indicator phrase detection (e.g., "following delay of")
+- Fixed homophone explanation to link to definition ("= public school")
+- Created regression test suite (`test-regression.ts`)
+- Added STOWE and ALIGNMENT test cases
+- Documented cold parsing algorithm in parser_updates.md
+
+---
+
+### 2026-01-05 (Session 2)
+**Focus:** UI screenshots for documentation
+
+**Changes:**
+- Created `docs/images/` folder
+- Added battlecard-input-view.png (import screen)
+- Added battlecard-solved-view.png (review screen)
+- Added UI Reference section to INTERACTIVE_SOLVE_FLOW.md
+
+---
+
+### 2026-01-05 (Session 1)
 **Focus:** Homophone pattern + documentation cleanup
 
 **Changes:**

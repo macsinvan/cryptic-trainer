@@ -210,3 +210,24 @@ These patterns repeat frequently in Times cryptic crosswords.
 | Click "Skip" | Skips current step (auto-fills discovery) |
 | Click "Reveal Answer" | Shows answer and marks as complete |
 | Fill answer grid correctly | Auto-checks and completes |
+
+---
+
+## UI Reference Screenshots
+
+### Battlecard Builder — Input View
+![Battlecard Input View](docs/images/battlecard-input-view.png)
+
+The import screen where raw clue data is pasted. Shows:
+- Text input area for pasting clue data
+- "READY TO IMPORT" status indicator
+- "REVIEW BATTLECARD" button to proceed
+
+### Battlecard Builder — Solved View
+![Battlecard Solved View](docs/images/battlecard-solved-view.png)
+
+The review screen after parser processing. Shows:
+- Answer grid with letter boxes
+- Definition and wordplay step explanations
+- "Edit" button to modify parsing
+- "Accept" button to save to collection

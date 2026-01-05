@@ -112,6 +112,66 @@ const renderBattlecardReview = () => {
 
 ---
 
+## Cold Parsing Algorithm (No Answer)
+
+When parsing without a known answer, the parser uses a structured elimination approach:
+
+### Algorithm
+
+1. **Eliminate wordplay words first**
+   - Find abbreviation fodder (e.g., "hospital department" → ENT) and mark as consumed
+   - Find indicator phrases (multi-word first, e.g., "following delay of", then single words)
+   - Find fodder adjacent to each indicator and mark as consumed
+
+2. **Remaining words = definition candidates**
+   - Only unconsumed words can be the definition
+   - Build multi-word hypotheses expanding from start/end:
+     - At START: try "1st word", "1st + 2nd", "1st + 2nd + 3rd"
+     - At END: try "last word", "last + 2nd-last", etc.
+
+3. **Derive answer without AI**
+   - For each definition candidate, lookup synonyms in dictionary
+   - Filter by target length
+   - Try parsing with each candidate as answer
+   - If successful → derived answer found
+
+### Example: "Public school lodge reported (5)"
+
+```
+Step 1: Eliminate wordplay
+  - "reported" = homophone indicator (consumed)
+  - "lodge" = fodder adjacent to indicator (consumed)
+
+Step 2: Remaining words
+  - "Public", "school" at START
+
+Step 3: Build definition hypotheses
+  - "Public" (1 word)
+  - "Public school" (2 words) ✓ → STOWE in dictionary
+
+Result: Definition = "Public school", Answer = STOWE
+```
+
+### Example: "Following delay of months, slander hospital department's union (9)"
+
+```
+Step 1: Eliminate wordplay
+  - "following delay of" = letter_movement indicator (consumed)
+  - "months" = abbreviation fodder → M (consumed)
+  - "slander" = fodder for letter_movement (consumed)
+  - "hospital department" = abbreviation fodder → ENT (consumed)
+
+Step 2: Remaining words
+  - "union" at END (single word, no ambiguity)
+
+Step 3: Build definition hypotheses
+  - "union" ✓ → ALIGNMENT in dictionary
+
+Result: Definition = "union", Answer = ALIGNMENT
+```
+
+---
+
 ## Explanation Template System
 
 ### The Cold View Principle

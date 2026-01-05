@@ -109,7 +109,7 @@ const INDICATOR_WORDS = new Set([
     // Container indicators
     'around', 'surrounding', 'outside', 'embracing', 'holding',
     // Homophone indicators
-    'sounds', 'heard', 'spoken', 'said', 'vocal', 'audibly',
+    'sounds', 'heard', 'spoken', 'said', 'vocal', 'audibly', 'reported', 'reportedly',
     // Deletion indicators
     'losing', 'lost', 'without', 'missing', 'dropping', 'dropped',
     // General
@@ -283,132 +283,260 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
     const clueText = clue.replace(/\s*\([0-9,\-]+\)\s*$/, '').trim();
     const words = clueText.split(/\s+/);
 
-    // Step 1: Find all obvious abbreviations
+    // =================================================================
+    // COLD PARSING ALGORITHM:
+    // 1. First eliminate wordplay words (indicators + their fodder)
+    // 2. Remaining words are definition candidates
+    // 3. Build multi-word definition hypotheses expanding from start/end
+    // =================================================================
+
+    // Step 1: Find all obvious abbreviations (these are wordplay, not definition)
     const obviousElements = scanClueForObviousElements(clue);
     const abbreviations = obviousElements.filter(e => e.type === 'abbreviation');
 
-    // Step 2: Identify content words (not function words, not abbreviation fodder)
-    // NOTE: We do NOT filter out indicator words at START or END positions - they could be definitions
-    const usedPhrases = new Set<string>();
+    // Track which words are CONSUMED by wordplay (not available for definition)
+    const consumedWordIndices = new Set<number>();
+
+    // Mark abbreviation fodder words as consumed (only actual abbreviations, not "remaining" type)
     abbreviations.forEach(a => {
-        // Mark individual words in the fodder as used (normalize to remove possessives)
-        a.fodder.toLowerCase().replace(/['']s?/g, '').split(/\s+/).forEach(w => {
-            usedPhrases.add(w.replace(/[^a-z]/g, ''));
+        if (a.type !== 'abbreviation') return;  // Only consume actual abbreviations
+        const fodderWords = a.fodder.toLowerCase().replace(/['']s?/g, '').split(/\s+/);
+        words.forEach((word, idx) => {
+            const wLower = word.toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+            if (fodderWords.some(fw => fw.replace(/[^a-z]/g, '') === wLower)) {
+                consumedWordIndices.add(idx);
+            }
         });
     });
 
-    // Track indicator words separately - they're wordplay, not definition candidates
-    const indicatorWordsFound: string[] = [];
-    const contentWords: string[] = [];
-    // Track original positions for definition candidacy
-    const contentWordPositions: Map<string, number> = new Map();
+    // Step 2: Find indicators and their fodder, mark as consumed
+    // IMPORTANT: Check multi-word phrases first (e.g., "following delay of"), then single words
+    const detectedOperations: Array<{ indicator: string; type: OperationType; fodder?: string; indicatorIdx: number; fodderIdx?: number }> = [];
 
-    words.forEach((word, idx) => {
-        // Normalize: remove possessives and non-alpha
-        const wordLower = word.toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
-        if (wordLower.length < 2) return;
-        if (FUNCTION_WORDS.has(wordLower)) return;
-        if (usedPhrases.has(wordLower)) return;  // Skip if part of abbreviation fodder
+    // First pass: find multi-word indicator phrases from INDICATOR_DICTIONARY
+    const clueTextLower = clueText.toLowerCase();
+    const multiWordIndicators: Array<{ phrase: string; type: OperationType; startIdx: number; endIdx: number }> = [];
 
-        // Indicator words are NEVER definition candidates, but track them for wordplay
-        if (INDICATOR_WORDS.has(wordLower)) {
-            indicatorWordsFound.push(word);
-            return;  // Don't add to content words
+    // Get all multi-word keys from INDICATOR_DICTIONARY (2+ words)
+    for (const key of Object.keys(INDICATOR_DICTIONARY)) {
+        if (key.includes(' ')) {
+            const keyLower = key.toLowerCase();
+            const pos = clueTextLower.indexOf(keyLower);
+            if (pos !== -1) {
+                // Find word indices that make up this phrase
+                const beforePhrase = clueText.substring(0, pos);
+                const startWordIdx = beforePhrase.split(/\s+/).filter(w => w.length > 0).length;
+                const phraseWordCount = key.split(/\s+/).length;
+                const endWordIdx = startWordIdx + phraseWordCount - 1;
+
+                multiWordIndicators.push({
+                    phrase: key,
+                    type: INDICATOR_DICTIONARY[key].type,
+                    startIdx: startWordIdx,
+                    endIdx: endWordIdx
+                });
+            }
+        }
+    }
+
+    // Sort by length descending (prefer longer phrases)
+    multiWordIndicators.sort((a, b) => b.phrase.length - a.phrase.length);
+
+    // Mark multi-word indicator words as consumed
+    for (const mwi of multiWordIndicators) {
+        // Check none of these indices already consumed
+        let alreadyConsumed = false;
+        for (let i = mwi.startIdx; i <= mwi.endIdx; i++) {
+            if (consumedWordIndices.has(i)) {
+                alreadyConsumed = true;
+                break;
+            }
+        }
+        if (alreadyConsumed) continue;
+
+        // Mark all words in phrase as consumed
+        for (let i = mwi.startIdx; i <= mwi.endIdx; i++) {
+            consumedWordIndices.add(i);
         }
 
-        contentWords.push(word);
-        contentWordPositions.set(word, idx);
+        // Find fodder after the indicator phrase
+        let fodder: string | undefined;
+        let fodderIdx: number | undefined;
+
+        for (let i = mwi.endIdx + 1; i < words.length; i++) {
+            const fw = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+            if (fw.length < 2 || FUNCTION_WORDS.has(fw)) continue;
+            if (!consumedWordIndices.has(i)) {
+                fodder = words[i];
+                fodderIdx = i;
+                break;
+            }
+        }
+
+        // For letter_movement: the letter source (e.g., "months" → M) is already detected as abbreviation
+        // Just consume the word to modify (e.g., "slander") as fodder
+        if (fodderIdx !== undefined) {
+            consumedWordIndices.add(fodderIdx);
+        }
+
+        detectedOperations.push({
+            indicator: mwi.phrase,
+            type: mwi.type,
+            fodder,
+            indicatorIdx: mwi.startIdx,
+            fodderIdx
+        });
+    }
+
+    // Second pass: find single-word indicators not already consumed
+    words.forEach((word, idx) => {
+        if (consumedWordIndices.has(idx)) return;
+
+        const wLower = word.toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+        if (INDICATOR_WORDS.has(wLower)) {
+            // This is an indicator - mark it as consumed
+            consumedWordIndices.add(idx);
+
+            // Look up in INDICATOR_DICTIONARY for operation type
+            const entry = INDICATOR_DICTIONARY[wLower];
+            const opType = entry?.type || 'synonym';
+
+            // Find fodder - the content word adjacent to indicator (prefer before, then after)
+            let fodder: string | undefined;
+            let fodderIdx: number | undefined;
+
+            // Look backwards for fodder (skip function words)
+            for (let i = idx - 1; i >= 0; i--) {
+                const fw = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+                if (fw.length < 2 || FUNCTION_WORDS.has(fw)) continue;
+                if (!consumedWordIndices.has(i) && !INDICATOR_WORDS.has(fw)) {
+                    fodder = words[i];
+                    fodderIdx = i;
+                    break;
+                }
+            }
+
+            // If no fodder found before, look forward
+            if (!fodder) {
+                for (let i = idx + 1; i < words.length; i++) {
+                    const fw = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+                    if (fw.length < 2 || FUNCTION_WORDS.has(fw)) continue;
+                    if (!consumedWordIndices.has(i) && !INDICATOR_WORDS.has(fw)) {
+                        fodder = words[i];
+                        fodderIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            // Mark fodder as consumed
+            if (fodderIdx !== undefined) {
+                consumedWordIndices.add(fodderIdx);
+            }
+
+            detectedOperations.push({ indicator: word, type: opType, fodder, indicatorIdx: idx, fodderIdx });
+        }
     });
 
-    // Step 3: Identify definition candidates
-    // CRITICAL: Definition must be at ACTUAL start or end of the clue
-    // KEY INSIGHT: If indicator words appear at START, they signal wordplay → definition is at END
-    // If indicator words appear at END, they signal wordplay → definition is at START
+    // Step 3: Remaining words (not consumed) are definition candidates
+    // Track their original indices for position-based logic
+    const remainingWords: Array<{ word: string; idx: number }> = [];
+    words.forEach((word, idx) => {
+        const wLower = word.toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+        if (wLower.length < 2) return;
+        if (FUNCTION_WORDS.has(wLower)) return;
+        if (!consumedWordIndices.has(idx)) {
+            remainingWords.push({ word, idx });
+        }
+    });
+
+    // Step 4: Build multi-word definition hypotheses
+    // If remaining words are at START → expand: 1st, 1st+2nd, 1st+2nd+3rd
+    // If remaining words are at END → expand: last, last+2nd-last, etc.
     const definitionCandidates: string[] = [];
 
-    // Find positions of first/last indicator words
-    let firstIndicatorPos = -1;
-    let lastIndicatorPos = -1;
-    for (let i = 0; i < words.length; i++) {
-        const wLower = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
-        if (INDICATOR_WORDS.has(wLower)) {
-            if (firstIndicatorPos === -1) firstIndicatorPos = i;
-            lastIndicatorPos = i;
+    if (remainingWords.length > 0) {
+        // Check if remaining words are contiguous at start or end
+        const firstRemainingIdx = remainingWords[0].idx;
+        const lastRemainingIdx = remainingWords[remainingWords.length - 1].idx;
+
+        // Determine position: are remaining words at START or END of clue?
+        const atStart = firstRemainingIdx === 0 ||
+            (firstRemainingIdx <= 1 && words[0].toLowerCase().replace(/[^a-z]/g, '').length < 2);
+        const atEnd = lastRemainingIdx === words.length - 1 ||
+            (lastRemainingIdx >= words.length - 2);
+
+        if (atStart && !atEnd) {
+            // Definition at START - build expanding phrases from start
+            // Try: 1st word, 1st+2nd, 1st+2nd+3rd, etc.
+            for (let len = 1; len <= remainingWords.length && len <= 4; len++) {
+                const phrase = remainingWords.slice(0, len).map(w => w.word).join(' ');
+                definitionCandidates.push(phrase);
+            }
+        } else if (atEnd && !atStart) {
+            // Definition at END - build expanding phrases from end
+            // Try: last word, last+2nd-last, etc.
+            for (let len = 1; len <= remainingWords.length && len <= 4; len++) {
+                const phrase = remainingWords.slice(-len).map(w => w.word).join(' ');
+                definitionCandidates.push(phrase);
+            }
+        } else {
+            // Ambiguous - try both directions
+            // From start
+            for (let len = 1; len <= remainingWords.length && len <= 3; len++) {
+                const phrase = remainingWords.slice(0, len).map(w => w.word).join(' ');
+                definitionCandidates.push(phrase);
+            }
+            // From end (if different from start)
+            if (remainingWords.length > 1) {
+                for (let len = 1; len <= remainingWords.length && len <= 3; len++) {
+                    const phrase = remainingWords.slice(-len).map(w => w.word).join(' ');
+                    if (!definitionCandidates.includes(phrase)) {
+                        definitionCandidates.push(phrase);
+                    }
+                }
+            }
         }
     }
 
-    const firstContentWord = contentWords[0];
-    const lastContentWord = contentWords[contentWords.length - 1];
-    const firstContentPos = contentWordPositions.get(firstContentWord) ?? -1;
-    const lastContentPos = contentWordPositions.get(lastContentWord) ?? -1;
-
-    // If indicators come BEFORE first content word → definition is at END
-    // If indicators come AFTER last content word → definition is at START
-    const indicatorsBeforeContent = firstIndicatorPos !== -1 && firstIndicatorPos < firstContentPos;
-    const indicatorsAfterContent = lastIndicatorPos !== -1 && lastIndicatorPos > lastContentPos;
-
-    if (indicatorWordsFound.length === 0) {
-        // No indicators found - both start and end are possible
-        if (firstContentWord) definitionCandidates.push(firstContentWord);
-        if (lastContentWord && lastContentWord !== firstContentWord) {
-            definitionCandidates.push(lastContentWord);
-        }
-    } else if (indicatorsBeforeContent && !indicatorsAfterContent) {
-        // Indicators at start → definition MUST be at END only
-        if (lastContentWord) definitionCandidates.push(lastContentWord);
-    } else if (indicatorsAfterContent && !indicatorsBeforeContent) {
-        // Indicators at end → definition MUST be at START only
-        if (firstContentWord) definitionCandidates.push(firstContentWord);
-    } else {
-        // Indicators on both sides or interspersed - unusual, check both
-        if (firstContentWord) definitionCandidates.push(firstContentWord);
-        if (lastContentWord && lastContentWord !== firstContentWord) {
-            definitionCandidates.push(lastContentWord);
-        }
-    }
-
-    // Step 4: Calculate known letters from abbreviations
+    // Step 5: Calculate known letters from abbreviations
     const knownLetters = abbreviations.reduce((sum, a) => sum + a.result.length, 0);
     const neededLetters = targetLength - knownLetters;
 
-    // Step 5: Build hypotheses
+    // Step 6: Build hypotheses for each definition candidate
     const hypotheses: ClueHypothesis[] = [];
 
     for (const defCandidate of definitionCandidates) {
-        const isStartDef = contentWords.indexOf(defCandidate) === 0;
-        const position = isStartDef ? 'START' : 'END';
+        // Determine position based on where the definition words are
+        const defWords = defCandidate.split(/\s+/);
+        const firstDefWord = defWords[0];
+        const firstDefIdx = words.findIndex(w => w === firstDefWord);
+        const position = firstDefIdx <= 1 ? 'START' : 'END';
 
-        // Wordplay parts = all content words except the definition
-        const wordplayFodder = contentWords.filter(w => w !== defCandidate);
+        // Wordplay parts = consumed fodder from detected operations + abbreviations
+        const wordplayParts: Array<{ fodder: string; result: string; letterCount?: number }> = [];
 
-        // Build wordplay parts with known results
-        const wordplayParts = wordplayFodder.map(fodder => {
-            // Check if this fodder has a known abbreviation result
-            const abbrev = abbreviations.find(a =>
-                a.fodder.toLowerCase().includes(fodder.toLowerCase())
-            );
-            return {
-                fodder,
-                result: abbrev?.result || '',
-                letterCount: abbrev ? abbrev.result.length : undefined
-            };
-        });
-
-        // Add abbreviations that aren't tied to content words
-        abbreviations.forEach(abbrev => {
-            const alreadyIncluded = wordplayParts.some(p =>
-                abbrev.fodder.toLowerCase().includes(p.fodder.toLowerCase())
-            );
-            if (!alreadyIncluded) {
+        // Add fodder from detected operations
+        detectedOperations.forEach(op => {
+            if (op.fodder) {
                 wordplayParts.push({
-                    fodder: abbrev.fodder,
-                    result: abbrev.result,
-                    letterCount: abbrev.result.length
+                    fodder: op.fodder,
+                    result: '',  // Unknown without answer
+                    letterCount: undefined
                 });
             }
         });
 
-        // Find which fodder needs a synonym
+        // Add abbreviations
+        abbreviations.forEach(abbrev => {
+            wordplayParts.push({
+                fodder: abbrev.fodder,
+                result: abbrev.result,
+                letterCount: abbrev.result.length
+            });
+        });
+
+        // Find which fodder needs a synonym (operations without known result)
         const unknownParts = wordplayParts.filter(p => !p.result);
         const synonymNeeded = unknownParts.length === 1 && neededLetters > 0
             ? { fodder: unknownParts[0].fodder, letterCount: neededLetters }
@@ -425,45 +553,70 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         });
     }
 
-    // Step 6: Generate human-readable solve steps in CORRECT ORDER
-    // Order: 1) Obvious wordplay 2) Target 3) Definition 4) What's needed to solve
+    // Step 7: Generate human-readable solve steps in CORRECT ORDER
     const solveSteps: string[] = [];
 
-    // 1. Show obvious abbreviations with their indicators
+    // 1. Show detected operation types from indicators (this is the key insight)
+    if (detectedOperations.length > 0) {
+        for (const op of detectedOperations) {
+            const typeLabels: Record<OperationType, string> = {
+                'homophone': 'homophone — a word that sounds like the answer',
+                'anagram': 'anagram — rearrange the letters',
+                'reversal': 'reversal — read backwards',
+                'hidden': 'hidden word — answer is concealed in the text',
+                'deletion_first': 'deletion — remove the first letter',
+                'deletion_last': 'deletion — remove the last letter',
+                'container': 'container — one word goes inside another',
+                'charade': 'charade — words combine in sequence',
+                'double_def': 'double definition — two meanings',
+                'acrostic': 'acrostic — take first letters',
+                'synonym': 'synonym lookup',
+                'substitution': 'substitution — replace one letter with another',
+                'letter_movement': 'letter movement — move a letter to a new position',
+            };
+            const label = typeLabels[op.type] || op.type;
+            if (op.fodder) {
+                solveSteps.push(`"${op.indicator}" signals ${label}. Fodder: "${op.fodder}"`);
+            } else {
+                solveSteps.push(`"${op.indicator}" signals ${label}`);
+            }
+        }
+    }
+
+    // 2. Show obvious abbreviations
     if (abbreviations.length > 0) {
         abbreviations.forEach((abbrev, i) => {
-            // Find indicator words that might relate to this abbreviation
-            const indicatorContext = indicatorWordsFound.length > 0
-                ? ` ("${indicatorWordsFound.join(' ')}" signals this)`
-                : '';
-            if (i === 0) {
-                solveSteps.push(`Spot obvious wordplay: "${abbrev.fodder}" → ${abbrev.result}${i === 0 && indicatorWordsFound.length > 0 ? indicatorContext : ''}`);
-            } else {
-                solveSteps.push(`Also: "${abbrev.fodder}" → ${abbrev.result}`);
-            }
+            solveSteps.push(`"${abbrev.fodder}" → ${abbrev.result} (abbreviation)`);
         });
         solveSteps.push(`Known letters: ${abbreviations.map(a => a.result).join(' + ')} = ${knownLetters} letters`);
     }
 
-    // 2. Show target calculation
+    // 3. Show target calculation
     if (targetLength > 0) {
-        solveSteps.push(`Target: ${targetLength} letters. Have ${knownLetters}, need ${neededLetters} more.`);
+        solveSteps.push(`Target: ${targetLength} letters`);
     }
 
-    // 3. Show definition - this is what we're looking for
-    if (definitionCandidates.length === 1) {
-        solveSteps.push(`Definition: "${definitionCandidates[0]}" (at ${definitionCandidates[0] === contentWords[contentWords.length - 1] ? 'end' : 'start'})`);
-    } else if (definitionCandidates.length === 2) {
-        solveSteps.push(`Definition is either "${definitionCandidates[0]}" (start) or "${definitionCandidates[1]}" (end)`);
-    }
+    // 4. Show definition candidates (multi-word hypotheses)
+    if (definitionCandidates.length > 0) {
+        // Group by length to show expansion
+        const byLength = new Map<number, string[]>();
+        definitionCandidates.forEach(d => {
+            const len = d.split(/\s+/).length;
+            if (!byLength.has(len)) byLength.set(len, []);
+            byLength.get(len)!.push(d);
+        });
 
-    // 4. Show what we need to solve - the remaining content word needs a synonym
-    const remainingContent = contentWords.filter(w =>
-        !abbreviations.some(a => a.fodder.toLowerCase().includes(w.toLowerCase())) &&
-        !definitionCandidates.includes(w)
-    );
-    if (remainingContent.length > 0 && neededLetters > 0) {
-        solveSteps.push(`Need ${neededLetters}-letter synonym for "${remainingContent[0]}" to complete the answer`);
+        // Determine position from first candidate
+        const firstDefIdx = words.findIndex(w => w === definitionCandidates[0].split(/\s+/)[0]);
+        const position = firstDefIdx <= 1 ? 'start' : 'end';
+
+        if (definitionCandidates.length === 1) {
+            solveSteps.push(`Definition: "${definitionCandidates[0]}" (at ${position})`);
+        } else {
+            // Show as expanding hypotheses
+            const defList = definitionCandidates.map(d => `"${d}"`).join(', ');
+            solveSteps.push(`Definition candidates (at ${position}): ${defList}`);
+        }
     }
 
     // Only show hypotheses if there's ambiguity (more than one candidate)
@@ -505,6 +658,12 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         if (derivedAnswer) break;
     }
 
+    // Build indicator words found list for return (from detectedOperations)
+    const indicatorWordsFound = detectedOperations.map(op => op.indicator);
+
+    // Build content words list for return (remaining words that aren't consumed)
+    const contentWords = remainingWords.map(w => w.word);
+
     return {
         clueText,
         targetLength,
@@ -515,7 +674,9 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         hypotheses,
         solveSteps,
         derivedAnswer,
-        derivedDefinition
+        derivedDefinition,
+        knownLetters,
+        neededLetters
     };
 }
 
@@ -1770,7 +1931,9 @@ function generateStepExplanation(
             }
             const { base, result: homophoneResult } = homophoneVars;
             // Cold view template for homophone - guides student through the sound-alike reasoning
-            return `"${indicator}" signals a homophone — we need a word that sounds like something. "${fodder}" → ${base} (synonym). ${base} sounds like ${homophoneResult}.`;
+            // Link to definition at the end
+            const defLink = definitionText ? ` = ${definitionText.toLowerCase()}` : '';
+            return `"${indicator}" signals a homophone — we need a word that sounds like something. "${fodder}" → ${base} (synonym). ${base} sounds like ${homophoneResult}${defLink}.`;
         }
 
         case 'assembly':
