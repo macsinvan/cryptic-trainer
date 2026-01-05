@@ -4,6 +4,7 @@
 // Default: claude
 
 import { ClueEvaluation, ScannedCrossword } from "../types";
+import { learnSynonym, lookupSynonyms, SYNONYM_DICTIONARY } from "../data/synonymDictionary";
 
 // --- Common Interfaces ---
 
@@ -130,7 +131,18 @@ export async function quickIdentifyDefinition(clue: string): Promise<string> {
 
 export async function verifySynonym(word: string, answer: string): Promise<boolean> {
     const provider = await getProvider();
-    return provider.verifySynonym(word, answer);
+    const result = await provider.verifySynonym(word, answer);
+
+    // If AI confirmed the synonym and we didn't have it in our dictionary, learn it
+    if (result) {
+        const existingSynonyms = lookupSynonyms(word);
+        const answerUpper = answer.toUpperCase().trim();
+        if (!existingSynonyms.includes(answerUpper)) {
+            learnSynonym(word, answer);
+        }
+    }
+
+    return result;
 }
 
 export async function solveClue(clue: string): Promise<SolvedClue | null> {
@@ -157,19 +169,40 @@ export async function testHypotheses(hypotheses: HypothesisInput[]): Promise<{
     results: HypothesisVerification[];
 }> {
     const provider = await getProvider();
+    let testResult: { bestHypothesis: number | null; results: HypothesisVerification[] };
+
     if (provider.testHypotheses) {
-        return provider.testHypotheses(hypotheses);
+        testResult = await provider.testHypotheses(hypotheses);
+    } else {
+        // Fallback: test each hypothesis individually
+        const results: HypothesisVerification[] = [];
+        for (const h of hypotheses) {
+            results.push(await verifyHypothesis(h));
+        }
+        const validIdx = results.findIndex(r => r.valid);
+        testResult = {
+            bestHypothesis: validIdx >= 0 ? validIdx : null,
+            results
+        };
     }
-    // Fallback: test each hypothesis individually
-    const results: HypothesisVerification[] = [];
-    for (const h of hypotheses) {
-        results.push(await verifyHypothesis(h));
+
+    // Learn from successful hypothesis validation
+    if (testResult.bestHypothesis !== null) {
+        const winningHypothesis = hypotheses[testResult.bestHypothesis];
+        const winningResult = testResult.results[testResult.bestHypothesis];
+
+        // Learn the definition → answer mapping
+        if (winningHypothesis.definition && winningResult.answer) {
+            learnSynonym(winningHypothesis.definition, winningResult.answer);
+        }
+
+        // Learn the synonym fodder → synonym mapping
+        if (winningHypothesis.synonymFodder && winningResult.synonym) {
+            learnSynonym(winningHypothesis.synonymFodder, winningResult.synonym);
+        }
     }
-    const validIdx = results.findIndex(r => r.valid);
-    return {
-        bestHypothesis: validIdx >= 0 ? validIdx : null,
-        results
-    };
+
+    return testResult;
 }
 
 // Keep this for backward compatibility with existing code

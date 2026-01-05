@@ -1,0 +1,37 @@
+import { parseClue } from './services/clueParser';
+
+const clue = "Following delay of months, slander hospital department's union (9)";
+const answer = "ALIGNMENT";
+
+const result = parseClue(clue, answer);
+
+console.log("=== PARSE RESULT ===");
+console.log("Success:", result.success);
+console.log("Confidence:", result.confidence);
+console.log("Difficulty:", result.difficulty);
+console.log("Pattern ID:", result.patternData?.patternId);
+console.log("Needs AI:", result.needsAI);
+console.log("");
+
+console.log("=== COMPUTED FIELDS (UI-ready) ===");
+console.log("isComplete:", result.patternData?.isComplete);
+console.log("parsingSummary:", result.patternData?.parsingSummary);
+console.log("definitionText:", result.patternData?.definitionText);
+console.log("definitionMatchType:", result.patternData?.definitionMatchType);
+console.log("");
+
+console.log("=== WORDPLAY STEPS (pre-sorted) ===");
+result.patternData?.wordplaySteps?.forEach((step, i) => {
+  console.log(`Step ${i + 1}:`);
+  console.log(`  indicator: ${step.indicator || '(none)'}`);
+  console.log(`  fodder: ${step.fodder}`);
+  console.log(`  synonym: ${step.synonym}`);
+  console.log(`  result: ${step.result}`);
+  console.log(`  hint: ${step.hint}`);
+  console.log(`  complexity: ${step.complexity}`);
+  console.log(`  isAssembly: ${step.isAssembly}`);
+});
+console.log("");
+
+console.log("=== RAW VARIABLES ===");
+console.log(JSON.stringify(result.patternData?.variables, null, 2));

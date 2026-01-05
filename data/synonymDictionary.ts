@@ -102,6 +102,44 @@ export const CRYPTIC_MEANINGS: Record<string, { meaning: string; synonyms: strin
     'function': { meaning: 'DO (social event) or SINE/COS', synonyms: ['DO', 'SINE', 'COS', 'TAN', 'LOG'] },
 };
 
+// --- ABBREVIATION EXPLANATIONS ---
+// Teaching content for common cryptic crossword abbreviations
+// Used by ClueSolver to explain conventions to students
+export const ABBREVIATION_EXPLANATIONS: Record<string, { result: string; explanation: string }> = {
+    'hospital department': {
+        result: 'ENT',
+        explanation: 'In Times-style clueing, "hospital department" very often gives ENT, because ENT is the standard abbreviation for the Ear, Nose and Throat department (you\'ll see it on hospital signage, referrals, etc.).'
+    },
+    'months': {
+        result: 'M',
+        explanation: 'M is the standard abbreviation for months (as seen in "3M" = 3 months on contracts, medical notes, etc.)'
+    },
+    'hospital': {
+        result: 'H',
+        explanation: 'H is the standard single-letter abbreviation for hospital.'
+    },
+    'doctor': {
+        result: 'DR',
+        explanation: 'DR is the standard abbreviation for doctor (as in Dr. Smith).'
+    },
+    'northern': {
+        result: 'N',
+        explanation: 'N represents north/northern, as seen on maps and compasses.'
+    },
+    'eastern': {
+        result: 'E',
+        explanation: 'E represents east/eastern, as seen on maps and compasses.'
+    },
+    'southern': {
+        result: 'S',
+        explanation: 'S represents south/southern, as seen on maps and compasses.'
+    },
+    'western': {
+        result: 'W',
+        explanation: 'W represents west/western, as seen on maps and compasses.'
+    },
+};
+
 export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // --- PROXIMITY / POSITION ---
     'close': ['NEAR', 'NIGH', 'SHUT', 'END'],
@@ -635,6 +673,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
 
     // --- MEDICAL/HOSPITAL ---
     'hospital department': ['ENT', 'ER', 'ICU', 'OR', 'A&E', 'WARD'],
+    'hospital departments': ['ENT', 'ER', 'ICU', 'OR', 'A&E', 'WARD'],
+    "hospital department's": ['ENT', 'ER', 'ICU', 'OR', 'A&E', 'WARD'],
     'ear nose and throat': ['ENT'],
     'ent': ['ENT'],
 
@@ -1162,7 +1202,11 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
  */
 export function lookupSynonyms(fodder: string): string[] {
     const key = fodder.toLowerCase().replace(/[^a-z0-9\s'-]/g, '').trim();
-    return SYNONYM_DICTIONARY[key] || [];
+    const staticSyns = SYNONYM_DICTIONARY[key] || [];
+    const learnedSyns = learnedSynonyms[key] || [];
+
+    // Combine static and learned, removing duplicates
+    return [...new Set([...staticSyns, ...learnedSyns])];
 }
 
 /**
@@ -1268,3 +1312,97 @@ export function splitAtStandaloneSynonym(phrase: string): {
 
     return null;
 }
+
+// ============================================
+// LEARNED SYNONYMS - AI-discovered mappings
+// ============================================
+
+// In-memory cache of learned synonyms (persisted to localStorage)
+let learnedSynonyms: Record<string, string[]> = {};
+const LEARNED_SYNONYMS_KEY = 'cryptic_learned_synonyms';
+
+/**
+ * Load learned synonyms from localStorage
+ */
+export function loadLearnedSynonyms(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+            const stored = localStorage.getItem(LEARNED_SYNONYMS_KEY);
+            if (stored) {
+                learnedSynonyms = JSON.parse(stored);
+            }
+        } catch (e) {
+            console.error('Failed to load learned synonyms:', e);
+            learnedSynonyms = {};
+        }
+    }
+}
+
+/**
+ * Save learned synonyms to localStorage
+ */
+function saveLearnedSynonyms(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+            localStorage.setItem(LEARNED_SYNONYMS_KEY, JSON.stringify(learnedSynonyms));
+        } catch (e) {
+            console.error('Failed to save learned synonyms:', e);
+        }
+    }
+}
+
+/**
+ * Add a synonym learned from AI validation
+ * Called when AI confirms a word→answer mapping we didn't have in dictionary
+ */
+export function learnSynonym(fodder: string, synonym: string): void {
+    const key = fodder.toLowerCase().trim();
+    const value = synonym.toUpperCase().trim();
+
+    // Don't learn if already in static dictionary
+    if (SYNONYM_DICTIONARY[key]?.includes(value)) {
+        return;
+    }
+
+    // Add to learned synonyms
+    if (!learnedSynonyms[key]) {
+        learnedSynonyms[key] = [];
+    }
+    if (!learnedSynonyms[key].includes(value)) {
+        learnedSynonyms[key].push(value);
+        saveLearnedSynonyms();
+        console.log(`Learned new synonym: "${key}" → ${value}`);
+    }
+}
+
+/**
+ * Get all synonyms (static + learned) for a fodder
+ */
+export function getAllSynonyms(fodder: string): string[] {
+    const key = fodder.toLowerCase().replace(/[^a-z0-9\s'-]/g, '').trim();
+    const staticSyns = SYNONYM_DICTIONARY[key] || [];
+    const learnedSyns = learnedSynonyms[key] || [];
+
+    // Combine, removing duplicates
+    return [...new Set([...staticSyns, ...learnedSyns])];
+}
+
+/**
+ * Get learned synonyms only (for export/review)
+ */
+export function getLearnedSynonyms(): Record<string, string[]> {
+    return { ...learnedSynonyms };
+}
+
+/**
+ * Clear all learned synonyms (for testing/reset)
+ */
+export function clearLearnedSynonyms(): void {
+    learnedSynonyms = {};
+    if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem(LEARNED_SYNONYMS_KEY);
+    }
+}
+
+// Initialize on module load
+loadLearnedSynonyms();

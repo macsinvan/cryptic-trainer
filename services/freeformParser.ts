@@ -328,28 +328,42 @@ export function parseFreeformInput(input: string, defaultPubId?: string): Freefo
         // Partial parsing without answer - use hypothesis-based analysis
         const analysis = analyzeClueWithoutAnswer(clueText);
 
-        // Build variables from analysis
-        const variables: Record<string, string> = {};
-        if (analysis.definitionCandidates.length > 0) {
-            variables['def_candidates'] = analysis.definitionCandidates.join(' | ');
-        }
-        analysis.obviousElements.forEach((elem, i) => {
-            if (elem.type === 'abbreviation') {
-                variables[`fodder_${i + 1}_text`] = elem.fodder;
-                variables[`result_${i + 1}`] = elem.result;
+        // Check if we derived the answer without AI
+        if (analysis.derivedAnswer) {
+            // Re-parse with the derived answer for full pattern data
+            const fullResult = parseClue(clueText, analysis.derivedAnswer, coaching);
+            if (fullResult.patternData) {
+                patternData = fullResult.patternData;
+                // Update the answer variable for the result
+                answer = analysis.derivedAnswer;
             }
-        });
+        }
 
-        patternData = {
-            id: `partial-${Date.now()}`,
-            patternId: 'PARTIAL',
-            clueText,
-            answer: '',
-            variables,
-            solveSteps: analysis.solveSteps,
-            // Store the full analysis for UI to use
-            analysis: analysis as unknown as Record<string, unknown>
-        };
+        // If we still don't have pattern data, create partial analysis
+        if (!patternData) {
+            // Build variables from analysis
+            const variables: Record<string, string> = {};
+            if (analysis.definitionCandidates.length > 0) {
+                variables['def_candidates'] = analysis.definitionCandidates.join(' | ');
+            }
+            analysis.obviousElements.forEach((elem, i) => {
+                if (elem.type === 'abbreviation') {
+                    variables[`fodder_${i + 1}_text`] = elem.fodder;
+                    variables[`result_${i + 1}`] = elem.result;
+                }
+            });
+
+            patternData = {
+                id: `partial-${Date.now()}`,
+                patternId: 'PARTIAL',
+                clueText,
+                answer: '',
+                variables,
+                solveSteps: analysis.solveSteps,
+                // Store the full analysis for UI to use
+                analysis: analysis as unknown as Record<string, unknown>
+            };
+        }
     }
 
     // All validation passed - return success

@@ -66,6 +66,17 @@ export interface Pattern {
     steps: string[]; // List of StepTemplate IDs
 }
 
+/** Computed wordplay step - ready for UI display */
+export interface WordplayStep {
+    indicator: string;
+    fodder: string;
+    result: string;
+    synonym: string;
+    hint: string;
+    complexity: number;  // 1=easy, 2=medium, 3=hard
+    isAssembly: boolean; // True for Assembly steps (informational only)
+}
+
 export interface PatternInstance {
     id: string;
     patternId: string;
@@ -75,6 +86,13 @@ export interface PatternInstance {
     stepOverrides?: string[]; // Optional specific step ID list for this instance
     solveSteps?: string[]; // Step-by-step solve sequence for the battlecard
     analysis?: Record<string, unknown>; // Full analysis data for partial parsing
+
+    // Pre-computed fields for UI (all logic in backend)
+    wordplaySteps?: WordplayStep[];  // Ordered by complexity (easy first), Assembly last
+    isComplete?: boolean;            // True if definition + all wordplay resolved
+    parsingSummary?: string;         // e.g., "MALIGN (slander) → ALIGNM + ENT = ALIGNMENT"
+    definitionText?: string;         // The definition text
+    definitionMatchType?: 'direct' | 'synonym' | 'cryptic' | 'none';
 }
 
 // -------------------------------------

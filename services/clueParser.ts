@@ -1,5 +1,5 @@
 
-import { PatternInstance } from '../types';
+import { PatternInstance, WordplayStep } from '../types';
 import { lookupSynonyms, findSynonymForOperation, extractLetter, splitAtStandaloneSynonym, SYNONYM_DICTIONARY, CRYPTIC_MEANINGS } from '../data/synonymDictionary';
 
 // --- SOLVE STEPS GENERATOR ---
@@ -261,9 +261,12 @@ export interface ClueAnalysis {
     targetLength: number;
     obviousElements: ScannedElement[];
     contentWords: string[];           // Words that are wordplay fodder
+    indicatorWordsFound: string[];    // Indicator words found (wordplay signals)
     definitionCandidates: string[];   // Possible definitions (start/end)
     hypotheses: ClueHypothesis[];     // Testable hypotheses
     solveSteps: string[];             // Human-readable solve sequence
+    derivedAnswer?: string | null;    // Answer derived without AI (from dictionary + wordplay verification)
+    derivedDefinition?: string | null; // The definition that matched the derived answer
 }
 
 /**
@@ -294,7 +297,12 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         });
     });
 
+    // Track indicator words separately - they're wordplay, not definition candidates
+    const indicatorWordsFound: string[] = [];
     const contentWords: string[] = [];
+    // Track original positions for definition candidacy
+    const contentWordPositions: Map<string, number> = new Map();
+
     words.forEach((word, idx) => {
         // Normalize: remove possessives and non-alpha
         const wordLower = word.toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
@@ -302,20 +310,60 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         if (FUNCTION_WORDS.has(wordLower)) return;
         if (usedPhrases.has(wordLower)) return;  // Skip if part of abbreviation fodder
 
-        // Only filter indicator words if they're NOT at start or end (those could be definitions)
-        const isFirstWord = idx === 0;
-        const isLastWord = idx === words.length - 1;
-        if (INDICATOR_WORDS.has(wordLower) && !isFirstWord && !isLastWord) return;
+        // Indicator words are NEVER definition candidates, but track them for wordplay
+        if (INDICATOR_WORDS.has(wordLower)) {
+            indicatorWordsFound.push(word);
+            return;  // Don't add to content words
+        }
 
         contentWords.push(word);
+        contentWordPositions.set(word, idx);
     });
 
-    // Step 3: Identify definition candidates (first and last content words)
+    // Step 3: Identify definition candidates
+    // CRITICAL: Definition must be at ACTUAL start or end of the clue
+    // KEY INSIGHT: If indicator words appear at START, they signal wordplay → definition is at END
+    // If indicator words appear at END, they signal wordplay → definition is at START
     const definitionCandidates: string[] = [];
-    if (contentWords.length >= 1) {
-        definitionCandidates.push(contentWords[0]); // Start
-        if (contentWords.length > 1) {
-            definitionCandidates.push(contentWords[contentWords.length - 1]); // End
+
+    // Find positions of first/last indicator words
+    let firstIndicatorPos = -1;
+    let lastIndicatorPos = -1;
+    for (let i = 0; i < words.length; i++) {
+        const wLower = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+        if (INDICATOR_WORDS.has(wLower)) {
+            if (firstIndicatorPos === -1) firstIndicatorPos = i;
+            lastIndicatorPos = i;
+        }
+    }
+
+    const firstContentWord = contentWords[0];
+    const lastContentWord = contentWords[contentWords.length - 1];
+    const firstContentPos = contentWordPositions.get(firstContentWord) ?? -1;
+    const lastContentPos = contentWordPositions.get(lastContentWord) ?? -1;
+
+    // If indicators come BEFORE first content word → definition is at END
+    // If indicators come AFTER last content word → definition is at START
+    const indicatorsBeforeContent = firstIndicatorPos !== -1 && firstIndicatorPos < firstContentPos;
+    const indicatorsAfterContent = lastIndicatorPos !== -1 && lastIndicatorPos > lastContentPos;
+
+    if (indicatorWordsFound.length === 0) {
+        // No indicators found - both start and end are possible
+        if (firstContentWord) definitionCandidates.push(firstContentWord);
+        if (lastContentWord && lastContentWord !== firstContentWord) {
+            definitionCandidates.push(lastContentWord);
+        }
+    } else if (indicatorsBeforeContent && !indicatorsAfterContent) {
+        // Indicators at start → definition MUST be at END only
+        if (lastContentWord) definitionCandidates.push(lastContentWord);
+    } else if (indicatorsAfterContent && !indicatorsBeforeContent) {
+        // Indicators at end → definition MUST be at START only
+        if (firstContentWord) definitionCandidates.push(firstContentWord);
+    } else {
+        // Indicators on both sides or interspersed - unusual, check both
+        if (firstContentWord) definitionCandidates.push(firstContentWord);
+        if (lastContentWord && lastContentWord !== firstContentWord) {
+            definitionCandidates.push(lastContentWord);
         }
     }
 
@@ -377,14 +425,19 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         });
     }
 
-    // Step 6: Generate human-readable solve steps
+    // Step 6: Generate human-readable solve steps in CORRECT ORDER
+    // Order: 1) Obvious wordplay 2) Target 3) Definition 4) What's needed to solve
     const solveSteps: string[] = [];
 
-    // Show obvious abbreviations first
+    // 1. Show obvious abbreviations with their indicators
     if (abbreviations.length > 0) {
         abbreviations.forEach((abbrev, i) => {
+            // Find indicator words that might relate to this abbreviation
+            const indicatorContext = indicatorWordsFound.length > 0
+                ? ` ("${indicatorWordsFound.join(' ')}" signals this)`
+                : '';
             if (i === 0) {
-                solveSteps.push(`Spot obvious wordplay: "${abbrev.fodder}" → ${abbrev.result}`);
+                solveSteps.push(`Spot obvious wordplay: "${abbrev.fodder}" → ${abbrev.result}${i === 0 && indicatorWordsFound.length > 0 ? indicatorContext : ''}`);
             } else {
                 solveSteps.push(`Also: "${abbrev.fodder}" → ${abbrev.result}`);
             }
@@ -392,41 +445,77 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         solveSteps.push(`Known letters: ${abbreviations.map(a => a.result).join(' + ')} = ${knownLetters} letters`);
     }
 
-    // Show remaining content words
-    const remainingContent = contentWords.filter(w =>
-        !abbreviations.some(a => a.fodder.toLowerCase().includes(w.toLowerCase()))
-    );
-    if (remainingContent.length > 0) {
-        solveSteps.push(`Remaining content: "${remainingContent.join('", "')}"`);
-    }
-
-    // Show target calculation
+    // 2. Show target calculation
     if (targetLength > 0) {
         solveSteps.push(`Target: ${targetLength} letters. Have ${knownLetters}, need ${neededLetters} more.`);
     }
 
-    // Show definition candidates
-    if (definitionCandidates.length === 2) {
+    // 3. Show definition - this is what we're looking for
+    if (definitionCandidates.length === 1) {
+        solveSteps.push(`Definition: "${definitionCandidates[0]}" (at ${definitionCandidates[0] === contentWords[contentWords.length - 1] ? 'end' : 'start'})`);
+    } else if (definitionCandidates.length === 2) {
         solveSteps.push(`Definition is either "${definitionCandidates[0]}" (start) or "${definitionCandidates[1]}" (end)`);
-    } else if (definitionCandidates.length === 1) {
-        solveSteps.push(`Definition candidate: "${definitionCandidates[0]}"`);
     }
 
-    // Show hypotheses to test
-    hypotheses.forEach((h, i) => {
-        if (h.synonymNeeded) {
-            solveSteps.push(`Hypothesis ${i + 1}: "${h.definitionCandidate}" = definition → need ${h.synonymNeeded.letterCount}-letter synonym for "${h.synonymNeeded.fodder}"`);
+    // 4. Show what we need to solve - the remaining content word needs a synonym
+    const remainingContent = contentWords.filter(w =>
+        !abbreviations.some(a => a.fodder.toLowerCase().includes(w.toLowerCase())) &&
+        !definitionCandidates.includes(w)
+    );
+    if (remainingContent.length > 0 && neededLetters > 0) {
+        solveSteps.push(`Need ${neededLetters}-letter synonym for "${remainingContent[0]}" to complete the answer`);
+    }
+
+    // Only show hypotheses if there's ambiguity (more than one candidate)
+    // If there's only one hypothesis and we've already shown definition + synonym needed, skip this
+    if (definitionCandidates.length > 1) {
+        hypotheses.forEach((h, i) => {
+            if (h.synonymNeeded) {
+                solveSteps.push(`Hypothesis ${i + 1}: "${h.definitionCandidate}" = definition → need ${h.synonymNeeded.letterCount}-letter synonym for "${h.synonymNeeded.fodder}"`);
+            }
+        });
+    }
+
+    // Step 7: Try to derive the answer WITHOUT AI
+    // For each definition candidate, get synonym candidates from dictionary
+    // Then try to verify wordplay produces one of them
+    let derivedAnswer: string | null = null;
+    let derivedDefinition: string | null = null;
+
+    for (const defCandidate of definitionCandidates) {
+        // Get possible answers from dictionary
+        const candidateAnswers = lookupSynonyms(defCandidate.toLowerCase());
+
+        // Filter by target length
+        const validCandidates = candidateAnswers.filter(ans =>
+            ans.replace(/[^A-Z]/gi, '').length === targetLength
+        );
+
+        // Try each candidate - can we derive it from wordplay?
+        for (const candidate of validCandidates) {
+            // Try parsing with this candidate as the known answer
+            const testResult = parseClue(clue, candidate);
+            if (testResult.success && testResult.confidence >= 80) {
+                // We found a valid derivation!
+                derivedAnswer = candidate;
+                derivedDefinition = defCandidate;
+                break;
+            }
         }
-    });
+        if (derivedAnswer) break;
+    }
 
     return {
         clueText,
         targetLength,
         obviousElements,
         contentWords,
+        indicatorWordsFound,
         definitionCandidates,
         hypotheses,
-        solveSteps
+        solveSteps,
+        derivedAnswer,
+        derivedDefinition
     };
 }
 
@@ -1415,9 +1504,12 @@ const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
 
     // Charade indicators - sequence/order words
     'following': { type: 'charade' },
-    'following delay': { type: 'charade' },
-    'following delay of': { type: 'charade' },
-    'delayed': { type: 'charade' },  // often means "comes after" in charade context
+
+    // Letter movement indicators - "delay of X" means move X to end
+    'following delay': { type: 'letter_movement' },
+    'following delay of': { type: 'letter_movement' },
+    'delay of': { type: 'letter_movement' },
+    'delayed': { type: 'letter_movement' },  // letter moves to later position
 
     // --- ACROSTIC (First letters of multiple words) ---
     'principles': { type: 'acrostic', definitionAtEnd: true },
@@ -1612,6 +1704,103 @@ function calculateDifficulty(
 
 function cleanText(text: string): string {
     return text.toLowerCase().replace(/[^a-z0-9\s'-]/g, '').trim();
+}
+
+/**
+ * Compute all derived fields for a PatternInstance.
+ * This is the SINGLE place where all battlecard logic lives.
+ * The UI receives ready-to-render data with no computation needed.
+ *
+ * Computes:
+ * - wordplaySteps: Ordered array (easy first, Assembly last)
+ * - isComplete: True if definition + all wordplay resolved
+ * - parsingSummary: Human-readable summary string
+ * - definitionText: The definition
+ * - definitionMatchType: How definition was matched
+ */
+function computeDerivedFields(patternData: PatternInstance): PatternInstance {
+    const variables = patternData.variables;
+    const answer = patternData.answer;
+
+    // Extract steps from variables
+    const steps: WordplayStep[] = [];
+    for (let i = 1; i <= 5; i++) {
+        const indicator = variables[`indicator_${i}_text`];
+        const fodder = variables[`fodder_${i}_text`];
+        if (indicator !== undefined || fodder !== undefined) {
+            steps.push({
+                indicator: indicator || '',
+                fodder: fodder || '',
+                result: variables[`result_${i}`] || '',
+                synonym: variables[`synonym_${i}`] || '',
+                hint: variables[`hint_${i}`] || '',
+                complexity: parseInt(variables[`complexity_${i}`] || '2', 10),
+                isAssembly: indicator === 'Assembly'
+            });
+        }
+    }
+
+    // Sort: non-Assembly steps by complexity (ascending), Assembly last
+    steps.sort((a, b) => {
+        if (a.isAssembly !== b.isAssembly) {
+            return a.isAssembly ? 1 : -1;
+        }
+        return a.complexity - b.complexity;
+    });
+
+    // Rebuild variables with reordered steps
+    const reorderedVars = { ...variables };
+    for (let i = 1; i <= 5; i++) {
+        delete reorderedVars[`indicator_${i}_text`];
+        delete reorderedVars[`fodder_${i}_text`];
+        delete reorderedVars[`result_${i}`];
+        delete reorderedVars[`synonym_${i}`];
+        delete reorderedVars[`hint_${i}`];
+        delete reorderedVars[`complexity_${i}`];
+    }
+    steps.forEach((step, idx) => {
+        const n = idx + 1;
+        if (step.indicator) reorderedVars[`indicator_${n}_text`] = step.indicator;
+        if (step.fodder) reorderedVars[`fodder_${n}_text`] = step.fodder;
+        if (step.result) reorderedVars[`result_${n}`] = step.result;
+        if (step.synonym) reorderedVars[`synonym_${n}`] = step.synonym;
+        if (step.hint) reorderedVars[`hint_${n}`] = step.hint;
+        if (step.complexity) reorderedVars[`complexity_${n}`] = String(step.complexity);
+    });
+
+    // Compute isComplete
+    const defText = variables['def_text'] || '';
+    const defMissing = !defText;
+    const actualSteps = steps.filter(s => !s.isAssembly);
+    const wordplayMissing = actualSteps.length === 0 ||
+        actualSteps.some(s => !s.fodder || (!s.result && !s.synonym));
+    const isComplete = !defMissing && !wordplayMissing;
+
+    // Compute parsingSummary
+    let parsingSummary = '';
+    if (isComplete && answer) {
+        const parts: string[] = [];
+        steps.filter(s => !s.isAssembly).forEach(step => {
+            if (step.synonym && step.result && step.synonym !== step.result) {
+                parts.push(`${step.synonym} (${step.fodder}) → ${step.result}`);
+            } else if (step.result) {
+                parts.push(`${step.fodder} → ${step.result}`);
+            }
+        });
+        if (parts.length > 0) {
+            parsingSummary = parts.join(' + ') + ' = ' + answer;
+        }
+    }
+
+    return {
+        ...patternData,
+        variables: reorderedVars,
+        wordplaySteps: steps,
+        isComplete,
+        parsingSummary,
+        definitionText: defText,
+        definitionMatchType: (variables['definition_match_type'] as 'direct' | 'synonym' | 'cryptic' | 'none') || 'none'
+    };
 }
 
 function extractWordCount(clue: string): number | null {
@@ -3074,27 +3263,33 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     let synonymsNeeded = 0;
 
     if (confidence >= 50 && knownAnswer) {
-        // Determine pattern type based on indicators
-        let patternId = 'UNKNOWN';
+        // Determine pattern type based on indicators - use human-readable names
+        let patternId = 'Unknown';
         const firstIndicatorType = indicators[0]?.entry?.type;
 
+        // Map indicator types to user-friendly pattern names
+        const indicatorToPattern: Record<string, string> = {
+            'acrostic': 'Acrostic',
+            'anagram': 'Anagram',
+            'hidden': 'Hidden Word',
+            'reversal': 'Reversal',
+            'container': 'Container',
+            'deletion': 'Deletion',
+            'deletion_first': 'Deletion',
+            'deletion_last': 'Deletion',
+            'letter_movement': 'Letter Movement',
+            'charade': 'Charade',
+        };
+
         if (indicators.length === 1) {
-            if (firstIndicatorType === 'acrostic') {
-                patternId = 'ACROSTIC';
-            } else if (firstIndicatorType?.startsWith('deletion')) {
-                patternId = 'SYNONYM_DELETION';
-            } else if (firstIndicatorType === 'letter_movement') {
-                patternId = 'LETTER_MOVEMENT';
-            } else {
-                patternId = firstIndicatorType?.toUpperCase() || 'UNKNOWN';
-            }
+            patternId = indicatorToPattern[firstIndicatorType || ''] || 'Unknown';
         } else {
             // Check if any indicator is letter_movement
             const hasLetterMovement = indicators.some(i => i.entry?.type === 'letter_movement');
             if (hasLetterMovement) {
-                patternId = 'LETTER_MOVEMENT_CHARADE';
+                patternId = 'Charade with Letter Movement';
             } else {
-                patternId = 'COMPOSITE_CHARADE';
+                patternId = 'Charade';
             }
         }
 
@@ -3325,8 +3520,10 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                             variables[`synonym_1`] = movementResult.baseWord;
                             variables[`result_1`] = movementResult.movedWord;
                             variables[`hint_1`] = `"${baseClean}" → ${movementResult.baseWord}, "${letterClean}" → ${movementResult.letter}, move ${movementResult.letter} ${direction} → ${movementResult.movedWord}`;
+                            // Mark as complex (3 steps) for pedagogical ordering
+                            variables[`complexity_1`] = '3';
 
-                            // Step 2+: Additional charade parts
+                            // Step 2+: Additional charade parts (simple lookups)
                             let stepNum = 2;
                             for (const part of movementResult.additionalParts) {
                                 const partClean = cleanSource(part.source);
@@ -3335,6 +3532,8 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                                 variables[`synonym_${stepNum}`] = part.result;
                                 variables[`result_${stepNum}`] = part.result;
                                 variables[`hint_${stepNum}`] = `"${partClean}" → ${part.result}`;
+                                // Mark as simple (1 step) for pedagogical ordering
+                                variables[`complexity_${stepNum}`] = '1';
                                 stepNum++;
                             }
 
@@ -3491,7 +3690,12 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
         // Update patternId if we detected an acrostic+charade split
         if (firstIndicatorType === 'acrostic' && variables['result_2']) {
-            patternId = 'ACROSTIC_CHARADE';
+            patternId = 'Charade with Acrostic';
+        }
+
+        // Update patternId if letter movement produced additional charade parts
+        if (firstIndicatorType === 'letter_movement' && variables['result_2']) {
+            patternId = 'Charade with Letter Movement';
         }
 
         // Set definition type based on findBestDefinitionMatch results
@@ -3580,39 +3784,52 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
         // Use the full hypothesis-based analysis
         const fullAnalysis = analyzeClueWithoutAnswer(clue);
 
-        const variables: Record<string, string> = {};
-        if (fullAnalysis.definitionCandidates.length > 0) {
-            // Don't set def_text until we verify which is correct
-            // Just note the candidates
-            variables['definition_candidates'] = fullAnalysis.definitionCandidates.join(' | ');
-        }
-
-        // Add scanned abbreviations to variables
-        fullAnalysis.obviousElements.filter(e => e.type === 'abbreviation').forEach((elem, i) => {
-            variables[`fodder_${i + 1}_text`] = elem.fodder;
-            variables[`result_${i + 1}`] = elem.result;
-        });
-
-        // Add content words
-        if (fullAnalysis.contentWords.length > 0) {
-            variables['content_words'] = fullAnalysis.contentWords.join(', ');
-        }
-
-        patternData = {
-            id: `partial-${Date.now()}`,
-            patternId: 'PARTIAL',
-            clueText: clue,
-            answer: '',
-            variables,
-            solveSteps: fullAnalysis.solveSteps,
-            analysis: {
-                targetLength: fullAnalysis.targetLength,
-                obviousElements: fullAnalysis.obviousElements,
-                contentWords: fullAnalysis.contentWords,
-                definitionCandidates: fullAnalysis.definitionCandidates,
-                hypotheses: fullAnalysis.hypotheses
+        // If we derived an answer without AI, re-parse with that answer for full pattern data
+        if (fullAnalysis.derivedAnswer) {
+            const fullResult = parseClue(clue, fullAnalysis.derivedAnswer);
+            if (fullResult.success && fullResult.patternData) {
+                patternData = fullResult.patternData;
+                confidence = fullResult.confidence;
+                needsAIUpdated = false; // Solved without AI!
             }
-        };
+        }
+
+        // Only create partial analysis if we couldn't derive the answer
+        if (!patternData) {
+            const variables: Record<string, string> = {};
+            if (fullAnalysis.definitionCandidates.length > 0) {
+                // Don't set def_text until we verify which is correct
+                // Just note the candidates
+                variables['definition_candidates'] = fullAnalysis.definitionCandidates.join(' | ');
+            }
+
+            // Add scanned abbreviations to variables
+            fullAnalysis.obviousElements.filter(e => e.type === 'abbreviation').forEach((elem, i) => {
+                variables[`fodder_${i + 1}_text`] = elem.fodder;
+                variables[`result_${i + 1}`] = elem.result;
+            });
+
+            // Add content words
+            if (fullAnalysis.contentWords.length > 0) {
+                variables['content_words'] = fullAnalysis.contentWords.join(', ');
+            }
+
+            patternData = {
+                id: `partial-${Date.now()}`,
+                patternId: 'PARTIAL',
+                clueText: clue,
+                answer: '',
+                variables,
+                solveSteps: fullAnalysis.solveSteps,
+                analysis: {
+                    targetLength: fullAnalysis.targetLength,
+                    obviousElements: fullAnalysis.obviousElements,
+                    contentWords: fullAnalysis.contentWords,
+                    definitionCandidates: fullAnalysis.definitionCandidates,
+                    hypotheses: fullAnalysis.hypotheses
+                }
+            };
+        }
     }
 
     // Calculate difficulty
@@ -3623,6 +3840,12 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             patternData.variables['definition_match_type'] || 'synonym'
         )
         : 'Medium';
+
+    // Compute all derived fields (wordplaySteps, isComplete, parsingSummary, etc.)
+    // This is the SINGLE place where all battlecard logic lives - UI just renders
+    if (patternData) {
+        patternData = computeDerivedFields(patternData);
+    }
 
     return {
         success: confidence >= 50 || (patternData?.patternId === 'PARTIAL'),

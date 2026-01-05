@@ -4,7 +4,7 @@ import { ArrowLeft, Brain, Sparkles, Check, AlertCircle, Wand2, Loader2, Send } 
 import { getClueCount, saveClue, saveParserIssue, ParserIssue } from '../services/clueManager';
 import { parseFreeformInput, FreeformParseResult } from '../services/freeformParser';
 import { parseClue } from '../services/clueParser';
-import { solveClue, SolvedClue } from '../services/aiService';
+import { solveClue, SolvedClue, testHypotheses, HypothesisInput } from '../services/aiService';
 import { ClueEvaluation, PatternInstance } from '../types';
 import { ClueSolver } from './ClueSolver';
 
@@ -71,7 +71,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
   // Preview the battlecard WITHOUT saving
   // Can preview without answer to show partial analysis
-  const previewBattlecard = () => {
+  // If no answer but we have hypotheses, auto-solve with AI
+  const previewBattlecard = async () => {
     if (!parseResult?.success || !parseResult.clueText) return;
 
     // Try code-based parser first (pass coaching notes for cryptic definition detection)
@@ -79,8 +80,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     const codeParseResult = parseClue(parseResult.clueText, parseResult.answer || '', parseResult.coaching);
 
     // Use code parser result if successful, otherwise use freeform-extracted data
-    // NEVER call AI - all processing happens at import time
-    const patternData: PatternInstance = codeParseResult.patternData || parseResult.patternData || {
+    let patternData: PatternInstance = codeParseResult.patternData || parseResult.patternData || {
       id: `freeform-${Date.now()}`,
       patternId: 'IMPORTED',
       clueText: parseResult.clueText,
@@ -90,12 +90,65 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
       }
     };
 
+    // AUTO-SOLVE: If no answer but we have hypotheses, test them with AI
+    let autoSolvedAnswer = parseResult.answer || '';
+    if (!parseResult.answer && patternData.analysis?.hypotheses) {
+      const hypotheses = patternData.analysis.hypotheses as Array<{
+        definitionCandidate: string;
+        wordplayParts: Array<{fodder: string; result: string}>;
+        synonymNeeded?: {fodder: string; letterCount: number};
+        targetLength: number;
+      }>;
+
+      // Convert to HypothesisInput format
+      const inputs: HypothesisInput[] = hypotheses
+        .filter(h => h.synonymNeeded)
+        .map(h => ({
+          definition: h.definitionCandidate,
+          synonymFodder: h.synonymNeeded!.fodder,
+          requiredLetterCount: h.synonymNeeded!.letterCount,
+          knownParts: h.wordplayParts.filter(p => p.result).map(p => p.result),
+          targetLength: h.targetLength
+        }));
+
+      if (inputs.length > 0) {
+        setIsSolving(true);
+        try {
+          const result = await testHypotheses(inputs);
+          if (result.bestHypothesis !== null) {
+            const winning = result.results[result.bestHypothesis];
+            if (winning.answer) {
+              autoSolvedAnswer = winning.answer;
+              setSolvedClue({
+                answer: winning.answer,
+                definition: inputs[result.bestHypothesis].definition,
+                definitionPosition: 'END',
+                parsing: `${inputs[result.bestHypothesis].knownParts.join(' + ')} + ${winning.synonym} = ${winning.answer}`,
+                explanation: winning.reasoning,
+                confidence: winning.confidence
+              });
+
+              // Re-parse with the answer to get full analysis
+              const fullParseResult = parseClue(parseResult.clueText, winning.answer, parseResult.coaching);
+              if (fullParseResult.patternData) {
+                patternData = fullParseResult.patternData;
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Auto-solve failed:', err);
+        } finally {
+          setIsSolving(false);
+        }
+      }
+    }
+
     // Build evaluation from available data
     const evaluation: ClueEvaluation = {
       id: `freeform-${Date.now()}`,
       clue: parseResult.clueText,
-      answer: parseResult.answer || '', // May be empty for partial analysis
-      type: parseResult.answer ? detectClueType(parseResult.parsing || '') : 'Analysis',
+      answer: autoSolvedAnswer,
+      type: autoSolvedAnswer ? detectClueType(patternData.patternId, parseResult.parsing || '') : 'Analysis',
       difficulty: 'Medium',
       definition: {
         text: patternData.variables['def_text'] || '',
@@ -131,11 +184,17 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     setTotalClueCount(getClueCount(publicationId));
   };
 
-  const detectClueType = (parsing: string): string => {
+  const detectClueType = (patternId: string, parsing: string): string => {
+    // PatternId is already human-readable from parser
+    if (patternId && patternId !== 'Unknown') {
+      return patternId;
+    }
+
+    // Fallback to parsing string detection for legacy data
     const lower = parsing.toLowerCase();
     if (lower.includes('first letter')) return 'Acrostic';
     if (lower.includes('anagram')) return 'Anagram';
-    if (lower.includes('hidden')) return 'Hidden';
+    if (lower.includes('hidden')) return 'Hidden Word';
     if (lower.includes('reversal')) return 'Reversal';
     if (lower.includes('container')) return 'Container';
     if (lower.includes('deletion')) return 'Deletion';
@@ -184,46 +243,15 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
   const renderBattlecardReview = () => {
     if (!fullAnalysis || !activePatternData) return null;
 
-    const vars = activePatternData.variables;
     const answer = fullAnalysis.answer;
 
-    // Build wordplay steps from pattern variables
-    const wordplaySteps: { indicator: string; fodder: string; result?: string; synonym?: string; hint?: string; index: number }[] = [];
-    for (let i = 1; i <= 3; i++) {
-      const indicator = vars[`indicator_${i}_text`];
-      const fodder = vars[`fodder_${i}_text`];
-      if (indicator || fodder) {
-        wordplaySteps.push({
-          indicator: indicator || '',
-          fodder: fodder || '',
-          result: vars[`result_${i}`],
-          synonym: vars[`synonym_${i}`],
-          hint: vars[`hint_${i}`],
-          index: i
-        });
-      }
-    }
+    // All logic is computed in the parser - UI just reads pre-computed values
+    const wordplaySteps = activePatternData.wordplaySteps || [];
+    const hasMissingInfo = !activePatternData.isComplete;
+    const parsingSummary = activePatternData.parsingSummary || '';
 
-    // Check what's missing
-    const defMissing = !vars['def_text'];
-    const wordplayMissing = wordplaySteps.length === 0 || wordplaySteps.some(s => !s.indicator || !s.fodder || (!s.result && !s.synonym));
-    const hasMissingInfo = defMissing || wordplayMissing;
-
-    // Build parsing summary
-    let parsingSummary = '';
-    if (!hasMissingInfo) {
-      const parts: string[] = [];
-      wordplaySteps.forEach(step => {
-        if (step.synonym && step.result) {
-          parts.push(`${step.synonym} (${step.fodder}) → ${step.result}`);
-        } else if (step.result) {
-          parts.push(`${step.result} (${step.indicator} ${step.fodder})`);
-        }
-      });
-      if (parts.length > 0) {
-        parsingSummary = parts.join(' + ') + ' = ' + answer;
-      }
-    }
+    // For legacy compatibility, also expose vars for any remaining direct accesses
+    const vars = activePatternData.variables;
 
     return (
       <div className="space-y-6">
@@ -310,27 +338,82 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                   ))}
                 </div>
 
-                {/* Hypotheses from analysis */}
+                {/* Solve with AI button */}
                 {activePatternData.analysis?.hypotheses && (
-                  <div className="bg-white/60 border border-amber-200 rounded-lg p-4 mb-4">
-                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest block mb-2">
-                      Hypotheses to Test
-                    </span>
-                    <div className="space-y-2">
-                      {(activePatternData.analysis.hypotheses as Array<{definitionCandidate: string; definitionPosition: string; synonymNeeded?: {fodder: string; letterCount: number}}>).map((h, i) => (
-                        <div key={i} className="text-sm text-amber-800 font-mono">
-                          <span className="font-bold">H{i+1}:</span> "{h.definitionCandidate}" = definition ({h.definitionPosition.toLowerCase()})
-                          {h.synonymNeeded && (
-                            <span className="text-amber-600"> → need {h.synonymNeeded.letterCount}-letter synonym for "{h.synonymNeeded.fodder}"</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <>
+                    <button
+                      onClick={async () => {
+                        setIsSolving(true);
+                        setSolveError(null);
+                        try {
+                          const hypotheses = activePatternData.analysis?.hypotheses as Array<{
+                            definitionCandidate: string;
+                            wordplayParts: Array<{fodder: string; result: string}>;
+                            synonymNeeded?: {fodder: string; letterCount: number};
+                            targetLength: number;
+                          }>;
+
+                          // Convert to HypothesisInput format
+                          const inputs: HypothesisInput[] = hypotheses
+                            .filter(h => h.synonymNeeded)
+                            .map(h => ({
+                              definition: h.definitionCandidate,
+                              synonymFodder: h.synonymNeeded!.fodder,
+                              requiredLetterCount: h.synonymNeeded!.letterCount,
+                              knownParts: h.wordplayParts.filter(p => p.result).map(p => p.result),
+                              targetLength: h.targetLength
+                            }));
+
+                          const result = await testHypotheses(inputs);
+
+                          if (result.bestHypothesis !== null) {
+                            const winning = result.results[result.bestHypothesis];
+                            if (winning.answer) {
+                              // Update the freeform text with the answer
+                              const updatedText = freeformText + `\n\nAnswer: ${winning.answer}`;
+                              setFreeformText(updatedText);
+                              setSolvedClue({
+                                answer: winning.answer,
+                                definition: inputs[result.bestHypothesis].definition,
+                                definitionPosition: 'END',
+                                parsing: `${inputs[result.bestHypothesis].knownParts.join(' + ')} + ${winning.synonym} = ${winning.answer}`,
+                                explanation: winning.reasoning,
+                                confidence: winning.confidence
+                              });
+                            }
+                          } else {
+                            setSolveError('Could not verify any hypothesis. Try adding the answer manually.');
+                          }
+                        } catch (err) {
+                          setSolveError('AI verification failed. Try again or add answer manually.');
+                          console.error('Hypothesis test error:', err);
+                        } finally {
+                          setIsSolving(false);
+                        }
+                      }}
+                      disabled={isSolving}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isSolving ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          Solving...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 size={18} />
+                          Solve with AI
+                        </>
+                      )}
+                    </button>
+                    {solveError && (
+                      <p className="text-red-600 text-sm mt-2">{solveError}</p>
+                    )}
+                  </>
                 )}
 
-                <p className="text-xs text-amber-600 italic">
-                  Add the answer to see full verification and save to library
+                <p className="text-xs text-amber-600 italic mt-4">
+                  Or add the answer manually to see full verification
                 </p>
               </div>
             ) : !hasMissingInfo && !isAccepted ? (
@@ -765,15 +848,16 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
               <span className="text-xs font-black uppercase tracking-widest text-amber-700">Partial Analysis (No Answer)</span>
             </div>
             <div className="space-y-1.5">
-              {parseResult.patternData.solveSteps.slice(0, 5).map((step, i) => (
+              {parseResult.patternData.solveSteps.map((step, i) => (
                 <div key={i} className="flex gap-2 text-sm">
                   <span className="text-amber-500 font-bold min-w-[20px]">{i + 1}.</span>
                   <span className="text-amber-800">{step}</span>
                 </div>
               ))}
             </div>
+
             <p className="text-xs text-amber-600 mt-3 italic">
-              Add the answer to see full analysis and verification
+              Click "Review Battlecard" to solve with AI
             </p>
           </div>
         )}
