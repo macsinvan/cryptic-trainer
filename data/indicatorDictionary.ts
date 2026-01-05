@@ -77,6 +77,8 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'first of': { type: 'deletion_first', letterOp: 'first' },
     'primarily': { type: 'deletion_first', letterOp: 'first' },
     'to start with': { type: 'deletion_first', letterOp: 'first' },
+    'at the top': { type: 'deletion_first', letterOp: 'first' },  // "rivets at the top" = R
+    'on top': { type: 'deletion_first', letterOp: 'first' },
     'leading': { type: 'deletion_first', letterOp: 'first' },
     // Multi-letter first extractions (leading + number word)
     'leading pair': { type: 'deletion_first', letterOp: 'first', letterCount: 2 },
@@ -743,6 +745,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'embodied in': { type: 'container' },
     'embodying': { type: 'container' },
     'securing': { type: 'container' },
+    'to secure': { type: 'container' },
     'guarding': { type: 'container' },
     'trapping': { type: 'container' },
     'involves': { type: 'container' },  // "that involves intro" = container

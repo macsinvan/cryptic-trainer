@@ -104,11 +104,11 @@ const testCases: TestCase[] = [
         name: 'HEADER (Container with Outer Letters)',
         clue: 'Catch securing edges of door-plate in tank (6)',
         answer: 'HEADER',
-        expectedPattern: 'Charade',  // Pattern ID shows as Charade due to code path
+        expectedPattern: 'COMPOSITE_CHARADE',  // Improved container detection
         expectedDefinition: 'in tank',
         expectedDefinitionPosition: 'END',
-        expectedStepTypes: ['abbreviation', 'container'],
-        expectedTechniques: ['abbreviation', 'container'],
+        expectedStepTypes: ['container'],  // DP inside HEAD = HEADER
+        expectedTechniques: ['container'],
     },
     {
         name: 'ASSES (Deletion)',
@@ -239,6 +239,16 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['anagram'],  // AN + ADDICT + E anagrammed
         expectedTechniques: ['anagram'],
+    },
+    {
+        name: 'BREAM (Container + Letter Selection)',
+        clue: 'One scaled girder to secure rivets at the top (5)',
+        answer: 'BREAM',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'One scaled',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['container'],  // R inside BEAM
+        expectedTechniques: ['container'],
     },
 ];
 

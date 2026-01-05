@@ -1360,6 +1360,15 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'person who runs': ['CANDIDATE'],
     'candidate': ['APPLICANT', 'NOMINEE', 'RUNNER', 'ENTRANT'],
     'runner': ['CANDIDATE', 'ATHLETE', 'BLADE', 'MESSENGER'],
+
+    // --- CONSTRUCTION / ARCHITECTURE ---
+    'girder': ['BEAM', 'JOIST', 'SUPPORT', 'RSJ'],
+    'beam': ['GIRDER', 'RAY', 'SMILE', 'JOIST'],
+
+    // --- FISH ---
+    'one scaled': ['BREAM', 'FISH'],  // "one scaled" = a fish (something with scales)
+    'fish': ['BREAM', 'COD', 'BASS', 'CARP', 'DACE', 'IDE', 'CHAR', 'SOLE', 'RAY'],
+    'bream': ['FISH'],
 };
 
 // --- LOOKUP FUNCTIONS ---

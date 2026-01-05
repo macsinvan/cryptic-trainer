@@ -2523,9 +2523,11 @@ export function tryCompositeCharade(
     // e.g., "used in sensitive regressive" → U inside EROS = EUROS
     // e.g., "PIR in EXE" → EXPIRE (multi-letter insertion)
     // e.g., "RANT + H in GAM" → G(RANTH)AM = GRANTHAM (combined inner)
-    // Check if "in" appears in the wordplay (common container indicator)
+    // e.g., "BEAM to secure R" → B(R)EAM = BREAM
+    // Check if "in" appears in the wordplay OR container indicator present
     const hasInWord = words.some(w => w.toLowerCase().replace(/[^a-z]/g, '') === 'in');
-    if (hasInWord) {
+    const hasContainerIndicator = containerIndicators.length > 0;
+    if (hasInWord || hasContainerIndicator) {
         // Get inner candidates (any length for insertion)
         const innerCandidates = candidates.filter(c => c.result.length >= 1 && c.result.length <= answerLen - 2);
         // Get outer candidates (container - at least 2 letters to wrap around)
