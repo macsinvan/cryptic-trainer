@@ -150,6 +150,26 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['synonym', 'deletion', 'anagram'],
         expectedTechniques: ['synonym', 'anagram', 'deletion'],  // truncation is a deletion type
     },
+    {
+        name: 'TAU (Letter Selection from Synonym)',
+        clue: 'Leading trio to sign letter overseas (3)',
+        answer: 'TAU',
+        expectedPattern: 'Deletion',
+        expectedDefinition: 'letter overseas',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['abbreviation'],
+        expectedTechniques: ['abbreviation'],
+    },
+    {
+        name: 'NO-BALL (Pure Charade)',
+        clue: 'Fat cat completely extra (2-4)',
+        answer: 'NO-BALL',
+        expectedPattern: 'Charade',
+        expectedDefinition: 'extra',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['synonym'],
+        expectedTechniques: ['synonym', 'charade'],
+    },
 ];
 
 // Colors for output

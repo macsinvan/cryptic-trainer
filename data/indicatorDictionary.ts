@@ -11,6 +11,7 @@ export interface IndicatorEntry {
     type: OperationType;
     synonymRequired?: boolean;  // Does fodder typically need synonym first?
     letterOp?: 'first' | 'last' | 'ends' | 'middle';  // For extractions
+    letterCount?: number;  // Number of letters to extract (e.g., 3 for "leading trio")
     definitionAtEnd?: boolean;  // Indicator suggests definition is at the other end
 }
 
@@ -31,6 +32,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     // --- DELETION (Last Letter) ---
     'nearly': { type: 'deletion_last' },
     'almost': { type: 'deletion_last' },
+    'briefly': { type: 'deletion_last' },  // Diana briefly = DIAN
     'most of': { type: 'deletion_last' },
     'not quite': { type: 'deletion_last' },
     'unfinished': { type: 'deletion_last' },
@@ -75,6 +77,16 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'first of': { type: 'deletion_first', letterOp: 'first' },
     'primarily': { type: 'deletion_first', letterOp: 'first' },
     'to start with': { type: 'deletion_first', letterOp: 'first' },
+    'leading': { type: 'deletion_first', letterOp: 'first' },
+    // Multi-letter first extractions (leading + number word)
+    'leading pair': { type: 'deletion_first', letterOp: 'first', letterCount: 2 },
+    'leading trio': { type: 'deletion_first', letterOp: 'first', letterCount: 3 },
+    'leading quartet': { type: 'deletion_first', letterOp: 'first', letterCount: 4 },
+    'first pair': { type: 'deletion_first', letterOp: 'first', letterCount: 2 },
+    'first trio': { type: 'deletion_first', letterOp: 'first', letterCount: 3 },
+    'first three': { type: 'deletion_first', letterOp: 'first', letterCount: 3 },
+    'first two': { type: 'deletion_first', letterOp: 'first', letterCount: 2 },
+    'first four': { type: 'deletion_first', letterOp: 'first', letterCount: 4 },
     'last of': { type: 'deletion_last', letterOp: 'last' },
     'at end': { type: 'deletion_last', letterOp: 'last' },
     'heart of': { type: 'deletion_first', letterOp: 'middle' },
@@ -495,6 +507,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'variant': { type: 'anagram' },
     'version': { type: 'anagram' },
     'form': { type: 'anagram' },
+    'formed': { type: 'anagram' },
     'fashion': { type: 'anagram' },
     'style': { type: 'anagram' },
     'manner': { type: 'anagram' },
@@ -597,6 +610,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'mounting': { type: 'reversal' },
     'rising': { type: 'reversal' },
     'coming up': { type: 'reversal' },
+    'brought up': { type: 'reversal' },  // "forces brought up" = reversed
     'upend': { type: 'reversal' },
     'upended': { type: 'reversal' },
     'to upend': { type: 'reversal' },

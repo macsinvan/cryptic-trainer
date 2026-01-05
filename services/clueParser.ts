@@ -1184,6 +1184,18 @@ function generateStepExplanation(
 ): string {
     switch (stepType) {
         case 'abbreviation': {
+            // Check for letter extraction with synonym (e.g., "leading trio to sign" → TAURUS → TAU)
+            // The indicator tells us what operation was used
+            const indEntry = INDICATOR_DICTIONARY[indicator?.toLowerCase()];
+            if (indEntry?.letterOp === 'first' && indEntry?.letterCount && indEntry.letterCount > 1) {
+                // Multi-letter first extraction from synonym
+                return `"${indicator}" signals taking the first ${indEntry.letterCount} letters. We need a synonym for "${fodder}" that starts with ${result}. Result: ${result}.`;
+            }
+            if (indEntry?.letterOp === 'last' && indEntry?.letterCount && indEntry.letterCount > 1) {
+                // Multi-letter last extraction from synonym
+                return `"${indicator}" signals taking the last ${indEntry.letterCount} letters. We need a synonym for "${fodder}" that ends with ${result}. Result: ${result}.`;
+            }
+
             // Look up teaching explanation for this abbreviation
             // Try exact match first, then normalized (strip possessive, lowercase)
             const normalized = fodder.toLowerCase().replace(/'s\b/g, '').trim();
@@ -1335,6 +1347,10 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             } else if (variables[`outer_letters_${i}`] === 'true' || INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.letterOp === 'ends') {
                 // Outer letters extraction
                 stepType = 'deletion';  // Use 'deletion' for outer letter extraction
+            } else if (INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.letterOp === 'first' || INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.letterOp === 'last') {
+                // First/last letter extraction (including multi-letter like "leading trio")
+                // Use 'abbreviation' since it's a letter selection operation
+                stepType = 'abbreviation';
             }
 
             // Build extra vars for letter_movement template
@@ -1691,7 +1707,8 @@ function extractWordCount(clue: string): number | null {
 }
 
 function getClueWithoutCount(clue: string): string {
-    return clue.replace(/\s*\(\d+(?:,\d+)*\)\s*$/, '').trim();
+    // Match (5), (3,4), (2-4), (3,4,5), etc.
+    return clue.replace(/\s*\(\d+(?:[,\-]\d+)*\)\s*$/, '').trim();
 }
 
 // Find definition FIRST by checking synonym matches - returns locked word indices
@@ -2178,10 +2195,12 @@ function tryCompositeCharade(
         }
     }
 
-    // 2e. Find first-letter candidates (primarily, initially, head of, etc.)
+    // 2e. Find first-letter candidates (primarily, initially, head of, leading trio, etc.)
     const firstLetterIndicators = indicators.filter(i => i.entry.letterOp === 'first');
     for (const ind of firstLetterIndicators) {
         const indWord = ind.text.toLowerCase();
+        const letterCount = ind.entry.letterCount || 1;  // Default to 1 letter
+
         // Find the indicator position in words array
         let indIdx = -1;
         for (let i = 0; i < words.length; i++) {
@@ -2190,23 +2209,70 @@ function tryCompositeCharade(
                 break;
             }
         }
+        // For multi-word indicators like "leading trio", find the start
+        if (indIdx === -1 && indWord.includes(' ')) {
+            const indWords = indWord.split(' ');
+            for (let i = 0; i < words.length; i++) {
+                if (words[i].toLowerCase().replace(/[^a-z]/g, '') === indWords[0].replace(/[^a-z]/g, '')) {
+                    indIdx = i;
+                    break;
+                }
+            }
+        }
 
         // Look at word(s) adjacent to the indicator
         for (let i = 0; i < words.length; i++) {
             const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
             if (word === indWord.replace(/[^a-z]/g, '') || CHARADE_CONNECTORS.has(word) || word.length < 2) continue;
 
+            // Skip multi-word indicator parts (e.g., skip both "leading" and "trio")
+            if (indWord.includes(' ')) {
+                const indParts = indWord.split(' ');
+                if (indParts.some(part => word === part.replace(/[^a-z]/g, ''))) continue;
+            }
+
             // Only consider words near the indicator (within 2 positions)
             if (indIdx >= 0 && Math.abs(i - indIdx) > 2) continue;
 
             const wordUpper = word.toUpperCase();
-            const firstLetter = wordUpper[0];
-            candidates.push({
-                text: words[i],
-                result: firstLetter,
-                operation: `first of ${words[i]}`,
-                wordIndices: [i]
-            });
+
+            if (letterCount === 1) {
+                // Single first letter
+                const firstLetter = wordUpper[0];
+                candidates.push({
+                    text: words[i],
+                    result: firstLetter,
+                    operation: `first of ${words[i]}`,
+                    wordIndices: [i]
+                });
+            } else if (wordUpper.length >= letterCount) {
+                // Multi-letter extraction (e.g., "leading trio" = first 3 letters)
+                const firstLetters = wordUpper.slice(0, letterCount);
+                candidates.push({
+                    text: words[i],
+                    result: firstLetters,
+                    operation: `first ${letterCount} of ${words[i]}`,
+                    wordIndices: [i]
+                });
+            }
+
+            // Also check synonyms of the fodder word for multi-letter extraction
+            // e.g., "leading trio to sign" → sign = TAURUS → first 3 = TAU
+            if (letterCount > 1) {
+                const synonyms = lookupSynonyms(word);
+                for (const syn of synonyms) {
+                    const synUpper = syn.toUpperCase();
+                    if (synUpper.length >= letterCount) {
+                        const firstLetters = synUpper.slice(0, letterCount);
+                        candidates.push({
+                            text: words[i],
+                            result: firstLetters,
+                            operation: `first ${letterCount} of ${syn} (${words[i]})`,
+                            wordIndices: [i]
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -2445,6 +2511,9 @@ function tryCompositeCharade(
                                 return formatted;
                             }
 
+                            // Get the anagram indicator text (e.g., "upset")
+                            const anagramIndicatorText = anagramIndicators.length > 0 ? anagramIndicators[0].text : 'anagram';
+
                             // Helper to build parts, splitting truncation from anagram
                             function buildPartsWithTruncationSplit(
                                 toAnagram: CandidatePart[],
@@ -2452,7 +2521,8 @@ function tryCompositeCharade(
                                 anagramLetters: string,
                                 fixedCandidates: CandidatePart[],
                                 fixedFirst: boolean,
-                                startPosForAnagram: number
+                                startPosForAnagram: number,
+                                anagramIndicator: string
                             ): { text: string; result: string; operation: string }[] {
                                 const parts: { text: string; result: string; operation: string }[] = [];
 
@@ -2481,11 +2551,12 @@ function tryCompositeCharade(
                                     }
 
                                     // Now add the anagram step using the truncated result
+                                    // Use the actual indicator word (e.g., "upset") not just "anagram"
                                     const formattedResult = formatResultWithSpaces(anagramResult, answer, startPosForAnagram);
                                     parts.push({
                                         text: truncationCandidates.map(c => c.result).join(' + '),
                                         result: formattedResult,
-                                        operation: 'anagram'
+                                        operation: anagramIndicator
                                     });
                                 } else {
                                     // No truncation, just anagram
@@ -2493,7 +2564,7 @@ function tryCompositeCharade(
                                     parts.push({
                                         text: toAnagram.map(c => c.text).join(' + '),
                                         result: formattedResult,
-                                        operation: `anagram of ${anagramLetters}`
+                                        operation: anagramIndicator
                                     });
                                 }
 
@@ -2514,7 +2585,8 @@ function tryCompositeCharade(
                                 return {
                                     parts: buildPartsWithTruncationSplit(
                                         toAnagram, remainder1, anagramLetters,
-                                        fixedCandidates, true, fixedLetters.length
+                                        fixedCandidates, true, fixedLetters.length,
+                                        anagramIndicatorText
                                     ),
                                     success: true
                                 };
@@ -2527,7 +2599,8 @@ function tryCompositeCharade(
                                 return {
                                     parts: buildPartsWithTruncationSplit(
                                         toAnagram, remainder2, anagramLetters,
-                                        fixedCandidates, false, 0
+                                        fixedCandidates, false, 0,
+                                        anagramIndicatorText
                                     ),
                                     success: true
                                 };
@@ -3520,11 +3593,26 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 const charade = tryCharadeSplit(wordplayText, knownAnswer);
 
                 if (charade?.success) {
+                    // Check if definition has a cryptic meaning hint
+                    let crypticHint = '';
+                    const defLower = defText.toLowerCase();
+                    const crypticEntry = CRYPTIC_MEANINGS[defLower];
+                    if (crypticEntry) {
+                        const answerUpper = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+                        if (crypticEntry.synonyms.some(s => s.toUpperCase().replace(/[^A-Z]/g, '') === answerUpper)) {
+                            crypticHint = `Think ${crypticEntry.meaning}!`;
+                        }
+                    }
+
                     const variables: Record<string, string> = {
                         'def_text': defText,
-                        'definition_match_type': definition ? defMatchType : 'cryptic',
+                        'definition_match_type': crypticHint ? 'cryptic' : (definition ? defMatchType : 'cryptic'),
                         'definition_position': position
                     };
+
+                    if (crypticHint) {
+                        variables['definition_hint'] = crypticHint;
+                    }
 
                     charade.parts.forEach((part, idx) => {
                         const n = idx + 1;
@@ -3832,10 +3920,53 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 synonymsNeeded++;
 
                 if (entry.letterOp === 'first' || entry.letterOp === 'last' || entry.letterOp === 'ends') {
-                    // Letter extraction - no synonym needed, just extract letter(s)
-                    const letter = extractLetter(fodder, entry.letterOp);
-                    variables[`result_${n}`] = letter;
-                    synonymsResolved++;
+                    // Letter extraction - check for multi-letter extraction via synonyms
+                    const letterCount = entry.letterCount || 1;
+
+                    if (letterCount > 1 && knownAnswer) {
+                        // Multi-letter extraction - need to look up synonyms
+                        // e.g., "leading trio to sign" → sign = TAURUS → first 3 = TAU
+                        const answerClean = knownAnswer.toUpperCase().replace(/[^A-Z]/g, '');
+                        const fodderClean = fodder.replace(/[^a-z ]/gi, '').toLowerCase();
+
+                        // Try each word in fodder as synonym key
+                        const fodderWords = fodderClean.split(/\s+/).filter(w => w.length > 1);
+                        let found = false;
+
+                        for (const word of fodderWords) {
+                            const synonyms = lookupSynonyms(word);
+                            for (const syn of synonyms) {
+                                const synUpper = syn.toUpperCase().replace(/[^A-Z]/g, '');
+                                if (synUpper.length >= letterCount) {
+                                    const extracted = entry.letterOp === 'first'
+                                        ? synUpper.slice(0, letterCount)
+                                        : synUpper.slice(-letterCount);
+
+                                    if (extracted === answerClean) {
+                                        variables[`synonym_${n}`] = syn;
+                                        variables[`result_${n}`] = extracted;
+                                        variables[`hint_${n}`] = `"${word}" → ${syn}, first ${letterCount} letters → ${extracted}`;
+                                        synonymsResolved++;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (found) break;
+                        }
+
+                        if (!found) {
+                            // Fallback to direct extraction
+                            const letter = extractLetter(fodder, entry.letterOp);
+                            variables[`result_${n}`] = letter;
+                            synonymsResolved++;
+                        }
+                    } else {
+                        // Single letter extraction - no synonym needed
+                        const letter = extractLetter(fodder, entry.letterOp);
+                        variables[`result_${n}`] = letter;
+                        synonymsResolved++;
+                    }
                 } else if (entry.letterOp === 'middle') {
                     // Middle letter extraction - "bet, essentially" = E
                     const cleanFodder = fodder.replace(/[^a-z]/gi, '').toUpperCase();

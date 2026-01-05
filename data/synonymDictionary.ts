@@ -107,6 +107,7 @@ export const CRYPTIC_MEANINGS: Record<string, { meaning: string; synonyms: strin
     'graduate': { meaning: 'BA, MA, or degree holder', synonyms: ['BA', 'MA', 'BSC'] },
     'party': { meaning: 'DO (social event) or political party', synonyms: ['DO', 'BASH', 'CON', 'LAB', 'LIB', 'RAVE'] },
     'function': { meaning: 'DO (social event) or SINE/COS', synonyms: ['DO', 'SINE', 'COS', 'TAN', 'LOG'] },
+    'extra': { meaning: 'cricket term - runs not from the bat', synonyms: ['NO-BALL', 'NOBALL', 'WIDE', 'BYE', 'LEG-BYE'] },
 };
 
 // --- ABBREVIATION EXPLANATIONS ---
@@ -240,6 +241,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'doctor': ['DR', 'MD', 'DOC', 'GP', 'MO', 'QUACK'],
     'king': ['REX', 'K', 'ER', 'MONARCH', 'R'],
     'charles': ['THE KING'],  // King Charles III
+    'diana': ['DIANA'],  // Princess Diana (name as fodder for anagram)
     'head of state no longer': ['ER'],  // Elizabeth Regina - former monarch
     'knight': ['N', 'SIR', 'K'],
     'bishop': ['B', 'RR', 'BP'],
@@ -494,6 +496,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'green': ['ECO', 'NAIVE', 'ENVIOUS', 'LIME', 'JADE', 'VERT'],
     'wearing': ['IN'],  // As in "dressed in" / "sporting"
     'fat': ['OBESE', 'PLUMP', 'STOUT', 'LARGE', 'HEAVY'],
+    'fat cat': ['NOB', 'TYCOON', 'MAGNATE', 'BIGWIG'],  // Wealthy/important person
     'fatter': ['HEAVIER', 'LARGER', 'PLUMPER'],
     'carrying more weight': ['FATTER', 'HEAVIER'],
     'more weight': ['FATTER', 'HEAVIER'],
@@ -1200,6 +1203,9 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'thing': ['ITEM', 'OBJECT', 'AFFAIR'],
     'something': ['IT', 'THING', 'SOMEWHAT'],
     'everything': ['ALL', 'LOT', 'WHOLE'],
+    'completely': ['ALL', 'FULLY', 'TOTALLY', 'WHOLLY', 'ENTIRELY'],
+    'totally': ['ALL', 'FULLY', 'COMPLETELY', 'WHOLLY'],
+    'entirely': ['ALL', 'FULLY', 'COMPLETELY', 'WHOLLY'],
     'anything': ['AUGHT', 'ANY'],
     'part': ['BIT', 'PIECE', 'ROLE', 'SHARE', 'PORTION'],
     'piece': ['BIT', 'PART', 'ITEM', 'MAN', 'GUN'],
@@ -1225,7 +1231,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'word': ['TERM', 'PROMISE', 'NEWS', 'VOW'],
     'name': ['N', 'TAG', 'TITLE', 'CALL', 'DUB', 'NOUN'],
     'title': ['NAME', 'HEADING', 'CLAIM', 'SIR', 'LORD', 'MR'],
-    'sign': ['MARK', 'SYMBOL', 'OMEN', 'GESTURE', 'SIGNAL', 'AUTOGRAPH'],
+    'sign': ['MARK', 'SYMBOL', 'OMEN', 'GESTURE', 'SIGNAL', 'AUTOGRAPH', 'TAURUS', 'ARIES', 'LEO', 'VIRGO', 'LIBRA', 'SCORPIO', 'GEMINI', 'CANCER', 'PISCES', 'AQUARIUS', 'CAPRICORN', 'SAGITTARIUS'],
     'mark': ['SIGN', 'SYMBOL', 'SPOT', 'STAIN', 'NOTE', 'SCORE', 'GRADE'],
     'task': ['JOB', 'WORK', 'DUTY', 'CHORE'],
     'duty': ['TASK', 'JOB', 'TAX', 'OBLIGATION'],
