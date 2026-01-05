@@ -1974,6 +1974,10 @@ function generateStepExplanation(
             // Simple synonym lookup in charade - no indicator, just word → synonym
             return `"${fodder}" gives ${result} (synonym).`;
 
+        case 'anagram':
+            // Anagram - letters rearranged
+            return `"${indicator}" signals an anagram — rearrange the letters of "${fodder}" to get ${result}.`;
+
         default:
             return '';
     }
@@ -2022,6 +2026,9 @@ function computeDerivedFields(patternData: PatternInstance): PatternInstance {
             } else if (indicator === '(synonym)' || indicator === 'synonym') {
                 // Charade parts identified as synonym lookups
                 stepType = 'synonym';
+            } else if (INDICATOR_DICTIONARY[indicator?.toLowerCase()]?.type === 'anagram') {
+                // Anagram indicator detected
+                stepType = 'anagram';
             }
 
             // Build extra vars for letter_movement template
@@ -3968,32 +3975,73 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                         let fodderSorted = fodderClean.split('').sort().join('');
                         let actualFodder = fodder;
 
-                        // If fodder has too many letters, try to find correct subset
-                        if (fodderSorted !== answerSorted && fodderClean.length > answerClean.length) {
+                        // If fodder doesn't match, try to find correct fodder from clue
+                        if (fodderSorted !== answerSorted) {
                             const cleanClue = getClueWithoutCount(clue);
                             const words = cleanClue.split(/\s+/);
                             const indWords = ind.text.toLowerCase().split(/\s+/);
 
                             // Find indicator position
+                            let indStart = 0;
                             let indEnd = 0;
                             for (let i = 0; i <= words.length - indWords.length; i++) {
                                 if (words.slice(i, i + indWords.length).join(' ').toLowerCase() === indWords.join(' ')) {
+                                    indStart = i;
                                     indEnd = i + indWords.length;
                                     break;
                                 }
                             }
 
-                            // Try progressively shorter fodder (words after indicator)
-                            for (let len = 1; len <= words.length - indEnd; len++) {
-                                const testFodder = words.slice(indEnd, indEnd + len).join(' ');
-                                const testClean = testFodder.replace(/[^a-zA-Z]/g, '').toUpperCase();
-                                const testSorted = testClean.split('').sort().join('');
-                                if (testSorted === answerSorted) {
-                                    actualFodder = testFodder;
-                                    fodderClean = testClean;
-                                    fodderSorted = testSorted;
-                                    variables[`fodder_${n}_text`] = actualFodder;
-                                    break;
+                            // Try fodder BEFORE indicator with various definition lengths
+                            // For "Monarchies asserting vetoes abroad", try:
+                            // - def=1 word: fodder = "asserting vetoes" (words 1-2)
+                            // - def=2 words: fodder = "vetoes" (word 2 only)
+                            if (defPosition === 'START') {
+                                // Try different definition lengths (1 to indStart-1 words)
+                                for (let defLen = 1; defLen < indStart && fodderSorted !== answerSorted; defLen++) {
+                                    const testFodder = words.slice(defLen, indStart).join(' ');
+                                    const testClean = testFodder.replace(/[^a-zA-Z]/g, '').toUpperCase();
+                                    const testSorted = testClean.split('').sort().join('');
+                                    if (testSorted === answerSorted) {
+                                        actualFodder = testFodder;
+                                        fodderClean = testClean;
+                                        fodderSorted = testSorted;
+                                        variables[`fodder_${n}_text`] = actualFodder;
+                                        // Update definition to match
+                                        const newDef = words.slice(0, defLen).join(' ');
+                                        variables['def_text'] = newDef;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // Definition at END - try fodder before indicator
+                                for (let len = indStart; len >= 1 && fodderSorted !== answerSorted; len--) {
+                                    const testFodder = words.slice(indStart - len, indStart).join(' ');
+                                    const testClean = testFodder.replace(/[^a-zA-Z]/g, '').toUpperCase();
+                                    const testSorted = testClean.split('').sort().join('');
+                                    if (testSorted === answerSorted) {
+                                        actualFodder = testFodder;
+                                        fodderClean = testClean;
+                                        fodderSorted = testSorted;
+                                        variables[`fodder_${n}_text`] = actualFodder;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // If still no match, try fodder AFTER indicator
+                            if (fodderSorted !== answerSorted) {
+                                for (let len = 1; len <= words.length - indEnd; len++) {
+                                    const testFodder = words.slice(indEnd, indEnd + len).join(' ');
+                                    const testClean = testFodder.replace(/[^a-zA-Z]/g, '').toUpperCase();
+                                    const testSorted = testClean.split('').sort().join('');
+                                    if (testSorted === answerSorted) {
+                                        actualFodder = testFodder;
+                                        fodderClean = testClean;
+                                        fodderSorted = testSorted;
+                                        variables[`fodder_${n}_text`] = actualFodder;
+                                        break;
+                                    }
                                 }
                             }
                         }

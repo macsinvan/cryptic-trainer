@@ -70,6 +70,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['synonym'],
         expectedTechniques: ['synonym', 'charade'],
     },
+    {
+        name: 'SOVEREIGN STATES (Anagram)',
+        clue: 'Monarchies asserting vetoes abroad (9,6)',
+        answer: 'SOVEREIGN STATES',
+        expectedPattern: 'Anagram',
+        expectedDefinition: 'Monarchies',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['anagram'],
+        expectedTechniques: ['anagram'],
+    },
 ];
 
 // Colors for output

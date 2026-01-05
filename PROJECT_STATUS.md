@@ -133,6 +133,7 @@
 | 3 | STOWE | Homophone | 2026-01-05 |
 | 4 | SODOM | Container | 2026-01-05 |
 | 5 | HAMFATTER | Charade (reversed order) | 2026-01-05 |
+| 6 | SOVEREIGN STATES | Anagram | 2026-01-05 |
 
 ---
 
