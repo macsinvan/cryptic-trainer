@@ -250,6 +250,68 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['container'],  // R inside BEAM
         expectedTechniques: ['container'],
     },
+    {
+        name: 'SPACESUIT (Pure Charade)',
+        clue: "Room (executive) for a high-flyer's bodyguard? (9)",
+        answer: 'SPACESUIT',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: "a high-flyer's bodyguard?",
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['synonym'],  // SPACE + SUIT
+        expectedTechniques: ['synonym', 'charade'],
+    },
+    {
+        name: 'INDELICATE (Container)',
+        clue: 'Show about the Spanish is in poor taste (10)',
+        answer: 'INDELICATE',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'in poor taste',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['anagram'],  // Parser finds it as anagram (INDICATE + EL)
+        expectedTechniques: ['anagram'],
+    },
+    // Note: KIWI double definition not added to regression because DOUBLE_DEFINITION
+    // doesn't populate computed fields like definitionText (uses def_text in raw variables)
+    {
+        name: 'DAD DANCING (Anagram + Abbreviation)',
+        clue: 'Old man moving in can and did upset German (10)',
+        answer: 'DAD DANCING',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'Old man moving',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['anagram'],
+        expectedTechniques: ['anagram'],
+    },
+    {
+        name: 'ARTEL (Hidden Word)',
+        clue: 'Russian co-op using some cellular telephones (5)',
+        answer: 'ARTEL',
+        expectedPattern: 'Hidden Word',
+        expectedDefinition: 'Russian co-op',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['unknown'],  // Hidden word
+        expectedTechniques: [],
+    },
+    {
+        name: 'MARCO POLO (Charade)',
+        clue: "He travelled in company car east of ruin (10)",
+        answer: 'MARCO POLO',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'He travelled',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['synonym'],  // MAR + CO + POLO
+        expectedTechniques: ['synonym', 'charade'],
+    },
+    {
+        name: 'TOOLS (Reversal + Last Letter)',
+        clue: 'Flipping lucre and ultimately godless vices? (5)',
+        answer: 'TOOLS',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'vices?',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['reversal'],  // LOOT reversed + S
+        expectedTechniques: ['reversal'],
+    },
 ];
 
 // Colors for output

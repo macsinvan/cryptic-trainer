@@ -1,20 +1,7 @@
 import { parseClue } from './services/clueParser';
 
-const clue = "Public school lodge reported (5)";
-const answer = "STOWE";
-
-// Other test clues:
-// const clue = "Catch securing edges of door-plate in tank (6)";
-// const answer = "HEADER";
-
-// const clue = "Stick notice in The Times? (6)";
-// const answer = "ADHERE";
-
-// const clue = "Following delay of months, slander hospital department's union (9)";
-// const answer = "ALIGNMENT";
-
-// const clue = "Depraved scene from 'love party' embodied by aggressive-submissive proclivity (5)";
-// const answer = "SODOM";
+const clue = process.argv[2] || "Room (executive) for a high-flyer's bodyguard? (9)";
+const answer = process.argv[3] || "SPACESUIT";
 
 const result = parseClue(clue, answer);
 

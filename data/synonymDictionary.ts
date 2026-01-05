@@ -1369,6 +1369,78 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'one scaled': ['BREAM', 'FISH'],  // "one scaled" = a fish (something with scales)
     'fish': ['BREAM', 'COD', 'BASS', 'CARP', 'DACE', 'IDE', 'CHAR', 'SOLE', 'RAY'],
     'bream': ['FISH'],
+
+    // --- SPACE / ROOMS ---
+    'space': ['ROOM', 'GAP', 'VOID', 'AREA'],
+
+    // --- BUSINESS / EXECUTIVES ---
+    'executive': ['SUIT', 'EXEC', 'BOSS', 'CEO'],
+    'suit': ['EXECUTIVE', 'CASE', 'MATCH', 'FIT'],
+
+    // --- DISPLAY / SHOW ---
+    'show': ['INDICATE', 'DISPLAY', 'EXHIBIT', 'REVEAL', 'DEMO'],
+    'indicate': ['SHOW', 'POINT', 'SIGNAL', 'DENOTE'],
+
+    // --- AUCTION / COMMERCE ---
+    'auction': ['SELL', 'SALE', 'BID'],
+    'sell': ['AUCTION', 'VEND', 'HAWK', 'PUSH'],
+
+    // --- RATIONS / ALLOWANCE ---
+    'allowance': ['RATION', 'QUOTA', 'SHARE', 'ALLOTMENT'],
+    'ration': ['ALLOWANCE', 'PORTION', 'SHARE'],
+
+    // --- DAMAGE / RUIN ---
+    'ruin': ['MAR', 'SPOIL', 'WRECK', 'DESTROY'],
+    'mar': ['RUIN', 'SPOIL', 'DAMAGE', 'BLEMISH'],
+
+    // --- MONEY / LUCRE ---
+    'lucre': ['LOOT', 'MONEY', 'CASH', 'PELF'],
+    'loot': ['LUCRE', 'BOOTY', 'SWAG', 'HAUL'],
+
+    // --- ASTRONAUT / SPACE TRAVEL ---
+    "a high-flyer's bodyguard": ['SPACESUIT'],  // Cryptic: astronaut's protective suit
+    'spacesuit': ['EVA SUIT'],
+
+    // --- TASTE / DELICACY ---
+    'in poor taste': ['INDELICATE', 'CRUDE', 'VULGAR', 'TASTELESS'],
+    'indelicate': ['CRUDE', 'TASTELESS', 'TACTLESS'],
+
+    // --- ATTRACTION / MAGNETISM ---
+    'attraction': ['MAGNETISM', 'APPEAL', 'DRAW', 'PULL', 'LURE'],
+    'magnetism': ['ATTRACTION', 'APPEAL', 'CHARM', 'PULL'],
+
+    // --- PROPORTION / RATIO ---
+    'proportion': ['RATIO', 'SHARE', 'PART', 'FRACTION'],
+    'ratio': ['PROPORTION', 'RATE', 'FRACTION'],
+
+    // --- COOPERATIVE / ARTEL ---
+    'russian co-op': ['ARTEL'],
+    'artel': ['COOPERATIVE', 'CO-OP', 'COMMUNE'],
+
+    // --- EXPLORERS / TRAVELERS ---
+    'he travelled': ['MARCO POLO', 'EXPLORER', 'VOYAGER'],
+    'marco polo': ['EXPLORER', 'TRAVELER'],
+
+    // --- CARS / MODELS ---
+    'car': ['POLO', 'AUTO', 'MOTOR', 'VEHICLE', 'BUS'],  // VW Polo
+    'polo': ['CAR', 'SPORT', 'GAME'],
+
+    // --- VICES / TOOLS ---
+    'vices': ['TOOLS'],  // Cryptic: vices = TOOLS (the clamping devices)
+    'vice': ['TOOL', 'CLAMP', 'SIN', 'DEPUTY'],
+    'tools': ['VICES', 'IMPLEMENTS', 'GEAR'],
+
+    // --- DANCING / MOVEMENT ---
+    'old man moving': ['DAD DANCING'],  // Cryptic definition
+    'dad dancing': ['EMBARRASSING DANCE'],
+
+    // --- NATIONALITY / FRUIT ---
+    'national': ['KIWI', 'CITIZEN', 'NATIVE'],
+    'fruit': ['KIWI', 'APPLE', 'ORANGE', 'PEAR', 'DATE', 'FIG'],
+    'kiwi': ['FRUIT', 'BIRD', 'NEW ZEALANDER'],
+
+    // --- CELLS / ROOMS ---
+    'cell': ['ROOM', 'UNIT', 'BATTERY'],
 };
 
 // --- LOOKUP FUNCTIONS ---

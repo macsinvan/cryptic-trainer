@@ -631,6 +631,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'upended': { type: 'reversal' },
     'to upend': { type: 'reversal' },
     'flipped': { type: 'reversal' },
+    'flipping': { type: 'reversal' },  // "Flipping lucre" = reverse
     'inverted': { type: 'reversal' },
     'overturned': { type: 'reversal' },
     'topsy-turvy': { type: 'reversal' },
@@ -689,6 +690,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'part of': { type: 'hidden' },
     'some': { type: 'hidden' },
     'some of': { type: 'hidden' },
+    'using some': { type: 'hidden' },  // "using some cellular telephones" = ARTEL
     'somewhat': { type: 'hidden' },
     'amid': { type: 'hidden' },
     'amidst': { type: 'hidden' },
@@ -776,6 +778,8 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'verbally': { type: 'homophone' },
     'by the sound of it': { type: 'homophone' },
     'delivered': { type: 'homophone' },  // As in "delivered aloud"
+    "you'll hear": { type: 'homophone' },  // "What you'll hear announced"
+    'announced': { type: 'homophone' },
 
     // --- SUBSTITUTION ---
     'as substitute for': { type: 'substitution' },
