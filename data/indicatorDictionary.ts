@@ -10,7 +10,7 @@ export type OperationType = 'deletion_first' | 'deletion_last' | 'anagram' | 're
 export interface IndicatorEntry {
     type: OperationType;
     synonymRequired?: boolean;  // Does fodder typically need synonym first?
-    letterOp?: 'first' | 'last' | 'ends' | 'middle';  // For extractions
+    letterOp?: 'first' | 'last' | 'ends' | 'middle' | 'alternate';  // For extractions
     letterCount?: number;  // Number of letters to extract (e.g., 3 for "leading trio")
     definitionAtEnd?: boolean;  // Indicator suggests definition is at the other end
 }
@@ -105,6 +105,15 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'half': { type: 'deletion_last' },
     'half of': { type: 'deletion_last' },
     'halved': { type: 'deletion_last' },
+
+    // --- ALTERNATE LETTERS (regularly, odd, even) ---
+    'regularly': { type: 'deletion_first', letterOp: 'alternate' },  // "ditty regularly" = DTY (odd positions)
+    'oddly': { type: 'deletion_first', letterOp: 'alternate' },  // odd-positioned letters
+    'evenly': { type: 'deletion_first', letterOp: 'alternate' },  // even-positioned letters
+    'alternately': { type: 'deletion_first', letterOp: 'alternate' },
+    'every other': { type: 'deletion_first', letterOp: 'alternate' },
+    'odd letters': { type: 'deletion_first', letterOp: 'alternate' },
+    'even letters': { type: 'deletion_first', letterOp: 'alternate' },
 
     // --- OUTER LETTERS (ends) ---
     'extremely': { type: 'deletion_first', letterOp: 'ends' },

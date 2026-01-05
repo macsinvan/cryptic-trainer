@@ -200,6 +200,16 @@ const testCases: TestCase[] = [
         expectedStepTypes: ['container'],
         expectedTechniques: ['container'],
     },
+    {
+        name: 'DEHYDRATE (Alternate Letters + Cross-Reference + Anagram)',
+        clue: 'Dry ditty regularly confused with 14 (9)',
+        answer: 'DEHYDRATE',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'Dry',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['anagram'],
+        expectedTechniques: ['anagram'],
+    },
 ];
 
 // Colors for output

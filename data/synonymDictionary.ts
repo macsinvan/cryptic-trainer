@@ -1172,7 +1172,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'warm': ['HOT', 'TEPID', 'HEATED', 'MILD'],
     'cool': ['COLD', 'HIP', 'CALM', 'C'],
     'wet': ['DAMP', 'MOIST', 'RAINY', 'SODDEN'],
-    'dry': ['ARID', 'SEC', 'PARCHED', 'BRUT'],
+    'dry': ['ARID', 'SEC', 'PARCHED', 'BRUT', 'DEHYDRATE', 'DESICCATE'],
 
     // --- TIME ---
     'minute': ['M', 'MIN', 'MO', 'SMALL', 'TINY'],

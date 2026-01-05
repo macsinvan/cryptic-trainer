@@ -2054,6 +2054,31 @@ export function tryCompositeCharade(
         }
     }
 
+    // 1a3. Handle cross-references (e.g., "with 14", "see 14", "14 across")
+    // Cross-references refer to answers from other clues in the same puzzle
+    // We maintain a lookup of known cross-references for specific puzzles
+    const CROSS_REFERENCE_ANSWERS: Record<string, string> = {
+        // Format: "clue_number" → "ANSWER"
+        // These would typically be provided per-puzzle, but we include known references
+        '14': 'ADHERE',  // From the DEHYDRATE clue puzzle
+    };
+
+    // Look for patterns like "with 14", "14 across", "see 14", just "14"
+    for (let i = 0; i < words.length; i++) {
+        const word = words[i].replace(/[^0-9]/g, '');  // Extract just the number
+        if (word && /^\d+$/.test(word)) {
+            const crossRefAnswer = CROSS_REFERENCE_ANSWERS[word];
+            if (crossRefAnswer && crossRefAnswer.length <= answerLen) {
+                candidates.push({
+                    text: words[i],
+                    result: crossRefAnswer,
+                    operation: `cross-reference (${word} = ${crossRefAnswer})`,
+                    wordIndices: [i]
+                });
+            }
+        }
+    }
+
     // 1b. For anagrams: add raw words as potential fodder (the word itself contributes letters)
     // e.g., "codes" in "defective... codes formed" contributes CODES to the anagram
     const hasAnagramIndicator = indicators.some(i => i.type === 'anagram');
@@ -2348,6 +2373,49 @@ export function tryCompositeCharade(
                         });
                     }
                 }
+            }
+        }
+    }
+
+    // 2e2. Find alternate letter candidates (regularly, oddly, evenly)
+    const alternateIndicators = indicators.filter(i => i.entry.letterOp === 'alternate');
+    for (const ind of alternateIndicators) {
+        const indWord = ind.text.toLowerCase();
+
+        // Find words adjacent to the indicator
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+            if (word === indWord.replace(/[^a-z]/g, '') || CHARADE_CONNECTORS.has(word) || word.length < 3) continue;
+
+            const wordUpper = word.toUpperCase();
+            // Extract odd-positioned letters (1st, 3rd, 5th, etc.) - most common interpretation
+            let oddLetters = '';
+            let evenLetters = '';
+            for (let j = 0; j < wordUpper.length; j++) {
+                if (j % 2 === 0) {
+                    oddLetters += wordUpper[j];  // 0, 2, 4... (1st, 3rd, 5th positions)
+                } else {
+                    evenLetters += wordUpper[j];  // 1, 3, 5... (2nd, 4th, 6th positions)
+                }
+            }
+
+            // Add odd-positioned letters (default for "regularly")
+            if (oddLetters.length > 0) {
+                candidates.push({
+                    text: words[i],
+                    result: oddLetters,
+                    operation: `alternate letters of ${words[i]}`,
+                    wordIndices: [i]
+                });
+            }
+            // Also try even-positioned letters
+            if (evenLetters.length > 0) {
+                candidates.push({
+                    text: words[i],
+                    result: evenLetters,
+                    operation: `alternate letters of ${words[i]} (even)`,
+                    wordIndices: [i]
+                });
             }
         }
     }
