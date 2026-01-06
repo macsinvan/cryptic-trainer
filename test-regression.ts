@@ -366,34 +366,38 @@ function runTests() {
 
     let passed = 0;
     let failed = 0;
+    let coldPassed = 0;
+    let coldFailed = 0;
+    let coldTotal = 0;
 
     for (const tc of testCases) {
         console.log(`Testing: ${tc.name}`);
         console.log(`  Clue: "${tc.clue}"`);
         console.log(`  Answer: ${tc.answer}`);
 
-        const errors: string[] = [];
+        const warmErrors: string[] = [];
+        const coldErrors: string[] = [];
 
-        // Test 1: Parse with answer
+        // Test 1: Parse with answer (warm parsing)
         const result = parseClue(tc.clue, tc.answer);
 
         if (!result.success) {
-            errors.push(`Parse failed: ${result.errors?.join(', ')}`);
+            warmErrors.push(`Parse failed: ${result.errors?.join(', ')}`);
         } else {
             // Check pattern
             if (result.patternData?.patternId !== tc.expectedPattern) {
-                errors.push(`Pattern: expected "${tc.expectedPattern}", got "${result.patternData?.patternId}"`);
+                warmErrors.push(`Pattern: expected "${tc.expectedPattern}", got "${result.patternData?.patternId}"`);
             }
 
             // Check definition text
             if (result.patternData?.definitionText !== tc.expectedDefinition) {
-                errors.push(`Definition: expected "${tc.expectedDefinition}", got "${result.patternData?.definitionText}"`);
+                warmErrors.push(`Definition: expected "${tc.expectedDefinition}", got "${result.patternData?.definitionText}"`);
             }
 
             // Check definition position (case-insensitive)
             const actualPos = result.patternData?.definitionPosition?.toUpperCase();
             if (actualPos !== tc.expectedDefinitionPosition) {
-                errors.push(`Position: expected "${tc.expectedDefinitionPosition}", got "${result.patternData?.definitionPosition}"`);
+                warmErrors.push(`Position: expected "${tc.expectedDefinitionPosition}", got "${result.patternData?.definitionPosition}"`);
             }
 
             // Check step types
@@ -402,12 +406,12 @@ function runTests() {
             const actualSet = new Set(actualStepTypes);
             const missingTypes = tc.expectedStepTypes.filter(t => !actualSet.has(t));
             if (missingTypes.length > 0) {
-                errors.push(`Missing step types: ${missingTypes.join(', ')}`);
+                warmErrors.push(`Missing step types: ${missingTypes.join(', ')}`);
             }
 
             // Check isComplete
             if (!result.patternData?.isComplete) {
-                errors.push(`isComplete: expected true, got false`);
+                warmErrors.push(`isComplete: expected true, got false`);
             }
 
             // Check that at least one explanation contains definition link
@@ -415,14 +419,14 @@ function runTests() {
             const defExplanation = result.patternData?.definitionExplanation || '';
             const allExplanations = stepExplanations + ' ' + defExplanation;
             if (!allExplanations.toLowerCase().includes(tc.expectedDefinition.toLowerCase())) {
-                errors.push(`Explanations should link to definition "${tc.expectedDefinition.toLowerCase()}"`);
+                warmErrors.push(`Explanations should link to definition "${tc.expectedDefinition.toLowerCase()}"`);
             }
 
             // Check techniques used
             const actualTechniques = result.patternData?.techniquesUsed || [];
             for (const expected of tc.expectedTechniques) {
                 if (!actualTechniques.includes(expected)) {
-                    errors.push(`Missing technique: "${expected}"`);
+                    warmErrors.push(`Missing technique: "${expected}"`);
                 }
             }
 
@@ -430,22 +434,23 @@ function runTests() {
             const setterHint = result.patternData?.setterHint || '';
             if (tc.expectedTechniques.length > 0) {
                 if (!setterHint) {
-                    errors.push('setterHint is empty');
+                    warmErrors.push('setterHint is empty');
                 } else if (!setterHint.includes('The setter has used')) {
-                    errors.push('setterHint should start with "The setter has used"');
+                    warmErrors.push('setterHint should start with "The setter has used"');
                 }
             }
         }
 
         // Test 2: Cold parsing (no answer)
         if (tc.expectedColdDefinitionCandidates) {
+            coldTotal++;
             const coldResult = analyzeClueWithoutAnswer(tc.clue);
 
             // Check definition candidates
             const actualCandidates = coldResult.definitionCandidates;
             for (const expected of tc.expectedColdDefinitionCandidates) {
                 if (!actualCandidates.includes(expected)) {
-                    errors.push(`Cold parse missing definition candidate: "${expected}"`);
+                    coldErrors.push(`Missing definition candidate: "${expected}"`);
                 }
             }
 
@@ -453,24 +458,39 @@ function runTests() {
             if (tc.expectedColdIndicators) {
                 for (const expected of tc.expectedColdIndicators) {
                     if (!coldResult.indicatorWordsFound.includes(expected)) {
-                        errors.push(`Cold parse missing indicator: "${expected}"`);
+                        coldErrors.push(`Missing indicator: "${expected}"`);
                     }
                 }
             }
 
             // Check derived answer
             if (coldResult.derivedAnswer !== tc.answer) {
-                errors.push(`Cold parse derivedAnswer: expected "${tc.answer}", got "${coldResult.derivedAnswer}"`);
+                coldErrors.push(`derivedAnswer: expected "${tc.answer}", got "${coldResult.derivedAnswer}"`);
+            }
+
+            // Track cold parsing results
+            if (coldErrors.length === 0) {
+                coldPassed++;
+            } else {
+                coldFailed++;
             }
         }
 
         // Report result
-        if (errors.length === 0) {
+        const allErrors = [...warmErrors, ...coldErrors];
+        if (allErrors.length === 0) {
             console.log(`  ${GREEN}✓ PASSED${RESET}\n`);
             passed++;
         } else {
             console.log(`  ${RED}✗ FAILED${RESET}`);
-            errors.forEach(e => console.log(`    ${RED}• ${e}${RESET}`));
+            if (warmErrors.length > 0) {
+                console.log(`    ${RED}[Warm Parse]${RESET}`);
+                warmErrors.forEach(e => console.log(`      ${RED}• ${e}${RESET}`));
+            }
+            if (coldErrors.length > 0) {
+                console.log(`    ${YELLOW}[Cold Parse]${RESET}`);
+                coldErrors.forEach(e => console.log(`      ${YELLOW}• ${e}${RESET}`));
+            }
             console.log('');
             failed++;
         }
@@ -483,6 +503,16 @@ function runTests() {
         console.log(`${RED}Failed: ${failed}${RESET}`);
     }
     console.log(`Total: ${testCases.length}`);
+
+    // Cold parsing summary
+    if (coldTotal > 0) {
+        console.log('');
+        console.log('=== COLD PARSING ===');
+        console.log(`${GREEN}Passed: ${coldPassed}/${coldTotal}${RESET}`);
+        if (coldFailed > 0) {
+            console.log(`${YELLOW}Failed: ${coldFailed}/${coldTotal}${RESET}`);
+        }
+    }
 
     // Exit with error code if any failed
     if (failed > 0) {
