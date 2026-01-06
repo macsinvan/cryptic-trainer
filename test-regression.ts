@@ -100,6 +100,8 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'END',
         expectedStepTypes: ['container'],  // DP inside HEAD = HEADER
         expectedTechniques: ['container'],
+        expectedColdDefinitionCandidates: ['in tank'],
+        expectedColdIndicators: ['edges of'],
     },
     {
         name: 'ASSES (Deletion)',

@@ -1840,8 +1840,12 @@ export function lookupSynonyms(fodder: string): string[] {
     const staticSyns = SYNONYM_DICTIONARY[key] || [];
     const learnedSyns = learnedSynonyms[key] || [];
 
-    // Combine static and learned, removing duplicates
-    return [...new Set([...staticSyns, ...learnedSyns])];
+    // Also check CRYPTIC_MEANINGS
+    const crypticEntry = CRYPTIC_MEANINGS[key];
+    const crypticSyns = crypticEntry?.synonyms || [];
+
+    // Combine static, cryptic, and learned, removing duplicates
+    return [...new Set([...staticSyns, ...crypticSyns, ...learnedSyns])];
 }
 
 /**

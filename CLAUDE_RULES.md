@@ -85,4 +85,77 @@ Claude: [makes the edit]
 
 ---
 
+## CORE DESIGN PRINCIPLE: NO CLUE IS LOGICALLY HARD
+
+**CRITICAL**: If you find yourself analyzing hundreds of combinations, you are on the wrong track. EXIT IMMEDIATELY.
+
+A human solver cannot compute permutations. Cryptic clues are designed to be solved by pattern recognition and positional logic, not brute force.
+
+### Key Insight: Positional Information
+
+Indicators tell you the RELATIONSHIP between adjacent words:
+- `[word] conceals` → word BEFORE indicator is the outer container
+- `conceals [word]` → word AFTER indicator is the inner content
+- Fodder is ALWAYS adjacent to its indicator
+
+### When Stuck
+
+1. STOP trying combinations
+2. Ask: "What does the indicator tell me about word positions?"
+3. Use that to constrain the search to 1-3 possibilities max
+4. If still stuck, ask the user - they can help
+
+---
+
+## DEBUGGING COMPLEX CLUES (Constrained Combination Search)
+
+When a clue times out or produces too many combinations, use this method:
+
+### Step 1: Extract Known Facts
+
+From the clue, identify:
+- **Definition** → tells you the answer
+- **Answer length** → the key constraint
+
+### Step 2: Get Synonym Candidates
+
+For each wordplay piece, list the synonym results with their letter counts.
+
+### Step 3: Filter by Letter Count
+
+Only consider combinations where the letter counts sum to the answer length.
+
+**Example: TELEPROMPTER**
+
+```
+Clue: "What newsreaders read in French, the expert seducer conceals"
+Answer: TELEPROMPTER (12 letters)
+
+Pieces:
+- "in French, the" → LE (2)
+- "expert" → PRO (3)
+- "seducer" → TEMPTER (7)
+
+Check: 2 + 3 + 7 = 12 ✓
+
+Result: Only test this ONE combination instead of thousands.
+```
+
+### Step 4: Implement in Parser
+
+The parser should:
+1. Calculate answer length from definition match
+2. Get all synonym candidates with their lengths
+3. Prune combinations that can't possibly sum to answer length
+4. Only test remaining (few) combinations
+
+This reduces exponential search to a manageable set.
+
+### Phase 4: Commit
+
+1. Run full regression: `npx tsx test-regression.ts`
+2. Commit with count: "feat: Add N clues (X required code changes)"
+
+---
+
 *Last updated: 2026-01-05*

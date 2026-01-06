@@ -1,0 +1,255 @@
+[
+  {
+    "clue": "Providing aid from stake money invested in silver",
+    "answer": "ABETTING",
+    "pattern": "CONTAINER",
+    "definition": { "text": "Providing aid", "position": "START" },
+    "pieces": [
+      { "text": "from", "result": "A__G", "operation": "container_frame" },
+      { "text": "stake money", "result": "BET", "operation": "synonym" },
+      { "text": "silver", "result": "TIN", "operation": "synonym" }
+    ],
+    "indicators": { "invested in": "container" },
+    "synonyms": { "stake money": "BET", "silver": "TIN" },
+    "abbreviations": {},
+    "assembly": "A(BET,TIN)G → ABETTING"
+  },
+  {
+    "clue": "Place to buy in or sell out",
+    "answer": "SHOP",
+    "pattern": "DOUBLE_DEFINITION",
+    "definition": { "text": "Place to buy in or sell out", "position": "ALL" },
+    "pieces": [],
+    "indicators": {},
+    "synonyms": {},
+    "abbreviations": {},
+    "assembly": "SHOP"
+  },
+  {
+    "clue": "Jersey artist of high standing",
+    "answer": "TOPDRAWER",
+    "pattern": "CHARADE",
+    "definition": { "text": "of high standing", "position": "END" },
+    "pieces": [
+      { "text": "Jersey", "result": "TOP", "operation": "synonym" },
+      { "text": "artist", "result": "DRAWER", "operation": "synonym" }
+    ],
+    "indicators": {},
+    "synonyms": { "jersey": "TOP", "artist": "DRAWER" },
+    "abbreviations": {},
+    "assembly": "TOP + DRAWER → TOP DRAWER"
+  },
+  {
+    "clue": "Boat staff bringing nothing on board",
+    "answer": "CANOE",
+    "pattern": "CONTAINER",
+    "definition": { "text": "Boat", "position": "START" },
+    "pieces": [
+      { "text": "staff", "result": "CANE", "operation": "synonym" },
+      { "text": "nothing", "result": "O", "operation": "abbreviation" }
+    ],
+    "indicators": { "bringing": "container", "on board": "container" },
+    "synonyms": { "staff": "CANE" },
+    "abbreviations": { "nothing": "O" },
+    "assembly": "CAN(O)E → CANOE"
+  },
+  {
+    "clue": "Raid spanning a period of a year",
+    "answer": "FORAY",
+    "pattern": "CHARADE",
+    "definition": { "text": "Raid", "position": "START" },
+    "pieces": [
+      { "text": "spanning a period of", "result": "FOR", "operation": "synonym" },
+      { "text": "a", "result": "A", "operation": "literal" },
+      { "text": "year", "result": "Y", "operation": "abbreviation" }
+    ],
+    "indicators": {},
+    "synonyms": { "spanning a period of": "FOR" },
+    "abbreviations": { "year": "Y" },
+    "assembly": "FOR + A + Y → FORAY"
+  },
+  {
+    "clue": "Car chase mostly prepared, DS means to get ready",
+    "answer": "CASHCARDS",
+    "pattern": "ANAGRAM_PLUS",
+    "definition": { "text": "means to get ready", "position": "END" },
+    "pieces": [
+      { "text": "car chase mostly", "result": "CAR CHAS", "operation": "fodder_truncated" },
+      { "text": "DS", "result": "DS", "operation": "letters" }
+    ],
+    "indicators": { "prepared": "anagram", "mostly": "deletion_last" },
+    "synonyms": {},
+    "abbreviations": {},
+    "assembly": "anagram(CAR CHAS) + DS → CASH CARDS"
+  },
+  {
+    "clue": "Look back on gas sanctions",
+    "answer": "COUNTENANCES",
+    "pattern": "CHARADE_PLUS_LETTER_SELECTION",
+    "definition": { "text": "sanctions", "position": "END" },
+    "pieces": [
+      { "text": "Look", "result": "COUNTENANCE", "operation": "synonym" },
+      { "text": "gas", "result": "S", "operation": "last_letter" }
+    ],
+    "indicators": { "on": "charade", "gas": "deletion_last" },
+    "synonyms": { "look": "COUNTENANCE" },
+    "abbreviations": {},
+    "assembly": "COUNTENANCE + gaS → COUNTENANCES"
+  },
+  {
+    "clue": "What newsreaders read in French, the expert seducer conceals",
+    "answer": "TELEPROMPTER",
+    "pattern": "CONTAINER",
+    "definition": { "text": "What newsreaders read", "position": "START" },
+    "pieces": [
+      { "text": "seducer", "result": "TEMPTER", "operation": "synonym" },
+      { "text": "in French, the", "result": "LE", "operation": "abbreviation" },
+      { "text": "expert", "result": "PRO", "operation": "synonym" }
+    ],
+    "indicators": { "conceals": "container" },
+    "synonyms": { "seducer": "TEMPTER", "expert": "PRO" },
+    "abbreviations": { "the (French)": "LE" },
+    "assembly": "TE(LE,PRO)MPTER → TELEPROMPTER"
+  },
+  {
+    "clue": "Comic character from Peru: he's funny or contrary",
+    "answer": "SUPERHERO",
+    "pattern": "ANAGRAM_PLUS_REVERSAL",
+    "definition": { "text": "Comic character", "position": "START" },
+    "pieces": [
+      { "text": "Peru: he's", "result": "PERU HES", "operation": "fodder" },
+      { "text": "or", "result": "RO", "operation": "reversal" }
+    ],
+    "indicators": { "funny": "anagram", "contrary": "reversal" },
+    "synonyms": {},
+    "abbreviations": {},
+    "assembly": "anagram(PERU HES) + reverse(OR) → SUPERHERO"
+  },
+  {
+    "clue": "Dance backwards while gripping a medic",
+    "answer": "SAMBA",
+    "pattern": "REVERSAL_CONTAINER",
+    "definition": { "text": "Dance", "position": "START" },
+    "pieces": [
+      { "text": "while", "result": "AS", "operation": "synonym" },
+      { "text": "a", "result": "A", "operation": "literal" },
+      { "text": "medic", "result": "MB", "operation": "abbreviation" }
+    ],
+    "indicators": { "gripping": "container", "backwards": "reversal" },
+    "synonyms": { "while": "AS" },
+    "abbreviations": { "medic": "MB" },
+    "assembly": "reverse(AS containing A+MB) → SAMBA"
+  },
+  {
+    "clue": "Skip over some novel ideas",
+    "answer": "ELIDE",
+    "pattern": "HIDDEN",
+    "definition": { "text": "Skip over", "position": "START" },
+    "pieces": [
+      { "text": "novel ideas", "result": "ELIDE", "operation": "hidden" }
+    ],
+    "indicators": { "some": "hidden" },
+    "synonyms": {},
+    "abbreviations": {},
+    "assembly": "novEL IDEas → ELIDE"
+  },
+  {
+    "clue": "Striking people outside that hurt colleagues",
+    "answer": "COWORKERS",
+    "pattern": "CONTAINER",
+    "definition": { "text": "colleagues", "position": "END" },
+    "pieces": [
+      { "text": "Striking", "result": "C", "operation": "abbreviation" },
+      { "text": "people", "result": "OW", "operation": "synonym" },
+      { "text": "that hurt", "result": "ORKERS", "operation": "letters" }
+    ],
+    "indicators": { "outside": "container" },
+    "synonyms": { "people": "OW" },
+    "abbreviations": { "striking": "C" },
+    "assembly": "C(OW)ORKERS → CO WORKERS"
+  },
+  {
+    "clue": "I'm exasperated seeing time being wasted",
+    "answer": "SIGH",
+    "pattern": "DELETION",
+    "definition": { "text": "I'm exasperated", "position": "START" },
+    "pieces": [
+      { "text": "seeing", "result": "SIGHT", "operation": "synonym" },
+      { "text": "time", "result": "T", "operation": "abbreviation" }
+    ],
+    "indicators": { "being wasted": "deletion_last" },
+    "synonyms": { "seeing": "SIGHT" },
+    "abbreviations": { "time": "T" },
+    "assembly": "SIGH(T) → SIGH"
+  },
+  {
+    "clue": "Forecasters for hours absorbed by 'cats and dogs'?",
+    "answer": "PROPHETS",
+    "pattern": "CHARADE_CONTAINER",
+    "definition": { "text": "Forecasters", "position": "START" },
+    "pieces": [
+      { "text": "for", "result": "PRO", "operation": "synonym" },
+      { "text": "cats and dogs", "result": "PETS", "operation": "synonym" },
+      { "text": "hours", "result": "H", "operation": "abbreviation" }
+    ],
+    "indicators": { "absorbed by": "container" },
+    "synonyms": { "for": "PRO", "cats and dogs": "PETS" },
+    "abbreviations": { "hours": "H" },
+    "assembly": "PRO + P(H)ETS → PROPHETS"
+  },
+  {
+    "clue": "Small cloth covering uncooked black fruit",
+    "answer": "STRAWBERRY",
+    "pattern": "CONTAINER_PLUS_CHARADE",
+    "definition": { "text": "fruit", "position": "END" },
+    "pieces": [
+      { "text": "Small", "result": "S", "operation": "abbreviation" },
+      { "text": "cloth", "result": "TERRY", "operation": "synonym" },
+      { "text": "uncooked", "result": "RAW", "operation": "synonym" },
+      { "text": "black", "result": "B", "operation": "abbreviation" }
+    ],
+    "indicators": { "covering": "container" },
+    "synonyms": { "cloth": "TERRY", "uncooked": "RAW" },
+    "abbreviations": { "small": "S", "black": "B" },
+    "assembly": "S + T(RAW,B)ERRY → STRAWBERRY"
+  },
+  {
+    "clue": "Perhaps flat fish can be caught with it",
+    "answer": "GAFF",
+    "pattern": "DOUBLE_DEFINITION",
+    "definition": { "text": "Perhaps flat fish can be caught with it", "position": "ALL" },
+    "pieces": [],
+    "indicators": {},
+    "synonyms": {},
+    "abbreviations": {},
+    "assembly": "GAFF"
+  },
+  {
+    "clue": "US sculptor's work rejected, silly blunder in it",
+    "answer": "OLDENBURG",
+    "pattern": "REVERSAL_CONTAINER_ANAGRAM",
+    "definition": { "text": "US sculptor", "position": "START" },
+    "pieces": [
+      { "text": "silly", "result": "GO", "operation": "letters" },
+      { "text": "blunder", "result": "BLUNDER", "operation": "anagram" }
+    ],
+    "indicators": { "rejected": "reversal", "in": "container", "silly": "container" },
+    "synonyms": {},
+    "abbreviations": {},
+    "assembly": "reverse(GO) containing anagram(BLUNDER) → OLDENBURG"
+  },
+  {
+    "clue": "Call about training to return for field event",
+    "answer": "SHOTPUT",
+    "pattern": "CONTAINER_PLUS_REVERSAL",
+    "definition": { "text": "field event", "position": "END" },
+    "pieces": [
+      { "text": "Call", "result": "SHOUT", "operation": "synonym" },
+      { "text": "training", "result": "PT", "operation": "abbreviation" }
+    ],
+    "indicators": { "about": "container", "to return": "reversal" },
+    "synonyms": { "call": "SHOUT" },
+    "abbreviations": { "training": "PT" },
+    "assembly": "SHOUT containing reverse(PT) → SHOT PUT"
+  }
+]

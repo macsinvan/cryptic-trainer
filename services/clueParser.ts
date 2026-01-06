@@ -105,7 +105,7 @@ const INDICATOR_WORDS = new Set([
     'turning', 'turned', 'becoming', 'becomes',
     // Anagram indicators
     'broken', 'mixed', 'confused', 'crazy', 'wild', 'upset', 'troubled',
-    'arranged', 'rearranged', 'sorted', 'ordered', 'shuffled',
+    'arranged', 'rearranged', 'sorted', 'ordered', 'shuffled', 'abroad',
     // Reversal indicators
     'back', 'backward', 'backwards', 'returned', 'reversed', 'reflected',
     // Hidden indicators
@@ -500,6 +500,21 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
                 const phrase = remainingWords.slice(-len).map(w => w.word).join(' ');
                 definitionCandidates.push(phrase);
             }
+            // Also try including preceding function words (e.g., "in tank" not just "tank")
+            const lastRemaining = remainingWords[remainingWords.length - 1];
+            if (lastRemaining) {
+                // Look for function words immediately before the last content word
+                for (let i = lastRemaining.idx - 1; i >= 0 && i >= lastRemaining.idx - 2; i--) {
+                    const prevWord = words[i]?.toLowerCase().replace(/[^a-z]/g, '');
+                    if (prevWord && FUNCTION_WORDS.has(prevWord)) {
+                        // Build phrase including the function word
+                        const phraseWithFunc = words.slice(i, lastRemaining.idx + 1).join(' ');
+                        if (!definitionCandidates.includes(phraseWithFunc)) {
+                            definitionCandidates.push(phraseWithFunc);
+                        }
+                    }
+                }
+            }
         } else {
             // Ambiguous - try both directions
             // From start
@@ -513,6 +528,19 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
                     const phrase = remainingWords.slice(-len).map(w => w.word).join(' ');
                     if (!definitionCandidates.includes(phrase)) {
                         definitionCandidates.push(phrase);
+                    }
+                }
+            }
+            // Also try including preceding function words at end (e.g., "in tank")
+            const lastRemaining = remainingWords[remainingWords.length - 1];
+            if (lastRemaining) {
+                for (let i = lastRemaining.idx - 1; i >= 0 && i >= lastRemaining.idx - 2; i--) {
+                    const prevWord = words[i]?.toLowerCase().replace(/[^a-z]/g, '');
+                    if (prevWord && FUNCTION_WORDS.has(prevWord)) {
+                        const phraseWithFunc = words.slice(i, lastRemaining.idx + 1).join(' ');
+                        if (!definitionCandidates.includes(phraseWithFunc)) {
+                            definitionCandidates.push(phraseWithFunc);
+                        }
                     }
                 }
             }
