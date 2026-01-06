@@ -393,6 +393,20 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
     }
 
     // Second pass: find single-word indicators not already consumed
+    // IMPORTANT: Protect idx 0 and last content word index - these are likely definition
+    // Find the last content word (non-function word) index
+    let lastContentWordIdx = words.length - 1;
+    for (let i = words.length - 1; i >= 0; i--) {
+        const w = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+        if (w.length >= 2 && !FUNCTION_WORDS.has(w)) {
+            lastContentWordIdx = i;
+            break;
+        }
+    }
+
+    // Protected indices (likely definition words)
+    const protectedIndices = new Set<number>([0, lastContentWordIdx]);
+
     words.forEach((word, idx) => {
         if (consumedWordIndices.has(idx)) return;
 
@@ -405,12 +419,13 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
             const entry = INDICATOR_DICTIONARY[wLower];
             const opType = entry?.type || 'synonym';
 
-            // Find fodder - the content word adjacent to indicator (prefer before, then after)
+            // Find fodder - but DON'T consume protected indices (likely definition)
             let fodder: string | undefined;
             let fodderIdx: number | undefined;
 
-            // Look backwards for fodder (skip function words)
+            // Look backwards for fodder (skip function words and protected indices)
             for (let i = idx - 1; i >= 0; i--) {
+                if (protectedIndices.has(i)) continue;  // Skip protected definition words
                 const fw = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
                 if (fw.length < 2 || FUNCTION_WORDS.has(fw)) continue;
                 if (!consumedWordIndices.has(i) && !INDICATOR_WORDS.has(fw)) {
@@ -420,9 +435,10 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
                 }
             }
 
-            // If no fodder found before, look forward
+            // If no fodder found before, look forward (also skip protected indices)
             if (!fodder) {
                 for (let i = idx + 1; i < words.length; i++) {
+                    if (protectedIndices.has(i)) continue;  // Skip protected definition words
                     const fw = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
                     if (fw.length < 2 || FUNCTION_WORDS.has(fw)) continue;
                     if (!consumedWordIndices.has(i) && !INDICATOR_WORDS.has(fw)) {
@@ -2020,12 +2036,24 @@ export function tryCompositeCharade(
                     }
                     break;  // Found synonyms, don't try the cleaned version
                 }
+
+                // Also check STANDALONE_SYNONYMS for multi-word phrases (e.g., "in french, the" → LE)
+                const standalone = STANDALONE_SYNONYMS[phrase];
+                if (standalone && standalone.length <= answerLen) {
+                    candidates.push({
+                        text: words.slice(i, i + phraseLen).join(' '),
+                        result: standalone,
+                        operation: 'abbreviation',
+                        wordIndices: Array.from({ length: phraseLen }, (_, j) => i + j)
+                    });
+                    break;
+                }
             }
         }
     }
 
-    // 1a2. Find abbreviation candidates from OBVIOUS_ABBREVIATIONS
-    // e.g., "Henry" → H, "months" → M
+    // 1a2. Find abbreviation candidates from OBVIOUS_ABBREVIATIONS and STANDALONE_SYNONYMS
+    // e.g., "Henry" → H, "months" → M, "gas" → S
     for (let i = 0; i < words.length; i++) {
         const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
         if (word.length < 2) continue;
@@ -2050,6 +2078,22 @@ export function tryCompositeCharade(
                         wordIndices: [i]
                     });
                 }
+            }
+        }
+
+        // Check against STANDALONE_SYNONYMS (e.g., "gas" → S, "nothing" → O)
+        const standaloneResult = STANDALONE_SYNONYMS[word];
+        if (standaloneResult) {
+            const alreadyHas = candidates.some(c =>
+                c.wordIndices.length === 1 && c.wordIndices[0] === i && c.result === standaloneResult
+            );
+            if (!alreadyHas) {
+                candidates.push({
+                    text: words[i],
+                    result: standaloneResult,
+                    operation: 'abbreviation',
+                    wordIndices: [i]
+                });
             }
         }
     }
@@ -2527,6 +2571,121 @@ export function tryCompositeCharade(
     // Check if "in" appears in the wordplay OR container indicator present
     const hasInWord = words.some(w => w.toLowerCase().replace(/[^a-z]/g, '') === 'in');
     const hasContainerIndicator = containerIndicators.length > 0;
+
+    // 2g0. OPTIMIZATION: "[word] conceals" pattern - word before indicator IS the outer container
+    // This avoids combinatorial explosion by using positional information
+    if (hasContainerIndicator) {
+        for (const ind of containerIndicators) {
+            const indText = ind.text.toLowerCase().replace(/[^a-z]/g, '');
+            // Find indicator position in words
+            let indIdx = -1;
+            for (let i = 0; i < words.length; i++) {
+                if (words[i].toLowerCase().replace(/[^a-z]/g, '') === indText) {
+                    indIdx = i;
+                    break;
+                }
+            }
+            if (indIdx === -1) continue;
+
+            // Check word BEFORE indicator - this is the outer container
+            if (indIdx > 0) {
+                const outerWord = words[indIdx - 1].toLowerCase().replace(/[^a-z]/g, '');
+                // Find synonym for this word
+                const outerSyns = SYNONYM_DICTIONARY[outerWord];
+                if (outerSyns) {
+                    // Build list of outer candidates: original synonyms + reversed (if reversal indicator present)
+                    const hasReversalIndicator = reversalIndicators.length > 0;
+                    const outerVariants: { outer: string; isReversed: boolean; original: string }[] = [];
+
+                    for (const syn of outerSyns) {
+                        outerVariants.push({ outer: syn, isReversed: false, original: syn });
+                        // If reversal indicator present, also try reversed synonym as outer container
+                        // e.g., "backwards while gripping" → AS reversed = SA, SA grips MB = SAMBA
+                        if (hasReversalIndicator) {
+                            const reversed = syn.split('').reverse().join('');
+                            outerVariants.push({ outer: reversed, isReversed: true, original: syn });
+                        }
+                    }
+
+                    for (const { outer, isReversed, original } of outerVariants) {
+                        if (outer.length < 2 || outer.length > answerLen - 2) continue;
+
+                        // Calculate inner length needed
+                        const innerNeeded = answerLen - outer.length;
+
+                        // Find candidates that sum to innerNeeded (excluding the outer word)
+                        const otherCandidates = candidates.filter(c =>
+                            !c.wordIndices.includes(indIdx - 1) &&
+                            c.result.length <= innerNeeded
+                        );
+
+                        // Try single candidate as inner
+                        for (const innerCand of otherCandidates) {
+                            if (innerCand.result.length !== innerNeeded) continue;
+
+                            // Try inserting at each position
+                            for (let pos = 1; pos < outer.length; pos++) {
+                                const result = outer.slice(0, pos) + innerCand.result + outer.slice(pos);
+                                if (result === answerClean) {
+                                    const operationDesc = isReversed
+                                        ? `${original} reversed = ${outer}, ${innerCand.result} inside ${outer}`
+                                        : `${innerCand.result} inside ${outer}`;
+                                    candidates.push({
+                                        text: `${innerCand.text} in ${words[indIdx - 1]}${isReversed ? ' (reversed)' : ''}`,
+                                        result: answerClean,
+                                        operation: operationDesc,
+                                        wordIndices: [...innerCand.wordIndices, indIdx - 1]
+                                    });
+                                }
+                            }
+                        }
+
+                        // Try pairs of candidates as inner
+                        for (let i = 0; i < otherCandidates.length; i++) {
+                            for (let j = i + 1; j < otherCandidates.length; j++) {
+                                const c1 = otherCandidates[i];
+                                const c2 = otherCandidates[j];
+
+                                // Check no overlap
+                                if (c1.wordIndices.some(idx => c2.wordIndices.includes(idx))) continue;
+
+                                // Try both orders
+                                for (const [inner1, inner2] of [[c1, c2], [c2, c1]]) {
+                                    const combinedInner = inner1.result + inner2.result;
+                                    if (combinedInner.length !== innerNeeded) continue;
+
+                                    for (let pos = 1; pos < outer.length; pos++) {
+                                        const result = outer.slice(0, pos) + combinedInner + outer.slice(pos);
+                                        if (result === answerClean) {
+                                            const operationDesc = isReversed
+                                                ? `${original} reversed = ${outer}, ${combinedInner} inside ${outer}`
+                                                : `${combinedInner} inside ${outer}`;
+                                            candidates.push({
+                                                text: `${inner1.text} + ${inner2.text} in ${words[indIdx - 1]}${isReversed ? ' (reversed)' : ''}`,
+                                                result: answerClean,
+                                                operation: operationDesc,
+                                                wordIndices: [...inner1.wordIndices, ...inner2.wordIndices, indIdx - 1]
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // If we found a solution via the optimized path, return early
+        const directSolution = candidates.find(c => c.result === answerClean);
+        if (directSolution) {
+            return {
+                parts: [{ text: directSolution.text, result: directSolution.result, operation: directSolution.operation }],
+                success: true
+            };
+        }
+    }
+
     if (hasInWord || hasContainerIndicator) {
         // Get inner candidates (any length for insertion)
         const innerCandidates = candidates.filter(c => c.result.length >= 1 && c.result.length <= answerLen - 2);
@@ -2602,16 +2761,73 @@ export function tryCompositeCharade(
         }
     }
 
+    // 2g3. Container frame pattern - answer provides outer letters, inner content fills middle
+    // e.g., "Providing aid from stake money invested in silver" → A(BET+TIN)G = ABETTING
+    // The answer ABETTING provides frame A___G, and BET+TIN fills the middle
+    if (hasContainerIndicator && answerLen >= 4) {
+        const answerFirst = answerClean[0];
+        const answerLast = answerClean[answerClean.length - 1];
+        const innerNeeded = answerClean.slice(1, -1);  // Middle letters needed
+        const frameCandidates: CandidatePart[] = [];  // Collect new candidates separately
+
+        // Take snapshot of current candidates length to avoid infinite loop
+        const candidatesSnapshot = candidates.slice();
+
+        // Try single candidates that exactly match the inner
+        for (const cand of candidatesSnapshot) {
+            if (cand.result === innerNeeded) {
+                frameCandidates.push({
+                    text: cand.text,
+                    result: answerClean,
+                    operation: `${cand.result} inside ${answerFirst}_${answerLast} frame`,
+                    wordIndices: cand.wordIndices
+                });
+            }
+        }
+
+        // Try pairs of candidates that combine to match the inner
+        for (let i = 0; i < candidatesSnapshot.length; i++) {
+            for (let j = 0; j < candidatesSnapshot.length; j++) {
+                if (i === j) continue;
+                const cand1 = candidatesSnapshot[i];
+                const cand2 = candidatesSnapshot[j];
+
+                // Check they don't overlap
+                const indices1 = new Set(cand1.wordIndices);
+                if (cand2.wordIndices.some(idx => indices1.has(idx))) continue;
+
+                const combined = cand1.result + cand2.result;
+                if (combined === innerNeeded) {
+                    frameCandidates.push({
+                        text: `${cand1.text} + ${cand2.text}`,
+                        result: answerClean,
+                        operation: `${combined} inside ${answerFirst}_${answerLast} frame`,
+                        wordIndices: [...cand1.wordIndices, ...cand2.wordIndices]
+                    });
+                }
+            }
+        }
+
+        // Add frame candidates to main list
+        candidates.push(...frameCandidates);
+    }
+
     // Sort candidates by their first word index to ensure proper ordering
     candidates.sort((a, b) => a.wordIndices[0] - b.wordIndices[0]);
 
     // 3. Try combinations of candidates that don't overlap and sum to answer
     // Allow any order (not just clue order) due to indicators like "following"
+    // OPTIMIZATION: Limit depth and iterations to prevent exponential blowup
+    let iterationCount = 0;
+    const MAX_ITERATIONS = 10000;  // Safety limit
+    const MAX_DEPTH = 6;  // Most clues have 2-4 parts
+
     function tryCombinations(
         allCandidates: CandidatePart[],
         current: CandidatePart[],
         usedIndices: Set<number>,
-        currentResult: string
+        currentResult: string,
+        depth: number = 0
     ): CandidatePart[] | null {
         if (currentResult === answerClean) {
             return current;
@@ -2619,8 +2835,15 @@ export function tryCompositeCharade(
         if (currentResult.length >= answerLen) {
             return null;
         }
+        // Safety limits
+        if (depth >= MAX_DEPTH || iterationCount >= MAX_ITERATIONS) {
+            return null;
+        }
 
         for (let i = 0; i < allCandidates.length; i++) {
+            iterationCount++;
+            if (iterationCount >= MAX_ITERATIONS) return null;
+
             const cand = allCandidates[i];
             // Check for overlap with already used word indices
             if (cand.wordIndices.some(idx => usedIndices.has(idx))) continue;
@@ -2634,14 +2857,15 @@ export function tryCompositeCharade(
                 allCandidates,  // Try ALL candidates, not just those after this one
                 [...current, cand],
                 newUsed,
-                currentResult + cand.result
+                currentResult + cand.result,
+                depth + 1
             );
             if (result) return result;
         }
         return null;
     }
 
-    const solution = tryCombinations(candidates, [], new Set(), '');
+    const solution = tryCombinations(candidates, [], new Set(), '', 0);
     // Allow single-part solutions for container operations (e.g., RANTH inside GAM = GRANTHAM)
     // Require 2+ parts for pure charades
     if (solution && (solution.length >= 2 || (solution.length === 1 && solution[0].operation.includes('inside')))) {
@@ -3140,6 +3364,7 @@ function trySubstitution(
 // Try to detect double definition pattern
 // Two parts of the clue, each independently defining the answer
 // e.g., "Leave Antarctica? (6)" → DESERT (leave=desert, Antarctica is a desert)
+// e.g., "Place to buy in or sell out (4)" → SHOP (place to buy in=shop, sell out=shop)
 function tryDoubleDefinition(
     clue: string,
     answer: string
@@ -3150,6 +3375,26 @@ function tryDoubleDefinition(
 
     // Need at least 2 words for double definition
     if (words.length < 2) return null;
+
+    // First, check if "or" appears as a conjunction between two definitions
+    // e.g., "Place to buy in or sell out" → "Place to buy in" OR "sell out"
+    const orIndex = words.findIndex(w => w.toLowerCase() === 'or');
+    if (orIndex > 0 && orIndex < words.length - 1) {
+        const part1 = words.slice(0, orIndex).join(' ');
+        const part2 = words.slice(orIndex + 1).join(' ');
+
+        const match1 = checkPhraseMatchesAnswer(part1, answer);
+        const match2 = checkPhraseMatchesAnswer(part2, answer);
+
+        if ((match1.matchType === 'synonym' || match1.matchType === 'direct') &&
+            (match2.matchType === 'synonym' || match2.matchType === 'direct')) {
+            return {
+                def1: part1,
+                def2: part2,
+                success: true
+            };
+        }
+    }
 
     // Try splitting at each position
     for (let splitIdx = 1; splitIdx < words.length; splitIdx++) {
@@ -3792,8 +4037,75 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     // Step 2: Find indicators, excluding locked definition words
     const indicators = findIndicators(cleanClue, lockedWordIndices);
 
+    // Always try double definition first - it should take priority even if indicators are found
+    // because words like "in", "out", "or" can be parts of definition phrases
+    if (knownAnswer) {
+        const doubleDef = tryDoubleDefinition(clue, knownAnswer);
+        if (doubleDef?.success) {
+            const variables: Record<string, string> = {
+                'def_text': doubleDef.def1,
+                'def_2_text': doubleDef.def2,
+                'definition_match_type': 'double',
+                'definition_position': 'START'
+            };
+
+            // Build the solve explanation for double definition
+            const solveExplanation: Array<{type: string; label?: string; content: string; techniques?: string[]}> = [
+                {
+                    type: 'clue-type',
+                    label: 'Clue Type',
+                    content: 'Double Definition'
+                },
+                {
+                    type: 'explanation',
+                    label: 'Definition 1',
+                    content: `"${doubleDef.def1}" = ${knownAnswer}`
+                },
+                {
+                    type: 'explanation',
+                    label: 'Definition 2',
+                    content: `"${doubleDef.def2}" = ${knownAnswer}`
+                }
+            ];
+
+            return {
+                success: true,
+                confidence: 90,
+                needsAI: false,
+                parsed: {
+                    definition: { text: doubleDef.def1 + ' / ' + doubleDef.def2, position: 'START' },
+                    indicators: [],
+                    fodders: []
+                },
+                patternData: {
+                    id: `double-def-${Date.now()}`,
+                    patternId: 'DOUBLE_DEFINITION',
+                    clueText: clue,
+                    answer: knownAnswer,
+                    variables,
+                    solveSteps: [
+                        `Definition 1: "${doubleDef.def1}" = ${knownAnswer}`,
+                        `Definition 2: "${doubleDef.def2}" = ${knownAnswer}`,
+                        `Both definitions point to the same answer: ${knownAnswer}`
+                    ],
+                    // Computed fields for UI
+                    isComplete: true,
+                    definitionText: doubleDef.def1,
+                    definitionMatchType: 'double',
+                    definitionPosition: 'START',
+                    definitionExplanation: `This is a double definition: "${doubleDef.def1}" and "${doubleDef.def2}" both mean ${knownAnswer}.`,
+                    wordplaySteps: [],
+                    techniquesUsed: ['double definition'],
+                    setterHint: 'The setter has used a **double definition** here. Both parts of the clue define the same answer.',
+                    solveExplanation,
+                    parsingSummary: `"${doubleDef.def1}" = ${knownAnswer}, "${doubleDef.def2}" = ${knownAnswer}`
+                }
+            };
+        }
+    }
+
     if (indicators.length === 0) {
-        // First, try double definition pattern (two parts both define the answer)
+        // Double definition already tried above, skip duplicate attempt
         if (knownAnswer) {
             const doubleDef = tryDoubleDefinition(clue, knownAnswer);
             if (doubleDef?.success) {
@@ -4009,13 +4321,37 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             const partsHint = composite.parts.map(p => `${p.text} → ${p.result} (${p.operation})`).join(' + ');
             variables['hint_1'] = `Composite: ${partsHint} = ${knownAnswer}`;
 
+            // Determine pattern ID based on operations detected
+            const allOperations = composite.parts.map(p => p.operation.toLowerCase()).join(' ');
+            const hasReversal = allOperations.includes('reversed') || allOperations.includes('reversal');
+            const hasContainer = allOperations.includes('inside') || allOperations.includes('container');
+            const hasHomophone = allOperations.includes('homophone');
+            const hasAnagram = allOperations.includes('anagram');
+
+            let compositePatternId = 'COMPOSITE_CHARADE';
+            if (hasReversal && hasContainer) {
+                compositePatternId = 'Reversal + Container';
+            } else if (hasReversal && hasHomophone) {
+                compositePatternId = 'Reversal + Homophone';
+            } else if (hasContainer && hasAnagram) {
+                compositePatternId = 'Container + Anagram';
+            } else if (hasReversal) {
+                compositePatternId = 'Charade with Reversal';
+            } else if (hasContainer) {
+                compositePatternId = 'Charade with Container';
+            } else if (hasHomophone) {
+                compositePatternId = 'Charade with Homophone';
+            } else if (hasAnagram) {
+                compositePatternId = 'Charade with Anagram';
+            }
+
             const rawPatternData: PatternInstance = {
                 id: `composite-${Date.now()}`,
-                patternId: 'COMPOSITE_CHARADE',
+                patternId: compositePatternId,
                 clueText: clue,
                 answer: knownAnswer,
                 variables,
-                solveSteps: generateSolveSteps(variables, 'COMPOSITE_CHARADE', knownAnswer, coaching, clue)
+                solveSteps: generateSolveSteps(variables, compositePatternId, knownAnswer, coaching, clue)
             };
 
             return {

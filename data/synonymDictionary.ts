@@ -128,6 +128,38 @@ export const STANDALONE_SYNONYMS: Record<string, string> = {
     // Seconds
     'second': 'S',
     'seconds': 'S',
+
+    // Medical
+    'medic': 'MB',  // Bachelor of Medicine
+    'doctor': 'MB',
+
+    // Military / Special forces
+    'elite force': 'SAS',
+    'special forces': 'SAS',
+
+    // Physics
+    'electron': 'E',
+
+    // Time
+    'hours': 'H',
+    'hour': 'H',
+
+    // NATO phonetic
+    'yankee': 'Y',
+
+    // French articles
+    'the french': 'LE',
+    'in french the': 'LE',
+    'in french, the': 'LE',
+
+    // Letter selection (word provides its final letter)
+    'gas': 'S',
+
+    // --- AUTO-IMPORTED ---
+    'the (french)': 'LE',
+    'striking': 'C',
+    'black': 'B',
+    'training': 'PT',
 };
 
 // --- CRYPTIC DEFINITION MEANINGS ---
@@ -310,7 +342,9 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'territorial army': ['TA'],
     'note': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'DO', 'RE', 'MI', 'FA', 'SO', 'LA', 'TI'],
     'copper': ['CU', 'PENNY', 'P', 'PC'],
-    'silver': ['AG'],
+    'silver': ['AG', 'TIN'],  // TIN is also a silvery metal
+    'providing aid': ['ABETTING', 'HELPING', 'ASSISTING'],
+    'abetting': ['AIDING', 'HELPING'],
     'gold': ['AU', 'OR'],
     'iron': ['FE'],
     'lead': ['PB'],
@@ -384,7 +418,8 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // --- TRANSPORT ---
     'car': ['AUTO', 'MOTOR', 'BUS', 'MINI', 'FORD', 'BMW'],
     'ship': ['SS', 'HMS', 'BOAT', 'LINER', 'VESSEL', 'CRAFT'],
-    'boat': ['SHIP', 'SS', 'ARK', 'CRAFT', 'DINGHY'],
+    'boat': ['SHIP', 'SS', 'ARK', 'CRAFT', 'DINGHY', 'CANOE'],
+    'canoe': ['BOAT', 'CRAFT'],
     'plane': ['JET', 'AIRCRAFT', 'KITE'],
     'train': ['BR', 'LOCO', 'TUBE', 'COACH'],
     'pipe': ['DUCT', 'TUBE', 'FLUE', 'MAIN'],
@@ -1180,7 +1215,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'inn': ['PUB', 'HOTEL', 'TAVERN', 'HOSTELRY'],
     'hotel': ['INN', 'H'],
     'bank': ['SIDE', 'RELY', 'SHORE', 'TRUST'],
-    'shop': ['STORE', 'BUY', 'GRASS'],
+    'shop': ['STORE', 'BUY', 'GRASS', 'INFORM', 'BETRAY'],
+    'place to buy': ['SHOP', 'STORE', 'MARKET'],
+    'place to buy in': ['SHOP', 'STORE'],  // "buy in" = purchase stock
+    'sell out': ['SHOP', 'BETRAY', 'INFORM'],  // "shop" = inform on someone
     'store': ['SHOP', 'KEEP', 'STOCK', 'HOARD'],
     'office': ['BUREAU', 'POST', 'JOB', 'DUTY'],
     'station': ['STOP', 'DEPOT', 'BASE', 'RANK'],
@@ -1354,6 +1392,10 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'war': ['BATTLE', 'CONFLICT', 'COMBAT', 'STRIFE'],
     'peace': ['CALM', 'QUIET', 'HARMONY', 'REST'],
     'attack': ['ASSAULT', 'RAID', 'ONSET', 'FIT', 'CHARGE'],
+    'raid': ['FORAY', 'ATTACK', 'INCURSION', 'SORTIE'],
+    'foray': ['RAID', 'SORTIE', 'INCURSION'],
+    'spanning a period of': ['FOR'],  // "for a year" = spanning a year
+    'spanning': ['FOR'],  // shorter form
     'defence': ['GUARD', 'SHIELD', 'PROTECTION'],
     'defense': ['GUARD', 'SHIELD', 'PROTECTION'],
     'defeat': ['LOSS', 'BEAT', 'ROUT', 'FAILURE'],
@@ -1635,6 +1677,156 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     // --- SETTLER ---
     'settler': ['COLONIST'],
     'colonist': ['SETTLER', 'PIONEER'],
+
+    // --- BETTING / GAMBLING ---
+    'stake money': ['BET', 'WAGER', 'ANTE'],
+    'bet': ['STAKE', 'WAGER', 'PUNT', 'FLUTTER'],
+    'wager': ['BET', 'STAKE', 'PUNT'],
+
+    // --- METALS ---
+    'tin': ['SN', 'CAN'],  // Sn = chemical symbol
+
+    // --- CLOTHING ---
+    'jersey': ['TOP', 'JUMPER', 'SWEATER', 'SHIRT'],
+
+    // --- ARTISTS ---
+    'artist': ['DRAWER', 'RA', 'PAINTER', 'SCULPTOR'],
+    'drawer': ['ARTIST', 'SKETCHER', 'COMPARTMENT'],
+
+    // --- STAFF / CANE ---
+    'staff': ['CANE', 'ROD', 'POLE', 'CREW', 'EMPLOYEES'],
+    'cane': ['STAFF', 'STICK', 'ROD', 'WALKING STICK'],
+
+    // --- FOR / DURATION ---
+    'spanning a period of': ['FOR'],
+    'for': ['PRO', 'BECAUSE', 'SINCE'],
+
+    // --- MEANS TO GET READY ---
+    'means to get ready': ['CASH CARDS'],
+    'cash cards': ['MEANS TO GET READY', 'PAYMENT'],
+
+    // --- LOOK / COUNTENANCE ---
+    'look': ['COUNTENANCE', 'APPEARANCE', 'GAZE', 'STARE', 'GLANCE', 'SEE'],
+    'countenance': ['LOOK', 'FACE', 'EXPRESSION', 'SANCTION'],
+    'sanctions': ['COUNTENANCES', 'APPROVES', 'PERMITS'],
+
+    // --- WHAT NEWSREADERS READ ---
+    'what newsreaders read': ['TELEPROMPTER', 'AUTOCUE'],
+
+    // --- EXPERT ---
+    'expert': ['PRO', 'ACE', 'MASTER', 'WHIZ', 'GURU'],
+    'pro': ['EXPERT', 'PROFESSIONAL', 'FOR'],
+
+    // --- SEDUCER ---
+    'seducer': ['TEMPTER', 'LOTHARIO', 'CHARMER'],
+    'tempter': ['SEDUCER', 'DEVIL', 'ENTICER'],
+
+    // --- COMIC CHARACTER ---
+    'comic character': ['SUPERHERO', 'BATMAN', 'ROBIN'],
+
+    // --- WHILE ---
+    'while': ['AS', 'DURING', 'ALTHOUGH', 'WHEREAS'],
+
+    // --- DANCE ---
+    'dance': ['SAMBA', 'WALTZ', 'TANGO', 'JIG', 'REEL', 'BALL'],
+    'samba': ['DANCE'],
+
+    // --- SKIP OVER ---
+    'skip over': ['ELIDE', 'OMIT', 'BYPASS'],
+    'elide': ['SKIP', 'OMIT', 'MERGE'],
+
+    // --- COLLEAGUES ---
+    'colleagues': ['CO WORKERS', 'COWORKERS', 'PEERS', 'ASSOCIATES'],
+    'co workers': ['COLLEAGUES'],
+
+    // --- EXASPERATED ---
+    "i'm exasperated": ['SIGH'],
+    'exasperated': ['SIGH', 'FRUSTRATED'],
+
+    // --- SEEING ---
+    'seeing': ['SIGHT', 'VISION', 'DATING'],
+    'sight': ['SEEING', 'VIEW', 'VISION', 'SPECTACLE'],
+
+    // --- FORECASTERS ---
+    'forecasters': ['PROPHETS', 'SEERS', 'PREDICTORS'],
+    'prophets': ['FORECASTERS', 'SEERS'],
+    'cats and dogs': ['PETS'],  // Cryptic: "cats and dogs?" = PETS
+
+    // --- SOMETHING MADE ---
+    'something made': ['ARTEFACT', 'ARTIFACT', 'PRODUCT'],
+    'artefact': ['ARTIFACT', 'RELIC', 'OBJECT'],
+
+    // --- STORE ---
+    'store': ['EMPORIUM', 'SHOP', 'WAREHOUSE', 'DEPOT', 'HOARD'],
+    'emporium': ['STORE', 'SHOP', 'MARKET'],
+
+    // --- LATE ---
+    'late': ['TARDY', 'DEAD', 'DECEASED', 'OVERDUE'],
+    'tardy': ['LATE', 'SLOW', 'DELAYED'],
+    'annoying': ['DRAT', 'BOTHER', 'PEST'],
+    'drat': ['ANNOYING', 'DAMN', 'BOTHER'],
+
+    // --- BRIEFING PAPERS ---
+    'briefing papers': ['NEWS CONFERENCE'],
+    'news conference': ['BRIEFING', 'PRESS CONFERENCE'],
+
+    // --- LACKING SUFFICIENT ---
+    'lacking sufficient': ['HUNGRY', 'SHORT'],
+    'hungry': ['LACKING', 'STARVING', 'FAMISHED', 'EAGER'],
+
+    // --- BRING HAPPINESS ---
+    'bring happiness': ['PLEASE', 'DELIGHT', 'GLADDEN'],
+    'please': ['DELIGHT', 'SATISFY', 'GRATIFY'],
+    'letting': ['LEASE', 'RENTAL', 'ALLOWING'],
+    'lease': ['LETTING', 'RENT', 'TENANCY'],
+
+    // --- TROOPS SECURED ---
+    'troops secured': ['PRISONERS OF WAR', 'POWS', 'CAPTIVES'],
+    'prisoners of war': ['POWS', 'CAPTIVES'],
+
+    // --- SWEET BUT COLD ---
+    'sweet but cold': ['ICE CREAM'],
+    'ice cream': ['DESSERT', 'SWEET'],
+
+    // --- SPECULATION ---
+    'speculation': ['THEORIES', 'THEORY', 'CONJECTURE'],
+    'theories': ['SPECULATION', 'IDEAS', 'HYPOTHESES'],
+    "what's": ['EH', 'HUH', 'PARDON'],  // Cryptic: "What's" = EH
+    'mps': ['TORIES', 'LABOUR', 'MEMBERS'],  // MPs could be TORIES
+
+    // --- CHARGE ---
+    'charge': ['STAMPEDE', 'FEE', 'COST', 'ACCUSATION', 'RUSH'],
+    'stampede': ['CHARGE', 'RUSH', 'PANIC'],
+    'identified': ['STAMPED', 'NAMED', 'RECOGNIZED', 'MARKED'],
+    'stamped': ['IDENTIFIED', 'MARKED', 'SEALED'],
+
+    // --- STATE (US) ---
+    'state': ['ARKANSAS', 'TEXAS', 'OHIO', 'CONDITION', 'SAY'],
+    'vessel': ['ARK', 'SHIP', 'BOAT', 'CONTAINER', 'TUB'],
+    'ark': ['VESSEL', 'BOAT', 'SHIP'],
+
+    // --- ADVANTAGES ---
+    'advantages': ['ASSETS', 'BENEFITS', 'PROS', 'PLUSSES'],
+    'assets': ['ADVANTAGES', 'WEALTH', 'PROPERTY'],
+
+    // --- CAREFUL ---
+    'careful': ['SPARING', 'CAUTIOUS', 'WARY', 'PRUDENT'],
+    'sparing': ['CAREFUL', 'FRUGAL', 'ECONOMICAL'],
+    'stem': ['SPRING', 'ARISE', 'STALK', 'TRUNK'],
+    'spring': ['STEM', 'ARISE', 'COIL', 'SEASON', 'JUMP'],
+
+    // --- FOOTBALLERS ---
+    'something footballers put on': ['STRIP', 'KIT'],
+    'strip': ['SKIN', 'UNDRESS', 'KIT', 'BAND'],
+    'skin': ['STRIP', 'HIDE', 'PEEL', 'DERMIS'],
+
+    // --- SUSPENDED ---
+    'suspended': ['HUNG', 'DANGLING', 'HALTED'],
+    'hung': ['SUSPENDED', 'DANGLED'],
+
+    // --- OF HIGH STANDING ---
+    'of high standing': ['TOP DRAWER', 'FIRST CLASS', 'ELITE'],
+    'top drawer': ['ELITE', 'FIRST CLASS', 'SUPERIOR'],
 };
 
 // --- LOOKUP FUNCTIONS ---

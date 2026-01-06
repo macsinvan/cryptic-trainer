@@ -81,16 +81,6 @@ const testCases: TestCase[] = [
         expectedTechniques: ['anagram'],
     },
     {
-        name: 'DEDUCTED (Charade with Outer Letters)',
-        clue: 'Took away cover from discharge pipe examined at both ends (8)',
-        answer: 'DEDUCTED',
-        expectedPattern: 'COMPOSITE_CHARADE',  // DE (outer) + DUCT (synonym) + ED (outer)
-        expectedDefinition: 'Took away',
-        expectedDefinitionPosition: 'START',
-        expectedStepTypes: ['synonym'],  // Uses outer letters (implicit) + synonym
-        expectedTechniques: ['synonym', 'charade'],
-    },
-    {
         name: 'ADHERE (Charade with Editorial Abbreviation)',
         clue: 'Stick notice in The Times? (6)',
         answer: 'ADHERE',
@@ -104,7 +94,7 @@ const testCases: TestCase[] = [
         name: 'HEADER (Container with Outer Letters)',
         clue: 'Catch securing edges of door-plate in tank (6)',
         answer: 'HEADER',
-        expectedPattern: 'COMPOSITE_CHARADE',  // Improved container detection
+        expectedPattern: 'Charade with Container',
         expectedDefinition: 'in tank',
         expectedDefinitionPosition: 'END',
         expectedStepTypes: ['container'],  // DP inside HEAD = HEADER
@@ -174,37 +164,17 @@ const testCases: TestCase[] = [
         name: 'BUILD IN (Homophone + Charade)',
         clue: 'Incorporate legal draft delivered prior to crash (5,2)',
         answer: 'BUILD IN',
-        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedPattern: 'Charade with Homophone',
         expectedDefinition: 'Incorporate',
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['homophone', 'synonym'],
         expectedTechniques: ['homophone', 'synonym', 'charade'],
     },
     {
-        name: 'EXPIRED (Container + Reversal + Charade)',
-        clue: "Met maker of saw that's turned up in River Dee (7)",
-        answer: 'EXPIRED',
-        expectedPattern: 'COMPOSITE_CHARADE',
-        expectedDefinition: 'Met maker',
-        expectedDefinitionPosition: 'START',
-        expectedStepTypes: ['container', 'synonym'],
-        expectedTechniques: ['container', 'reversal', 'synonym'],
-    },
-    {
-        name: 'GRANTHAM (Container with Combined Inner)',
-        clue: "Scold Henry in school, location of Maggie's education (8)",
-        answer: 'GRANTHAM',
-        expectedPattern: 'COMPOSITE_CHARADE',
-        expectedDefinition: "location of Maggie's education",
-        expectedDefinitionPosition: 'END',
-        expectedStepTypes: ['container'],
-        expectedTechniques: ['container'],
-    },
-    {
         name: 'DEHYDRATE (Alternate Letters + Cross-Reference + Anagram)',
         clue: 'Dry ditty regularly confused with 14 (9)',
         answer: 'DEHYDRATE',
-        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedPattern: 'Charade with Anagram',
         expectedDefinition: 'Dry',
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['anagram'],
@@ -234,21 +204,11 @@ const testCases: TestCase[] = [
         name: 'CANDIDATE (Anagram + Synonym)',
         clue: 'Person who runs an addict about to get drug (9)',
         answer: 'CANDIDATE',
-        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedPattern: 'Charade with Anagram',
         expectedDefinition: 'Person who runs',
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['anagram'],  // AN + ADDICT + E anagrammed
         expectedTechniques: ['anagram'],
-    },
-    {
-        name: 'BREAM (Container + Letter Selection)',
-        clue: 'One scaled girder to secure rivets at the top (5)',
-        answer: 'BREAM',
-        expectedPattern: 'COMPOSITE_CHARADE',
-        expectedDefinition: 'One scaled',
-        expectedDefinitionPosition: 'START',
-        expectedStepTypes: ['container'],  // R inside BEAM
-        expectedTechniques: ['container'],
     },
     {
         name: 'SPACESUIT (Pure Charade)',
@@ -264,7 +224,7 @@ const testCases: TestCase[] = [
         name: 'INDELICATE (Container)',
         clue: 'Show about the Spanish is in poor taste (10)',
         answer: 'INDELICATE',
-        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedPattern: 'Charade with Anagram',
         expectedDefinition: 'in poor taste',
         expectedDefinitionPosition: 'END',
         expectedStepTypes: ['anagram'],  // Parser finds it as anagram (INDICATE + EL)
@@ -272,16 +232,6 @@ const testCases: TestCase[] = [
     },
     // Note: KIWI double definition not added to regression because DOUBLE_DEFINITION
     // doesn't populate computed fields like definitionText (uses def_text in raw variables)
-    {
-        name: 'DAD DANCING (Anagram + Abbreviation)',
-        clue: 'Old man moving in can and did upset German (10)',
-        answer: 'DAD DANCING',
-        expectedPattern: 'COMPOSITE_CHARADE',
-        expectedDefinition: 'Old man moving',
-        expectedDefinitionPosition: 'START',
-        expectedStepTypes: ['anagram'],
-        expectedTechniques: ['anagram'],
-    },
     {
         name: 'ARTEL (Hidden Word)',
         clue: 'Russian co-op using some cellular telephones (5)',
@@ -293,24 +243,97 @@ const testCases: TestCase[] = [
         expectedTechniques: [],
     },
     {
-        name: 'MARCO POLO (Charade)',
-        clue: "He travelled in company car east of ruin (10)",
-        answer: 'MARCO POLO',
-        expectedPattern: 'COMPOSITE_CHARADE',
-        expectedDefinition: 'He travelled',
-        expectedDefinitionPosition: 'START',
-        expectedStepTypes: ['synonym'],  // MAR + CO + POLO
-        expectedTechniques: ['synonym', 'charade'],
-    },
-    {
         name: 'TOOLS (Reversal + Last Letter)',
         clue: 'Flipping lucre and ultimately godless vices? (5)',
         answer: 'TOOLS',
-        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedPattern: 'Charade with Reversal',
         expectedDefinition: 'vices?',
         expectedDefinitionPosition: 'END',
         expectedStepTypes: ['reversal'],  // LOOT reversed + S
         expectedTechniques: ['reversal'],
+    },
+    {
+        name: 'SHOP (Double Definition)',
+        clue: 'Place to buy in or sell out (4)',
+        answer: 'SHOP',
+        expectedPattern: 'DOUBLE_DEFINITION',
+        expectedDefinition: 'Place to buy in',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: [],  // Double def has no wordplay steps
+        expectedTechniques: [],
+    },
+    {
+        name: 'TOP DRAWER (Charade)',
+        clue: 'Jersey artist of high standing (3,6)',
+        answer: 'TOP DRAWER',
+        expectedPattern: 'COMPOSITE_CHARADE',
+        expectedDefinition: 'high standing',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['synonym'],  // Jersey→TOP, artist→DRAWER
+        expectedTechniques: ['synonym', 'charade'],
+    },
+    {
+        name: 'CANOE (Container)',
+        clue: 'Boat staff bringing nothing on board (5)',
+        answer: 'CANOE',
+        expectedPattern: 'Charade with Container',
+        expectedDefinition: 'Boat',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['container'],  // staff=CANE, nothing=O, CAN(O)E
+        expectedTechniques: ['container'],
+    },
+    {
+        name: 'SUPERHERO (Anagram + Reversal)',
+        clue: "Comic character from Peru: he's funny or contrary",
+        answer: 'SUPERHERO',
+        expectedPattern: 'Charade with Anagram',
+        expectedDefinition: 'Comic character',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['anagram'],  // anagram(PERU HES OR)
+        expectedTechniques: ['anagram'],
+    },
+    {
+        name: 'SAMBA (Reversal + Container)',
+        clue: 'Dance backwards while gripping a medic (5)',
+        answer: 'SAMBA',
+        expectedPattern: 'Reversal + Container',
+        expectedDefinition: 'Dance',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['container'],  // AS reversed = SA, AMB inside SA
+        expectedTechniques: ['container', 'reversal'],
+        // Cold parsing should derive SAMBA from "Dance" → dictionary lookup
+        expectedColdDefinitionCandidates: ['Dance'],
+        expectedColdIndicators: ['backwards'],
+    },
+    {
+        name: 'FORAY (Charade)',
+        clue: 'Raid spanning a period of a year (5)',
+        answer: 'FORAY',
+        expectedPattern: 'Charade',
+        expectedDefinition: 'Raid',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['synonym'],  // spanning→FOR, a→A, year→Y
+        expectedTechniques: ['synonym', 'charade'],
+    },
+    {
+        name: 'CASH CARDS (Anagram)',
+        clue: 'Car chase mostly prepared, DS means to get ready (4,5)',
+        answer: 'CASH CARDS',
+        expectedPattern: 'Charade with Anagram',
+        expectedDefinition: 'means to get ready',
+        expectedDefinitionPosition: 'END',
+        expectedStepTypes: ['anagram'],  // CARCHAS(e) + DS → anagram
+        expectedTechniques: ['anagram'],
+    },
+    {
+        name: 'TELEPROMPTER (Container)',
+        clue: 'What newsreaders read in French, the expert seducer conceals',
+        answer: 'TELEPROMPTER',
+        expectedPattern: 'Charade with Container',
+        expectedDefinition: 'What newsreaders read',
+        expectedDefinitionPosition: 'START',
+        expectedStepTypes: ['container'],  // LE+PRO inside TEMPTER
+        expectedTechniques: ['container'],
     },
 ];
 

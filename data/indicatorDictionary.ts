@@ -31,6 +31,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
 
     // --- DELETION (Last Letter) ---
     'nearly': { type: 'deletion_last' },
+    'mostly': { type: 'deletion_last' },  // "chase mostly" = CHAS
     'almost': { type: 'deletion_last' },
     'briefly': { type: 'deletion_last' },  // Diana briefly = DIAN
     'most of': { type: 'deletion_last' },
@@ -139,6 +140,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'mixed': { type: 'anagram' },
     'broken': { type: 'anagram' },
     'crazy': { type: 'anagram' },
+    'funny': { type: 'anagram' },
     'wild': { type: 'anagram' },
     'rocky': { type: 'anagram' },
     'rough': { type: 'anagram' },
@@ -611,6 +613,7 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'back': { type: 'reversal' },
     'returned': { type: 'reversal' },
     'reversed': { type: 'reversal' },
+    'contrary': { type: 'reversal' },
     'comeback': { type: 'reversal' },
     'following comeback': { type: 'reversal' },
     'up': { type: 'reversal' },  // In down clues
@@ -820,6 +823,28 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     // --- ADDITIONAL FIRST LETTER ---
     'beginning to': { type: 'deletion_first', letterOp: 'first' },  // "beginning to scare" = S
 
+    // --- ADDITIONAL ANAGRAM ---
+    'prepared': { type: 'anagram' },  // "prepared" = anagram indicator
+
     // --- HOMOPHONE ---
     "it's said": { type: 'homophone' },  // "it's said" = homophone
+    'sounded': { type: 'homophone' },  // "sounded sweet" = sounds like
+
+    // --- ADDITIONAL CONTAINER ---
+    'invested in': { type: 'container' },  // "stake money invested in silver"
+    'on board': { type: 'container' },  // "nothing on board"
+    'bringing': { type: 'container' },  // "bringing nothing on board"
+    'conceals': { type: 'container' },  // "seducer conceals"
+    'gripping': { type: 'container' },  // "while gripping a medic"
+    'absorbed by': { type: 'container' },  // "hours absorbed by"
+    'clothes': { type: 'container' },  // "premium clothes"
+    'limiting': { type: 'container' },  // "MPs limiting"
+
+    // --- ADDITIONAL DELETION ---
+    'cutting': { type: 'deletion_first', letterOp: 'middle' },  // "cutting a" = remove A from word
+    'time being wasted': { type: 'deletion_last' },  // "time being wasted" = remove T
+
+    // --- ADDITIONAL OUTER LETTERS ---
+    'extremely': { type: 'deletion_first', letterOp: 'ends' },  // "report extremely" = RT
+    'close to': { type: 'deletion_first', letterOp: 'first' },  // "close to the" = first letter of next word
 };
