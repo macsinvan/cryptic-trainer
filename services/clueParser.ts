@@ -10,6 +10,8 @@ import { OperationType, IndicatorEntry, INDICATOR_DICTIONARY } from '../data/ind
 // Common cryptic abbreviations that solvers should recognize immediately
 const OBVIOUS_ABBREVIATIONS: Record<string, string[]> = {
     // Single letters
+    'A': ['a', 'an', 'one', 'ace', 'first'],
+    'B': ['born', 'book', 'black', 'bishop'],
     'M': ['months', 'month', 'thousand', 'meters', 'male', 'married'],
     'N': ['north', 'nitrogen', 'noon', 'number', 'name'],
     'S': ['south', 'second', 'small', 'son', 'saint'],
@@ -21,7 +23,7 @@ const OBVIOUS_ABBREVIATIONS: Record<string, string[]> = {
     'C': ['century', 'cold', 'carbon', 'circa', 'hundred'],
     'D': ['day', 'daughter', 'died', 'penny', 'five hundred', 'dee'],  // dee = the letter D
     'I': ['one', 'island', 'iodine', 'current'],
-    'O': ['love', 'zero', 'old', 'oxygen', 'over'],
+    'O': ['love', 'zero', 'old', 'oxygen', 'over', 'nothing', 'nil', 'nought', 'duck'],
     'P': ['page', 'piano', 'quiet', 'parking'],
     'T': ['time', 'ton', 'temperature'],
     'V': ['five', 'versus', 'volt', 'very'],
@@ -44,6 +46,24 @@ const OBVIOUS_ABBREVIATIONS: Record<string, string[]> = {
     'ER': ['hesitation', 'emergency room'],
     'UM': ['hesitation'],
     'AH': ['hesitation', 'exclamation'],
+    'MB': ['medic', 'doctor'],
+    'MD': ['doctor', 'physician'],
+    'MO': ['medical officer', 'doctor'],
+    'SM': ['aggressive-submissive proclivity', 'sadomasochism'],
+    'DO': ['party', 'function', 'event', 'bash'],
+    // Foreign articles (common in cryptic clues)
+    'LE': ['the french', 'french the', 'in french the', 'the in french', 'in french, the', 'french, the'],
+    'LA': ['the french', 'french the', 'the in french'],
+    'LES': ['the french', 'french the'],
+    'UN': ['a french', 'french a', 'one french'],
+    'UNE': ['a french', 'french a'],
+    'DER': ['the german', 'german the'],
+    'DIE': ['the german', 'german the'],
+    'DAS': ['the german', 'german the'],
+    'EL': ['the spanish', 'spanish the'],
+    'IL': ['the italian', 'italian the'],
+    // Professional/expert abbreviations
+    'PRO': ['expert', 'professional', 'for'],
 };
 
 // Check if a fodder->result mapping is an "obvious" abbreviation
@@ -105,17 +125,25 @@ const INDICATOR_WORDS = new Set([
     'turning', 'turned', 'becoming', 'becomes',
     // Anagram indicators
     'broken', 'mixed', 'confused', 'crazy', 'wild', 'upset', 'troubled',
-    'arranged', 'rearranged', 'sorted', 'ordered', 'shuffled', 'abroad',
+    'arranged', 'rearranged', 'sorted', 'ordered', 'shuffled', 'abroad', 'funny', 'odd',
     // Reversal indicators
-    'back', 'backward', 'backwards', 'returned', 'reversed', 'reflected',
+    'back', 'backward', 'backwards', 'returned', 'reversed', 'reflected', 'flipping', 'flipped',
+    'contrary', 'contrarily', 'oppositely', 'opposite',
+    // Last/first letter indicators
+    'ultimately', 'lastly', 'finally', 'firstly', 'initially', 'primarily',
     // Hidden indicators
     'hidden', 'hiding', 'within', 'inside', 'contained', 'holding',
     // Container indicators
     'around', 'surrounding', 'outside', 'embracing', 'holding', 'embodied', 'embodying',
+    'bringing', 'carries', 'carrying', 'contains', 'containing', 'houses', 'housing',
+    'includes', 'including', 'keeps', 'keeping', 'gripping', 'clasping', 'boarding',
+    'conceals', 'concealing', 'hides', 'hiding', 'covers', 'covering', 'wraps', 'wrapping',
     // Homophone indicators
     'sounds', 'heard', 'spoken', 'said', 'vocal', 'audibly', 'reported', 'reportedly',
-    // Deletion indicators
+    'delivered', 'orally', 'aloud', 'voiced', 'broadcast', 'announced',
+    // Deletion/truncation indicators
     'losing', 'lost', 'without', 'missing', 'dropping', 'dropped',
+    'briefly', 'shortly', 'almost', 'nearly', 'mostly',
     // General
     'perhaps', 'maybe', 'possibly', 'oddly', 'strangely', 'unusually'
 ]);
@@ -134,34 +162,29 @@ function scanClueForObviousElements(clue: string, definition?: string): ScannedE
     const usedRanges: { start: number; end: number }[] = [];
 
     // Scan for known abbreviations - try both exact and normalized matching
+    // Find ALL occurrences, not just the first one
     for (const [abbrev, fodders] of Object.entries(OBVIOUS_ABBREVIATIONS)) {
         for (const fodder of fodders) {
             const fodderLower = fodder.toLowerCase();
+            const matchLength = fodder.length;
 
-            // Try exact match first
-            let idx = clueTextLower.indexOf(fodderLower);
-            let matchLength = fodder.length;
+            // Find all occurrences of this fodder in the clue
+            let searchStart = 0;
+            while (searchStart < clueTextLower.length) {
+                let idx = clueTextLower.indexOf(fodderLower, searchStart);
 
-            // If no exact match, try normalized match (handles "department's" matching "department")
-            if (idx === -1) {
-                const fodderNormalized = fodderLower.replace(/['']s?\b/g, '');
-                idx = clueTextNormalized.indexOf(fodderNormalized);
-                if (idx !== -1) {
-                    // Find the actual end position in original text (may include 's)
-                    const endSearch = clueTextLower.substring(idx);
-                    const possessiveMatch = endSearch.match(new RegExp(fodderNormalized.replace(/\s+/g, "\\s+") + "['']?s?", 'i'));
-                    if (possessiveMatch) {
-                        matchLength = possessiveMatch[0].length;
-                    }
+                // If no exact match, try normalized match (handles "department's" matching "department")
+                if (idx === -1) {
+                    const fodderNormalized = fodderLower.replace(/['']s?\b/g, '');
+                    idx = clueTextNormalized.indexOf(fodderNormalized, searchStart);
+                    if (idx === -1) break;  // No more matches
                 }
-            }
 
-            if (idx !== -1) {
                 // Check it's a word boundary (not part of larger word)
                 const before = idx === 0 ? ' ' : clueTextLower[idx - 1];
                 const afterIdx = idx + matchLength;
                 const after = afterIdx >= clueTextLower.length ? ' ' : clueTextLower[afterIdx];
-                const isWordBoundary = /[\s,;:'"()-]/.test(before) && /[\s,;:'"()-]/.test(after);
+                const isWordBoundary = /[\s,;:'"()\-\?!]/.test(before) && /[\s,;:'"()\-\?!]/.test(after);
 
                 if (isWordBoundary || idx === 0 || afterIdx === clueTextLower.length) {
                     // Extract the actual text from clue (preserving case)
@@ -180,6 +203,9 @@ function scanClueForObviousElements(clue: string, definition?: string): ScannedE
                         usedRanges.push({ start: idx, end: idx + matchLength });
                     }
                 }
+
+                // Move to next potential match
+                searchStart = idx + 1;
             }
         }
     }
@@ -363,10 +389,11 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
             consumedWordIndices.add(i);
         }
 
-        // Find fodder after the indicator phrase
+        // Find fodder - first try after the indicator phrase, then before
         let fodder: string | undefined;
         let fodderIdx: number | undefined;
 
+        // Look after the indicator phrase
         for (let i = mwi.endIdx + 1; i < words.length; i++) {
             const fw = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
             if (fw.length < 2 || FUNCTION_WORDS.has(fw)) continue;
@@ -377,18 +404,32 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
             }
         }
 
+        // If no fodder after, look before the indicator phrase
+        if (!fodder) {
+            for (let i = mwi.startIdx - 1; i >= 0; i--) {
+                const fw = words[i].toLowerCase().replace(/['']s?/g, '').replace(/[^a-z]/g, '');
+                if (fw.length < 2 || FUNCTION_WORDS.has(fw)) continue;
+                if (!consumedWordIndices.has(i) && !INDICATOR_WORDS.has(fw)) {
+                    fodder = words[i];
+                    fodderIdx = i;
+                    break;
+                }
+            }
+        }
+
         // For letter_movement: the letter source (e.g., "months" → M) is already detected as abbreviation
         // Just consume the word to modify (e.g., "slander") as fodder
-        if (fodderIdx !== undefined) {
+        // For container indicators: DON'T consume arbitrary fodder - inner/outer come from abbreviations
+        if (fodderIdx !== undefined && mwi.type !== 'container') {
             consumedWordIndices.add(fodderIdx);
         }
 
         detectedOperations.push({
             indicator: mwi.phrase,
             type: mwi.type,
-            fodder,
+            fodder: mwi.type === 'container' ? undefined : fodder,  // Container doesn't use generic fodder
             indicatorIdx: mwi.startIdx,
-            fodderIdx
+            fodderIdx: mwi.type === 'container' ? undefined : fodderIdx
         });
     }
 
@@ -449,12 +490,18 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
                 }
             }
 
-            // Mark fodder as consumed
-            if (fodderIdx !== undefined) {
+            // Mark fodder as consumed (but NOT for container indicators - their inner/outer come from abbreviations)
+            if (fodderIdx !== undefined && opType !== 'container') {
                 consumedWordIndices.add(fodderIdx);
             }
 
-            detectedOperations.push({ indicator: word, type: opType, fodder, indicatorIdx: idx, fodderIdx });
+            detectedOperations.push({
+                indicator: word,
+                type: opType,
+                fodder: opType === 'container' ? undefined : fodder,  // Container doesn't use generic fodder
+                indicatorIdx: idx,
+                fodderIdx: opType === 'container' ? undefined : fodderIdx
+            });
         }
     });
 
@@ -677,32 +724,644 @@ export function analyzeClueWithoutAnswer(clue: string): ClueAnalysis {
         });
     }
 
-    // Step 7: Try to derive the answer WITHOUT AI
-    // For each definition candidate, get synonym candidates from dictionary
-    // Then try to verify wordplay produces one of them
+    // Step 7: Try to derive the answer from WORDPLAY (not definition lookup!)
+    // 1. Extract known components from wordplay (abbreviations, literals)
+    // 2. Get synonyms for wordplay FODDER words
+    // 3. Assemble candidate answers from components
+    // 4. Verify assembled candidates match the DEFINITION
     let derivedAnswer: string | null = null;
     let derivedDefinition: string | null = null;
 
+    // For each definition candidate, identify what's left as wordplay
     for (const defCandidate of definitionCandidates) {
-        // Get possible answers from dictionary
-        const candidateAnswers = lookupSynonyms(defCandidate.toLowerCase());
+        const defWords = defCandidate.toLowerCase().split(/\s+/);
 
-        // Filter by target length
-        const validCandidates = candidateAnswers.filter(ans =>
-            ans.replace(/[^A-Z]/gi, '').length === targetLength
+        // Wordplay = content words NOT in the definition
+        const wordplayWords = remainingWords.filter(rw =>
+            !defWords.some(dw => dw === rw.word.toLowerCase().replace(/[^a-z]/g, ''))
         );
 
-        // Try each candidate - can we derive it from wordplay?
-        for (const candidate of validCandidates) {
-            // Try parsing with this candidate as the known answer
-            const testResult = parseClue(clue, candidate);
-            if (testResult.success && testResult.confidence >= 80) {
-                // We found a valid derivation!
-                derivedAnswer = candidate;
-                derivedDefinition = defCandidate;
-                break;
+        // Note: wordplayWords may be empty if all wordplay is in detectedOperations
+        // We still need to continue to try container assembly with operation fodder
+
+        // Collect known components from wordplay
+        const knownComponents: string[] = [];
+        const unknownFodder: string[] = [];
+
+        for (const ww of wordplayWords) {
+            const wordLower = ww.word.toLowerCase().replace(/[^a-z]/g, '');
+
+            // Check for known abbreviations (from OBVIOUS_ABBREVIATIONS)
+            let foundAbbrev = false;
+            for (const [abbrev, fodders] of Object.entries(OBVIOUS_ABBREVIATIONS)) {
+                if (fodders.some(f => f.toLowerCase() === wordLower)) {
+                    knownComponents.push(abbrev);
+                    foundAbbrev = true;
+                    break;
+                }
+            }
+
+            // Check for standalone synonyms (nothing→O, year→Y, etc)
+            if (!foundAbbrev) {
+                const standaloneResult = STANDALONE_SYNONYMS[wordLower];
+                if (standaloneResult && standaloneResult.length <= 2) {
+                    knownComponents.push(standaloneResult);
+                    foundAbbrev = true;
+                }
+            }
+
+            // Check for single letter literals
+            if (!foundAbbrev && wordLower.length === 1) {
+                knownComponents.push(wordLower.toUpperCase());
+                foundAbbrev = true;
+            }
+
+            // Otherwise it's unknown fodder that needs synonym lookup
+            if (!foundAbbrev) {
+                unknownFodder.push(ww.word);
             }
         }
+
+        // For pure charade: try assembling from wordplay synonyms
+        // Get synonyms for each unknown fodder word
+        const fodderSynonymOptions: string[][] = [];
+        for (const fodder of unknownFodder) {
+            const syns = lookupSynonyms(fodder.toLowerCase());
+            if (syns.length > 0) {
+                fodderSynonymOptions.push(syns);
+            } else {
+                // No synonyms found - can't derive this wordplay
+                fodderSynonymOptions.push([]);
+            }
+        }
+
+        // Try to assemble candidates (simple charade: concatenate components)
+        // If all unknown fodder has synonyms, try combinations
+        if (fodderSynonymOptions.every(opts => opts.length > 0) || unknownFodder.length === 0) {
+            // Generate candidate assemblies
+            const assembleCandidates = (
+                componentsSoFar: string,
+                fodderIndex: number
+            ): string[] => {
+                if (fodderIndex >= fodderSynonymOptions.length) {
+                    // Add known components
+                    return [componentsSoFar + knownComponents.join('')];
+                }
+
+                const results: string[] = [];
+                for (const syn of fodderSynonymOptions[fodderIndex]) {
+                    results.push(...assembleCandidates(
+                        componentsSoFar + syn,
+                        fodderIndex + 1
+                    ));
+                }
+                return results;
+            };
+
+            const candidates = fodderSynonymOptions.length > 0
+                ? assembleCandidates('', 0)
+                : [knownComponents.join('')];
+
+            // Filter by target length and verify against definition
+            for (const candidate of candidates) {
+                const candidateClean = candidate.replace(/[^A-Z]/gi, '').toUpperCase();
+                if (candidateClean.length !== targetLength) continue;
+
+                // Verify this candidate matches a synonym of the definition
+                const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                if (defSynonyms.some(ds => ds.toUpperCase() === candidateClean)) {
+                    derivedAnswer = candidateClean;
+                    derivedDefinition = defCandidate;
+                    break;
+                }
+            }
+        }
+
+        // Try INDICATOR-AS-FODDER CHARADE
+        // Some words can be either indicators OR fodder (e.g., "sounds" = homophone indicator OR "noises" → TOCKS)
+        // If previous charade didn't work, try using indicator words as fodder
+        if (!derivedAnswer && detectedOperations.length > 0) {
+            // Get all detected indicator words that might also work as fodder
+            const indicatorFodderCandidates = detectedOperations.map(op => op.indicator);
+
+            for (const indWord of indicatorFodderCandidates) {
+                const indSyns = lookupSynonyms(indWord.toLowerCase());
+                if (indSyns.length === 0) continue;
+
+                // Try combining indicator synonyms with known abbreviation components
+                for (const indSyn of indSyns) {
+                    // Try: abbreviation + indicator synonym
+                    for (const elem of abbreviations) {
+                        if (!elem.result) continue;
+
+                        // Try abbrev + synonym
+                        const combined1 = elem.result + indSyn;
+                        if (combined1.length === targetLength) {
+                            const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                            if (defSynonyms.some(ds => ds.toUpperCase() === combined1.toUpperCase())) {
+                                derivedAnswer = combined1.toUpperCase();
+                                derivedDefinition = defCandidate;
+                                break;
+                            }
+                        }
+
+                        // Try synonym + abbrev
+                        const combined2 = indSyn + elem.result;
+                        if (combined2.length === targetLength) {
+                            const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                            if (defSynonyms.some(ds => ds.toUpperCase() === combined2.toUpperCase())) {
+                                derivedAnswer = combined2.toUpperCase();
+                                derivedDefinition = defCandidate;
+                                break;
+                            }
+                        }
+                    }
+                    if (derivedAnswer) break;
+                }
+                if (derivedAnswer) break;
+            }
+        }
+
+        // Try PURE ABBREVIATION CHARADE
+        // If we have multiple obvious abbreviations, try concatenating them
+        if (!derivedAnswer && abbreviations.length >= 2) {
+            // Get non-overlapping abbreviations, preferring longer matches
+            const sortedAbbrevs = [...abbreviations]
+                .filter(a => a.result)
+                .sort((a, b) => (b.endIndex - b.startIndex) - (a.endIndex - a.startIndex));
+
+            // Greedily select non-overlapping abbreviations
+            const selectedAbbrevs: typeof abbreviations = [];
+            for (const abbrev of sortedAbbrevs) {
+                const overlaps = selectedAbbrevs.some(selected =>
+                    (abbrev.startIndex >= selected.startIndex && abbrev.startIndex < selected.endIndex) ||
+                    (abbrev.endIndex > selected.startIndex && abbrev.endIndex <= selected.endIndex) ||
+                    (abbrev.startIndex <= selected.startIndex && abbrev.endIndex >= selected.endIndex)
+                );
+                if (!overlaps) {
+                    selectedAbbrevs.push(abbrev);
+                }
+            }
+
+            // Sort by position in clue
+            selectedAbbrevs.sort((a, b) => a.startIndex - b.startIndex);
+
+            // Try concatenating all selected abbreviations
+            const abbrevResults = selectedAbbrevs.map(a => a.result);
+            const concatenated = abbrevResults.join('');
+
+            if (concatenated.length === targetLength) {
+                // Verify against definition synonyms
+                const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                if (defSynonyms.some(ds => ds.toUpperCase() === concatenated)) {
+                    derivedAnswer = concatenated;
+                    derivedDefinition = defCandidate;
+                }
+            }
+
+            // Also try subsets of 2 abbreviations
+            if (!derivedAnswer) {
+                for (let i = 0; i < selectedAbbrevs.length; i++) {
+                    for (let j = i + 1; j < selectedAbbrevs.length; j++) {
+                        const pair = selectedAbbrevs[i].result + selectedAbbrevs[j].result;
+                        if (pair.length === targetLength) {
+                            const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                            if (defSynonyms.some(ds => ds.toUpperCase() === pair)) {
+                                derivedAnswer = pair;
+                                derivedDefinition = defCandidate;
+                                break;
+                            }
+                        }
+                    }
+                    if (derivedAnswer) break;
+                }
+            }
+        }
+
+        // If charade didn't work, try CONTAINER assembly
+        // Container: insert one component inside another
+        if (!derivedAnswer && detectedOperations.some(op => op.type === 'container')) {
+            // We need: outer (from synonym) and inner (from abbreviation or synonym)
+            // For CANOE: outer=CANE (staff), inner=O (nothing)
+
+            // Gather all fodder from detected operations (this is where wordplay components live)
+            const operationFodder: string[] = detectedOperations
+                .filter(op => op.fodder)
+                .map(op => op.fodder!);
+
+            // Get all possible outers (synonyms of operation fodder words)
+            const outerCandidates: string[] = [];
+            for (const fodder of operationFodder) {
+                const syns = lookupSynonyms(fodder.toLowerCase());
+                outerCandidates.push(...syns);
+            }
+            // Also try unknownFodder if any
+            for (const fodder of unknownFodder) {
+                const syns = lookupSynonyms(fodder.toLowerCase());
+                outerCandidates.push(...syns);
+            }
+
+            // Get all possible inners (known abbreviations from knownComponents)
+            const innerCandidates = [...knownComponents];
+
+            // Add detected abbreviations from obviousElements (e.g., nothing→O)
+            for (const elem of abbreviations) {
+                if (elem.result && !innerCandidates.includes(elem.result)) {
+                    innerCandidates.push(elem.result);
+                }
+            }
+
+            // Also add abbreviations as potential outers (for patterns like "X embodied by SM")
+            for (const elem of abbreviations) {
+                if (elem.result && elem.result.length >= 2 && !outerCandidates.includes(elem.result)) {
+                    outerCandidates.push(elem.result);
+                }
+            }
+
+            // Also check operation fodder for obvious abbreviations
+            for (const fodder of operationFodder) {
+                const fodderLower = fodder.toLowerCase();
+                for (const [abbrev, fodders] of Object.entries(OBVIOUS_ABBREVIATIONS)) {
+                    if (fodders.some(f => f.toLowerCase() === fodderLower)) {
+                        if (!innerCandidates.includes(abbrev)) {
+                            innerCandidates.push(abbrev);
+                        }
+                    }
+                }
+            }
+
+            // Also check if any fodder words give short synonyms that could be inner
+            for (const fodder of [...operationFodder, ...unknownFodder]) {
+                const syns = lookupSynonyms(fodder.toLowerCase());
+                for (const syn of syns) {
+                    if (syn.length <= 2 && !innerCandidates.includes(syn)) {
+                        innerCandidates.push(syn);
+                    }
+                }
+            }
+
+            // Build combined inners: single inners + pairs of inners concatenated
+            // (for patterns like "love party" = O + DO = ODO)
+            const combinedInners: string[] = [...innerCandidates];
+            for (let i = 0; i < innerCandidates.length; i++) {
+                for (let j = 0; j < innerCandidates.length; j++) {
+                    if (i !== j) {
+                        const combined = innerCandidates[i] + innerCandidates[j];
+                        if (!combinedInners.includes(combined)) {
+                            combinedInners.push(combined);
+                        }
+                    }
+                }
+            }
+
+            // Try each combination: insert inner at each position in outer
+            for (const outer of outerCandidates) {
+                const outerClean = outer.replace(/[^A-Z]/gi, '').toUpperCase();
+
+                for (const inner of combinedInners) {
+                    const innerClean = inner.replace(/[^A-Z]/gi, '').toUpperCase();
+
+                    // Try inserting inner at each position in outer
+                    for (let pos = 1; pos < outerClean.length; pos++) {
+                        const assembled = outerClean.slice(0, pos) + innerClean + outerClean.slice(pos);
+
+                        if (assembled.length !== targetLength) continue;
+
+                        // Verify against definition
+                        const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                        if (defSynonyms.some(ds => ds.toUpperCase() === assembled)) {
+                            derivedAnswer = assembled;
+                            derivedDefinition = defCandidate;
+                            break;
+                        }
+                    }
+                    if (derivedAnswer) break;
+                }
+                if (derivedAnswer) break;
+            }
+
+            // If still no answer and we have a reversal indicator, try REVERSED outer gripping inner
+            // Pattern: "X backwards while gripping Y" = reversed(X) grips Y
+            if (!derivedAnswer && detectedOperations.some(op => op.type === 'reversal')) {
+                // Build combined inners: single inners + pairs of inners concatenated
+                const combinedInners: string[] = [...innerCandidates];
+
+                // Add concatenations of pairs (for patterns like "a medic" = A + MB = AMB)
+                for (let i = 0; i < innerCandidates.length; i++) {
+                    for (let j = 0; j < innerCandidates.length; j++) {
+                        if (i !== j) {
+                            const combined = innerCandidates[i] + innerCandidates[j];
+                            if (!combinedInners.includes(combined)) {
+                                combinedInners.push(combined);
+                            }
+                        }
+                    }
+                }
+
+                for (const outer of outerCandidates) {
+                    const outerClean = outer.replace(/[^A-Z]/gi, '').toUpperCase();
+                    const outerReversed = outerClean.split('').reverse().join('');
+
+                    for (const inner of combinedInners) {
+                        const innerClean = inner.replace(/[^A-Z]/gi, '').toUpperCase();
+
+                        // Try inserting inner at each position in reversed outer
+                        for (let pos = 1; pos < outerReversed.length; pos++) {
+                            const assembled = outerReversed.slice(0, pos) + innerClean + outerReversed.slice(pos);
+
+                            if (assembled.length !== targetLength) continue;
+
+                            // Verify against definition
+                            const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                            if (defSynonyms.some(ds => ds.toUpperCase() === assembled)) {
+                                derivedAnswer = assembled;
+                                derivedDefinition = defCandidate;
+                                break;
+                            }
+                        }
+                        if (derivedAnswer) break;
+                    }
+                    if (derivedAnswer) break;
+                }
+            }
+        }
+
+        // Try HIDDEN WORD derivation
+        // If we have a hidden indicator, scan the fodder for contiguous letters forming target length
+        if (!derivedAnswer && detectedOperations.some(op => op.type === 'hidden')) {
+            const hiddenOp = detectedOperations.find(op => op.type === 'hidden');
+            if (hiddenOp) {
+                // Get fodder for hidden word - either from operation or from remaining clue text
+                // Typically it's words AFTER the indicator (e.g., "using some cellular telephones")
+
+                // Find indicator position and get text after it
+                const indicatorLower = hiddenOp.indicator.toLowerCase();
+                const indicatorPos = clueText.toLowerCase().indexOf(indicatorLower);
+
+                if (indicatorPos !== -1) {
+                    // Get text after the indicator (excluding word count)
+                    const afterIndicator = clueText.substring(indicatorPos + hiddenOp.indicator.length).replace(/\s*\([0-9,\-]+\)\s*$/, '').trim();
+
+                    // Get text before the indicator (could also be fodder)
+                    const beforeIndicator = clueText.substring(0, indicatorPos).trim();
+
+                    // Try both directions - after is more common
+                    const fodderOptions = [afterIndicator, beforeIndicator].filter(f => f.length > 0);
+
+                    for (const fodderText of fodderOptions) {
+                        // Remove spaces and punctuation to get continuous letter stream
+                        const letters = fodderText.replace(/[^a-zA-Z]/g, '').toUpperCase();
+
+                        // Slide window of targetLength to find hidden words
+                        for (let i = 0; i <= letters.length - targetLength; i++) {
+                            const candidate = letters.substring(i, i + targetLength);
+
+                            // Verify against definition synonyms
+                            const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                            if (defSynonyms.some(ds => ds.toUpperCase() === candidate)) {
+                                derivedAnswer = candidate;
+                                derivedDefinition = defCandidate;
+                                break;
+                            }
+                        }
+                        if (derivedAnswer) break;
+                    }
+                }
+            }
+        }
+
+        // Try DELETION derivation
+        // If we have a deletion indicator, get synonyms for fodder and apply deletion
+        if (!derivedAnswer && detectedOperations.some(op =>
+            op.type === 'deletion_first' || op.type === 'deletion_last' || op.type === 'deletion'
+        )) {
+            const deletionOp = detectedOperations.find(op =>
+                op.type === 'deletion_first' || op.type === 'deletion_last' || op.type === 'deletion'
+            );
+            if (deletionOp && deletionOp.fodder) {
+                // Get synonyms for the fodder
+                const fodderSyns = lookupSynonyms(deletionOp.fodder.toLowerCase().replace(/[^a-z]/g, ''));
+
+                for (const syn of fodderSyns) {
+                    let candidate: string;
+
+                    if (deletionOp.type === 'deletion_first') {
+                        // Remove first letter
+                        candidate = syn.substring(1).toUpperCase();
+                    } else if (deletionOp.type === 'deletion_last') {
+                        // Remove last letter
+                        candidate = syn.substring(0, syn.length - 1).toUpperCase();
+                    } else {
+                        // Generic deletion - try both
+                        const first = syn.substring(1).toUpperCase();
+                        const last = syn.substring(0, syn.length - 1).toUpperCase();
+                        // Try last first (more common for "not quite")
+                        candidate = last.length === targetLength ? last :
+                                   first.length === targetLength ? first : '';
+                    }
+
+                    if (candidate.length !== targetLength) continue;
+
+                    // Verify against definition synonyms
+                    const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                    if (defSynonyms.some(ds => ds.toUpperCase() === candidate)) {
+                        derivedAnswer = candidate;
+                        derivedDefinition = defCandidate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Try HOMOPHONE derivation
+        // If we have a homophone indicator, get synonyms for fodder and find homophones
+        if (!derivedAnswer && detectedOperations.some(op => op.type === 'homophone')) {
+            const homophoneOp = detectedOperations.find(op => op.type === 'homophone');
+            if (homophoneOp && homophoneOp.fodder) {
+                // Common homophone pairs
+                const homophonePairs: Record<string, string[]> = {
+                    'NIGHT': ['KNIGHT'], 'KNIGHT': ['NIGHT'],
+                    'RIGHT': ['WRITE', 'RITE'], 'WRITE': ['RIGHT', 'RITE'], 'RITE': ['RIGHT', 'WRITE'],
+                    'AIR': ['HEIR', 'ERE', 'ERR'], 'HEIR': ['AIR'], 'ERE': ['AIR'], 'ERR': ['AIR'],
+                    'HEAR': ['HERE'], 'HERE': ['HEAR'],
+                    'SALE': ['SAIL'], 'SAIL': ['SALE'],
+                    'TALE': ['TAIL'], 'TAIL': ['TALE'],
+                    'MALE': ['MAIL'], 'MAIL': ['MALE'],
+                    'PALE': ['PAIL'], 'PAIL': ['PALE'],
+                    'BILL': ['BUILD'], 'BUILD': ['BILL'],
+                    'STOW': ['STOWE'], 'STOWE': ['STOW'],
+                    'NEW': ['KNEW', 'GNU'], 'KNEW': ['NEW', 'GNU'], 'GNU': ['NEW', 'KNEW'],
+                    'FLOUR': ['FLOWER'], 'FLOWER': ['FLOUR'],
+                    'MEAT': ['MEET'], 'MEET': ['MEAT'],
+                    'WAIT': ['WEIGHT'], 'WEIGHT': ['WAIT'],
+                    'EIGHT': ['ATE'], 'ATE': ['EIGHT'],
+                    'SUITE': ['SWEET'], 'SWEET': ['SUITE'],
+                    'SIGHT': ['SITE', 'CITE'], 'SITE': ['SIGHT', 'CITE'], 'CITE': ['SIGHT', 'SITE'],
+                    'SEE': ['SEA', 'C'], 'SEA': ['SEE', 'C'], 'C': ['SEE', 'SEA'],
+                    'BEE': ['BE', 'B'], 'BE': ['BEE', 'B'], 'B': ['BEE', 'BE'],
+                    'TEA': ['TEE', 'T'], 'TEE': ['TEA', 'T'], 'T': ['TEA', 'TEE'],
+                    'YOU': ['EWE', 'U'], 'EWE': ['YOU', 'U'], 'U': ['YOU', 'EWE'],
+                    'PIECE': ['PEACE'], 'PEACE': ['PIECE'],
+                    'FAIR': ['FARE'], 'FARE': ['FAIR'],
+                    'BARE': ['BEAR'], 'BEAR': ['BARE'],
+                    'PAIR': ['PEAR', 'PARE'], 'PEAR': ['PAIR', 'PARE'], 'PARE': ['PAIR', 'PEAR'],
+                    'BOARD': ['BORED'], 'BORED': ['BOARD'],
+                    'COURSE': ['COARSE'], 'COARSE': ['COURSE'],
+                };
+
+                // Get synonyms for the fodder
+                const fodderSyns = lookupSynonyms(homophoneOp.fodder.toLowerCase().replace(/[^a-z]/g, ''));
+
+                for (const syn of fodderSyns) {
+                    const synUpper = syn.toUpperCase();
+                    const homophones = homophonePairs[synUpper];
+
+                    if (homophones) {
+                        for (const homophone of homophones) {
+                            // Direct match (homophone = answer)
+                            if (homophone.length === targetLength) {
+                                // Verify against definition synonyms
+                                const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                                if (defSynonyms.some(ds => ds.toUpperCase() === homophone)) {
+                                    derivedAnswer = homophone;
+                                    derivedDefinition = defCandidate;
+                                    break;
+                                }
+                            }
+
+                            // Homophone + charade (homophone + another word = answer)
+                            // Look for remaining words that could combine
+                            if (!derivedAnswer && homophone.length < targetLength) {
+                                const remainingLen = targetLength - homophone.length;
+                                // Look for synonyms from ALL clue words (not just unconsumed)
+                                // because charade parts might be consumed as fodder elsewhere
+                                for (const word of words) {
+                                    const wordClean = word.toLowerCase().replace(/[^a-z]/g, '');
+                                    if (defWords.some(dw => dw === wordClean)) continue;
+                                    if (wordClean.length < 2) continue;
+
+                                    const wordSyns = lookupSynonyms(wordClean);
+                                    for (const wordSyn of wordSyns) {
+                                        if (wordSyn.length === remainingLen) {
+                                            // Try both orders
+                                            const combined1 = (homophone + wordSyn).toUpperCase();
+                                            const combined2 = (wordSyn + homophone).toUpperCase();
+                                            // With space versions for multi-word answers
+                                            const combined1Space = (homophone + ' ' + wordSyn).toUpperCase();
+                                            const combined2Space = (wordSyn + ' ' + homophone).toUpperCase();
+
+                                            const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                                            // Check both with and without space
+                                            const defSynsNorm = defSynonyms.map(ds => ds.toUpperCase().replace(/\s+/g, ''));
+                                            const defSynsRaw = defSynonyms.map(ds => ds.toUpperCase());
+
+                                            if (defSynsNorm.includes(combined1) || defSynsRaw.includes(combined1Space)) {
+                                                derivedAnswer = combined1Space;  // Return with space for readability
+                                                derivedDefinition = defCandidate;
+                                                break;
+                                            }
+                                            if (defSynsNorm.includes(combined2) || defSynsRaw.includes(combined2Space)) {
+                                                derivedAnswer = combined2Space;
+                                                derivedDefinition = defCandidate;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (derivedAnswer) break;
+                                }
+                            }
+                        }
+                    }
+                    if (derivedAnswer) break;
+                }
+            }
+        }
+
+        // Try ANAGRAM + REVERSAL combination
+        // Pattern: anagram of fodder1 + reversal of fodder2 = answer
+        if (!derivedAnswer) {
+            const anagramOp = detectedOperations.find(op => op.type === 'anagram');
+            const reversalOp = detectedOperations.find(op => op.type === 'reversal');
+
+            if (anagramOp && reversalOp) {
+                // Get fodder for reversal - look for short words near the reversal indicator
+                // "or contrary" → reverse "or" = "RO"
+                const reversalIdx = words.findIndex(w =>
+                    w.toLowerCase().replace(/[^a-z]/g, '') === reversalOp.indicator.toLowerCase()
+                );
+
+                // Look for short word (2-3 letters) before the reversal indicator
+                let reversalFodder: string | null = null;
+                if (reversalIdx > 0) {
+                    const prevWord = words[reversalIdx - 1].toLowerCase().replace(/[^a-z]/g, '');
+                    if (prevWord.length >= 2 && prevWord.length <= 3) {
+                        reversalFodder = prevWord;
+                    }
+                }
+
+                if (reversalFodder) {
+                    const reversedPart = reversalFodder.split('').reverse().join('').toUpperCase();
+                    const anagramLen = targetLength - reversedPart.length;
+
+                    if (anagramLen > 0) {
+                        // Get anagram fodder - words between definition and anagram indicator
+                        // For "Peru: he's funny" - fodder is "Peru he's"
+                        const anagramIdx = words.findIndex(w =>
+                            w.toLowerCase().replace(/[^a-z]/g, '') === anagramOp.indicator.toLowerCase()
+                        );
+
+                        // Collect words between definition end and anagram indicator
+                        const defEndIdx = defCandidate.split(/\s+/).length;
+                        let anagramFodderWords: string[] = [];
+                        for (let i = defEndIdx; i < anagramIdx && i < words.length; i++) {
+                            const w = words[i].toLowerCase().replace(/[^a-z]/g, '');
+                            if (w.length > 0 && !['from', 'of', 'the', 'a', 'an'].includes(w)) {
+                                anagramFodderWords.push(w);
+                            }
+                        }
+
+                        const anagramFodder = anagramFodderWords.join('').toUpperCase();
+
+                        // Check if anagram fodder length matches needed length
+                        if (anagramFodder.length === anagramLen) {
+                            // Generate all anagrams is expensive, so just check if letters match
+                            // For verification, we'll try assembling and checking against definition
+                            const fodderLetters = anagramFodder.split('').sort().join('');
+
+                            // Try to find a valid anagram by checking against answer synonyms
+                            const defSynonyms = lookupSynonyms(defCandidate.toLowerCase());
+                            for (const defSyn of defSynonyms) {
+                                if (defSyn.length !== targetLength) continue;
+
+                                // Check if defSyn = anagram + reversed
+                                const synUpper = defSyn.toUpperCase();
+                                // Try reversed at end
+                                if (synUpper.endsWith(reversedPart)) {
+                                    const anagramPart = synUpper.slice(0, -reversedPart.length);
+                                    const anagramPartLetters = anagramPart.split('').sort().join('');
+                                    if (anagramPartLetters === fodderLetters) {
+                                        derivedAnswer = synUpper;
+                                        derivedDefinition = defCandidate;
+                                        break;
+                                    }
+                                }
+                                // Try reversed at start
+                                if (synUpper.startsWith(reversedPart)) {
+                                    const anagramPart = synUpper.slice(reversedPart.length);
+                                    const anagramPartLetters = anagramPart.split('').sort().join('');
+                                    if (anagramPartLetters === fodderLetters) {
+                                        derivedAnswer = synUpper;
+                                        derivedDefinition = defCandidate;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (derivedAnswer) break;
     }
 

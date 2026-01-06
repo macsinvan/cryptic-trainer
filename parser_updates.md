@@ -487,6 +487,203 @@ Pattern: Container
 
 Parsing summary: `love party → ODO + aggressive-submissive proclivity → SM = SODOM`
 
+### Case 5: ARTEL (Hidden Word)
+**Solved**: 2026-01-06
+
+Clue: "Russian co-op using some cellular telephones (5)"
+
+Pattern: Hidden Word
+- Definition: "Russian co-op" → ARTEL (synonym match, at start)
+- Wordplay:
+  - Hidden indicator: "using some"
+  - Fodder: "cellular telephones"
+  - Hidden word: cellul**AR TEL**ephones = ARTEL
+- Answer: ARTEL
+
+Parsing summary: `hidden in "cellular telephones" = ARTEL`
+
+### Case 6: TELEPROMPTER (Container with French Articles)
+**Solved**: 2026-01-06
+
+Clue: "What newsreaders read in French, the expert seducer conceals (12)"
+
+Pattern: Container
+- Definition: "What newsreaders read" → TELEPROMPTER (synonym match, at start)
+- Wordplay:
+  - Inner: "in French, the" = LE + "expert" = PRO → LE PRO
+  - Outer: "seducer" → TEMPTER (synonym)
+  - Container indicator: "conceals"
+  - Container operation: TEMP + LE PRO + TER = TELEPROMPTER
+- Answer: TELEPROMPTER
+
+Parsing summary: `seducer → TEMPTER + in French the expert → LE PRO inside = TELEPROMPTER`
+
+### Case 7: ASSES (Deletion)
+**Solved**: 2026-01-06
+
+Clue: "Fools judge? Not quite (5)"
+
+Pattern: Deletion
+- Definition: "Fools" → ASSES (synonym match, at start)
+- Wordplay:
+  - Deletion indicator: "Not quite" (deletion_last)
+  - Fodder: "judge" → ASSESS (synonym)
+  - Operation: ASSESS - S = ASSES
+- Answer: ASSES
+
+Parsing summary: `judge → ASSESS → not quite → ASSES`
+
+### Case 8: TOOLS (Reversal + Last Letter)
+**Solved**: 2026-01-06
+
+Clue: "Flipping lucre and ultimately godless vices? (5)"
+
+Pattern: Reversal + Last Letter
+- Definition: "vices?" → TOOLS (cryptic: vice = clamping tool)
+- Wordplay:
+  - Reversal indicator: "Flipping"
+  - Fodder: "lucre" → LOOT (synonym) reversed → TOOL
+  - Last letter indicator: "ultimately"
+  - Fodder: "godless" → S (last letter)
+  - Assembly: TOOL + S = TOOLS
+- Answer: TOOLS
+
+Parsing summary: `lucre → LOOT → flipping → TOOL + ultimately godless → S = TOOLS`
+
+### Case 9: ADHERE (Abbreviation Charade)
+**Solved**: 2026-01-06
+
+Clue: "Stick notice in The Times? (6)"
+
+Pattern: Abbreviation Charade
+- Definition: "Stick" → ADHERE (synonym match, at start)
+- Wordplay:
+  - "notice" → AD (abbreviation)
+  - "in The Times?" → HERE (self-referential: "here" = in this newspaper)
+  - Assembly: AD + HERE = ADHERE
+- Answer: ADHERE
+
+Parsing summary: `notice → AD + in The Times → HERE = ADHERE`
+
+### Case 10: SUPERHERO (Anagram + Reversal)
+**Solved**: 2026-01-06
+
+Clue: "Comic character from Peru: he's funny or contrary (9)"
+
+Pattern: Anagram + Reversal
+- Definition: "Comic character" → SUPERHERO (synonym match, at start)
+- Wordplay:
+  - Anagram indicator: "funny"
+  - Anagram fodder: "Peru: he's" = PERUHES (7 letters)
+  - Reversal indicator: "contrary"
+  - Reversal fodder: "or" → RO (2 letters)
+  - Assembly: anagram(PERUHES) + RO = SUPERHE + RO = SUPERHERO
+- Answer: SUPERHERO
+
+Parsing summary: `Peru he's (anagram) → SUPERHE + or (contrary) → RO = SUPERHERO`
+
+### Case 11: BUILD IN (Homophone + Charade)
+**Solved**: 2026-01-06
+
+Clue: "Incorporate legal draft delivered prior to crash (5,2)"
+
+Pattern: Homophone + Charade
+- Definition: "Incorporate" → BUILD IN (synonym match, at start)
+- Wordplay:
+  - Homophone indicator: "delivered"
+  - Homophone fodder: "draft" → BILL (synonym) sounds like BUILD
+  - Charade part: "crash" → IN (synonym)
+  - Assembly: BUILD + IN = BUILD IN
+- Answer: BUILD IN
+
+Parsing summary: `draft → BILL → delivered → BUILD + crash → IN = BUILD IN`
+
+---
+
+## Cold Parsing Derivation Types
+
+The `analyzeClueWithoutAnswer()` function attempts to derive the answer using these strategies (in order):
+
+### 1. Simple Charade Assembly
+Concatenate known abbreviations and synonyms of fodder words.
+
+**Example**: FORAY = FOR (spanning) + A + Y (year)
+
+### 2. Pure Abbreviation Charade
+Select non-overlapping abbreviations from clue, prefer longer matches, concatenate in position order.
+
+**Example**: ADHERE = AD (notice) + HERE (in The Times)
+
+### 3. Container Assembly
+Insert inner content inside outer container at each position, verify against definition synonyms.
+
+**Example**: CANOE = CAN + O inside E → C(O)ANE? No, try CA(O)NE... CANOE ✓
+
+### 4. Reversal + Container
+Reverse a synonym, then insert another component inside it.
+
+**Example**: SAMBA = AS (while) reversed → SA, gripping A + MB = S(AMB)A
+
+### 5. Hidden Word
+Slide window of target length through fodder text, verify against definition.
+
+**Example**: ARTEL = hidden in "cellul**AR TEL**ephones"
+
+### 6. Deletion
+Get synonyms for fodder, apply deletion (first/last letter), verify against definition.
+
+**Example**: ASSES = ASSESS (judge) - S (not quite)
+
+### 7. Homophone
+Get synonyms for fodder, lookup in homophone pairs, verify against definition.
+
+**Example**: STOWE = STOW (lodge) sounds like STOWE
+
+### 8. Homophone + Charade
+Find homophone, then combine with other word synonyms to reach target length.
+
+**Example**: BUILD IN = BUILD (sounds like BILL from draft) + IN (crash)
+
+### 9. Anagram + Reversal
+When both indicators present, try anagram of one fodder + reversal of another.
+
+**Example**: SUPERHERO = anagram(PERUHES) + reverse(OR) = SUPERHE + RO
+
+### 10. Indicator-as-Fodder Fallback
+When standard charade fails, try indicator words themselves as fodder for synonym lookup.
+
+**Example**: STOCKS = S (Small) + TOCKS (sounds as noun, not as indicator)
+
+---
+
+## Cold Parsing Test Results (2026-01-06)
+
+**Final Score: 12/16 (75%)**
+
+### Passing Cold Parses (12)
+| Clue | Pattern | Key Technique |
+|------|---------|---------------|
+| CANOE | Container | Staff→CANE + O inside |
+| SAMBA | Reversal+Container | While→AS reversed + AMB inside |
+| SODOM | Container | ODO inside SM |
+| ARTEL | Hidden Word | In "cellular telephones" |
+| TELEPROMPTER | Container | LE PRO inside TEMPTER |
+| ASSES | Deletion | ASSESS - last letter |
+| TOOLS | Reversal+Last Letter | LOOT reversed + S |
+| ADHERE | Abbreviation Charade | AD + HERE |
+| STOWE | Homophone | STOW sounds like |
+| STOCKS | Indicator-as-Fodder | S + TOCKS |
+| SUPERHERO | Anagram+Reversal | PERUHES anagram + OR reversed |
+| BUILD IN | Homophone+Charade | BILL→BUILD + IN |
+
+### Failing Cold Parses (4)
+| Clue | Pattern | Reason |
+|------|---------|--------|
+| ALIGNMENT | Letter Movement+Charade | Requires moving M within synonym |
+| HEADER | Container+Outer Letters | Missing catch→HEAD synonym |
+| THE KING AND I | Synonym+Truncation+Anagram | Complex 3-way combination |
+| DEHYDRATE | Alternate Letters+Cross-Ref | References another clue |
+
 ---
 
 ## Regression Testing

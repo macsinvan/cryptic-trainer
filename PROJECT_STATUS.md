@@ -1,6 +1,6 @@
 # Project Status
 
-**Last Updated:** 2026-01-05
+**Last Updated:** 2026-01-06
 
 ---
 
@@ -42,6 +42,36 @@
 ---
 
 ## Recent Sessions
+
+### 2026-01-06 (Session 6)
+**Focus:** Cold parsing improvements - derive answers without clue-specific knowledge
+
+**Changes:**
+- Improved cold parsing from 3/16 (19%) to 12/16 (75%)
+- Added 10 cold parsing derivation strategies:
+  1. Container assembly (from abbreviations)
+  2. Reversal assembly (reverse synonyms)
+  3. Abbreviation charade assembly
+  4. Hidden word derivation
+  5. Deletion derivation (first/last letter removal)
+  6. Homophone derivation
+  7. Homophone + charade combination
+  8. Anagram + reversal combination
+  9. Indicator-as-fodder fallback
+  10. Container insertion derivation
+- Extended OBVIOUS_ABBREVIATIONS: LE, LA, PRO, SM, DO, ER, HE, OR, AD, RE, etc.
+- Extended INDICATOR_WORDS: flipping, ultimately, funny, contrary, delivered, briefly, etc.
+- Fixed word boundary regex to include ? and !
+- Fixed multi-word answer space handling (BUILD IN vs BUILDIN)
+- Documented all strategies in parser_updates.md
+
+**Cold Parsing Results:**
+| Status | Clues |
+|--------|-------|
+| ✅ Pass | CANOE, SAMBA, SODOM, ARTEL, TELEPROMPTER, ASSES, TOOLS, ADHERE, SUPERHERO, BUILD IN, FORAY, STOWE |
+| ❌ Fail | HEADER, HAMFATTER, DEDUCTED, SOVEREIGN STATES |
+
+---
 
 ### 2026-01-05 (Session 5)
 **Focus:** Data-driven UI architecture
