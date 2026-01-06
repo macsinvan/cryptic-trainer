@@ -89,6 +89,7 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['synonym'],
         expectedTechniques: ['synonym', 'charade'],
+        expectedColdDefinitionCandidates: ['Stick'],
     },
     {
         name: 'HEADER (Container with Outer Letters)',
@@ -109,6 +110,8 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['unknown'],  // Parser doesn't classify deletion step type yet
         expectedTechniques: [],
+        expectedColdDefinitionCandidates: ['Fools'],
+        expectedColdIndicators: ['not quite'],
     },
     {
         name: 'INDIVIDUALS (Charade)',
@@ -139,6 +142,8 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['synonym', 'deletion', 'anagram'],
         expectedTechniques: ['synonym', 'anagram', 'deletion'],  // truncation is a deletion type
+        expectedColdDefinitionCandidates: ['Film'],
+        expectedColdIndicators: ['upset'],
     },
     {
         name: 'TAU (Letter Selection from Synonym)',
@@ -169,6 +174,8 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['homophone', 'synonym'],
         expectedTechniques: ['homophone', 'synonym', 'charade'],
+        expectedColdDefinitionCandidates: ['Incorporate'],
+        expectedColdIndicators: ['prior to'],
     },
     {
         name: 'DEHYDRATE (Alternate Letters + Cross-Reference + Anagram)',
@@ -179,6 +186,8 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['anagram'],
         expectedTechniques: ['anagram'],
+        expectedColdDefinitionCandidates: ['Dry'],
+        expectedColdIndicators: ['confused'],
     },
     {
         name: 'SEDATIVE (Charade + Letter Selection)',
@@ -199,6 +208,8 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'END',
         expectedStepTypes: ['synonym'],  // Small → S, sounds → TOCKS
         expectedTechniques: ['synonym', 'charade'],
+        expectedColdDefinitionCandidates: ['supplies'],
+        expectedColdIndicators: ['sounds'],
     },
     {
         name: 'CANDIDATE (Anagram + Synonym)',
@@ -241,6 +252,8 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['unknown'],  // Hidden word
         expectedTechniques: [],
+        expectedColdDefinitionCandidates: ['Russian co-op'],
+        expectedColdIndicators: ['using some'],
     },
     {
         name: 'TOOLS (Reversal + Last Letter)',
@@ -251,6 +264,7 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'END',
         expectedStepTypes: ['reversal'],  // LOOT reversed + S
         expectedTechniques: ['reversal'],
+        expectedColdDefinitionCandidates: ['vices?'],
     },
     {
         name: 'SHOP (Double Definition)',
@@ -281,16 +295,19 @@ const testCases: TestCase[] = [
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['container'],  // staff=CANE, nothing=O, CAN(O)E
         expectedTechniques: ['container'],
+        expectedColdDefinitionCandidates: ['Boat'],
+        expectedColdIndicators: ['on board'],
     },
     {
         name: 'SUPERHERO (Anagram + Reversal)',
-        clue: "Comic character from Peru: he's funny or contrary",
+        clue: "Comic character from Peru: he's funny or contrary (9)",
         answer: 'SUPERHERO',
         expectedPattern: 'Charade with Anagram',
         expectedDefinition: 'Comic character',
         expectedDefinitionPosition: 'START',
         expectedStepTypes: ['anagram'],  // anagram(PERU HES OR)
         expectedTechniques: ['anagram'],
+        expectedColdDefinitionCandidates: ['Comic character'],
     },
     {
         name: 'SAMBA (Reversal + Container)',
@@ -327,11 +344,12 @@ const testCases: TestCase[] = [
     },
     {
         name: 'TELEPROMPTER (Container)',
-        clue: 'What newsreaders read in French, the expert seducer conceals',
+        clue: 'What newsreaders read in French, the expert seducer conceals (12)',
         answer: 'TELEPROMPTER',
         expectedPattern: 'Charade with Container',
         expectedDefinition: 'What newsreaders read',
         expectedDefinitionPosition: 'START',
+        expectedColdDefinitionCandidates: ['What newsreaders read'],
         expectedStepTypes: ['container'],  // LE+PRO inside TEMPTER
         expectedTechniques: ['container'],
     },
