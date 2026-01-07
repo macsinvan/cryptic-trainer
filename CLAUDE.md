@@ -71,6 +71,7 @@ Claude: [makes the edit]
 ❌ Make multiple file edits without checking in
 ❌ Assume approval from previous session
 ❌ Skip the summary step
+❌ **NO HALLUCINATION** - Do not guess or make things up to fit. If you do not have facts to back something up, say "I do not know"
 
 ---
 
