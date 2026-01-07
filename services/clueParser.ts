@@ -4211,8 +4211,41 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     }
 
     // Step 2: Find indicators, excluding locked definition words
-    const indicators = findIndicators(cleanClue, lockedWordIndices);
+    let indicators = findIndicators(cleanClue, lockedWordIndices);
     logStep('Find wordplay indicators', { cleanClue, lockedWordIndices }, indicators);
+
+    // Step 2b: Validate anagram indicators - if fodder can't anagram to answer, remove them
+    if (knownAnswer && indicators.some(i => i.type === 'anagram')) {
+        const answerClean = normalizeAnswer(knownAnswer);
+        const answerLettersSorted = answerClean.split('').sort().join('');
+
+        const validatedIndicators = indicators.filter(ind => {
+            if (ind.type !== 'anagram') return true;  // Keep non-anagram indicators
+
+            // Get fodder words (words before the indicator, excluding definition)
+            const wordsBeforeIndicator = cleanClue.slice(0, ind.startIdx).trim();
+            const fodderLetters = wordsBeforeIndicator.replace(/[^a-zA-Z]/g, '').toUpperCase();
+            const fodderSorted = fodderLetters.split('').sort().join('');
+
+            // Check if fodder can anagram to answer
+            const isValidAnagram = fodderSorted === answerLettersSorted;
+
+            if (!isValidAnagram) {
+                logStep('Anagram indicator validation failed - removing',
+                    { indicator: ind.text, fodder: wordsBeforeIndicator, fodderLetters, answerLetters: answerClean },
+                    { valid: false, reason: 'Letters do not match' });
+            }
+
+            return isValidAnagram;
+        });
+
+        if (validatedIndicators.length < indicators.length) {
+            logStep('Filtered invalid anagram indicators',
+                { before: indicators.length, after: validatedIndicators.length },
+                { removed: indicators.filter(i => !validatedIndicators.includes(i)).map(i => i.text) });
+            indicators = validatedIndicators;
+        }
+    }
 
     // Always try double definition first - it should take priority even if indicators are found
     // because words like "in", "out", "or" can be parts of definition phrases

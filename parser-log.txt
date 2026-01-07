@@ -56,25 +56,93 @@ RESULT: [
   }
 ]
 
-=== STEP 6: Try double definition pattern ===
+=== STEP 6: Anagram indicator validation failed - removing ===
+INPUT: {
+  "indicator": "flying",
+  "fodder": "Period with old chap suited high-",
+  "fodderLetters": "PERIODWITHOLDCHAPSUITEDHIGH",
+  "answerLetters": "SPACEWOMEN"
+}
+RESULT: {
+  "valid": false,
+  "reason": "Letters do not match"
+}
+
+=== STEP 7: Filtered invalid anagram indicators ===
+INPUT: {
+  "before": 1,
+  "after": 0
+}
+RESULT: {
+  "removed": [
+    "flying"
+  ]
+}
+
+=== STEP 8: Try double definition pattern ===
 INPUT: {
   "clue": "Period with old chap suited high-flying lady (10)",
   "knownAnswer": "SPACEWOMEN"
 }
 RESULT: null
 
-=== STEP 7: Try composite charade ===
+=== STEP 9: Try charade split (no indicators path) ===
 INPUT: {
-  "wordplayText": "Period with old chap suited",
-  "knownAnswer": "SPACEWOMEN",
-  "indicatorCount": 1
+  "wordplayText": "with old chap suited high-flying lady",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: null
+
+=== STEP 10: Try charade split (no indicators path) ===
+INPUT: {
+  "wordplayText": "old chap suited high-flying lady",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: null
+
+=== STEP 11: Try charade split (no indicators path) ===
+INPUT: {
+  "wordplayText": "chap suited high-flying lady",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: null
+
+=== STEP 12: Try charade split (no indicators path) ===
+INPUT: {
+  "wordplayText": "suited high-flying lady",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: null
+
+=== STEP 13: Try charade split (no indicators path) ===
+INPUT: {
+  "wordplayText": "high-flying lady",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: null
+
+=== STEP 14: Try charade split (no indicators path) ===
+INPUT: {
+  "wordplayText": "Period with old chap suited high-flying",
+  "knownAnswer": "SPACEWOMEN"
 }
 RESULT: {
   "parts": [
     {
-      "text": "Period + with + old + chap",
-      "result": "SPACEWOMEN",
-      "operation": "anagram of SPACEWOMEN"
+      "text": "Period",
+      "result": "SPACE"
+    },
+    {
+      "text": "with",
+      "result": "W"
+    },
+    {
+      "text": "old",
+      "result": "O"
+    },
+    {
+      "text": "chap",
+      "result": "MEN"
     }
   ],
   "success": true
