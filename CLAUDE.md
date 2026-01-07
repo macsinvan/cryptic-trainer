@@ -170,7 +170,9 @@ npx tsx test-clue.ts "Clue text here (N)" "ANSWER"
 
 ### Step 2: Show Clue and Steps
 
-Display each parsing step with:
+Display EVERY parsing step. Show raw data, no interpretation.
+
+For each step show:
 
 | Field | Description |
 |-------|-------------|
@@ -178,6 +180,8 @@ Display each parsing step with:
 | **Inputs** | All parameters passed to the function |
 | **Logic** | What the function does (plain English) |
 | **Output** | The return value |
+
+**IMPORTANT:** Show ALL steps. Do not summarize or skip steps.
 
 ### Example Output
 
