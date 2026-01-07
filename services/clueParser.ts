@@ -3563,10 +3563,11 @@ function tryDoubleDefinition(
     return null;
 }
 
-function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; startIdx: number; endIdx: number }[] {
+function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodder: string | null; fodderIdx: number | null; startIdx: number; endIdx: number }[] {
     const cleanClue = cleanText(clue);
     const words = getClueWords(clue);
-    const found: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; startIdx: number; endIdx: number }[] = [];
+    const found: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodder: string | null; fodderIdx: number | null; startIdx: number; endIdx: number }[] = [];
+    const consumedWordIndices = new Set<number>(lockedWordIndices);
 
     // Build set of locked character ranges from locked word indices
     const lockedRanges: { start: number; end: number }[] = [];
@@ -3579,13 +3580,25 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
         charPos += wordLen + 1; // +1 for space
     }
 
+    // Helper to find word index from character position
+    function getWordIndexAtChar(charIdx: number): number {
+        let pos = 0;
+        for (let i = 0; i < words.length; i++) {
+            const wordLen = cleanText(words[i]).length;
+            if (charIdx >= pos && charIdx < pos + wordLen) return i;
+            pos += wordLen + 1;
+        }
+        return -1;
+    }
+
     // Sort indicators by length (longest first) to match phrases before single words
     const sortedIndicators = Object.entries(INDICATOR_DICTIONARY)
         .sort((a, b) => b[0].length - a[0].length);
 
+    // First pass: find all indicators
+    const preliminaryFound: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; startIdx: number; endIdx: number; indicatorWordIdx: number }[] = [];
+
     for (const [indicator, entry] of sortedIndicators) {
-        // Use word boundary matching to avoid matching inside words
-        // e.g., "new" should not match inside "newspaper"
         const escapedIndicator = indicator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const pattern = new RegExp(`\\b${escapedIndicator}\\b`, 'i');
         const match = cleanClue.match(pattern);
@@ -3593,29 +3606,80 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
         if (match && match.index !== undefined) {
             const idx = match.index;
 
-            // Check if this indicator falls within a locked (definition) range
             const inLockedRange = lockedRanges.some(r =>
                 (idx >= r.start && idx < r.end) ||
                 (idx + indicator.length > r.start && idx + indicator.length <= r.end)
             );
-            if (inLockedRange) continue; // Skip - this word is part of the definition
+            if (inLockedRange) continue;
 
-            // Check it's not already covered by a longer match
-            const alreadyCovered = found.some(f =>
+            const alreadyCovered = preliminaryFound.some(f =>
                 (idx >= f.startIdx && idx < f.endIdx) ||
                 (idx + indicator.length > f.startIdx && idx + indicator.length <= f.endIdx)
             );
             if (!alreadyCovered) {
-                found.push({
+                const indicatorWordIdx = getWordIndexAtChar(idx);
+                preliminaryFound.push({
                     text: indicator,
                     type: entry.type,
                     entry,
                     grade: entry.grade ?? null,
                     startIdx: idx,
-                    endIdx: idx + indicator.length
+                    endIdx: idx + indicator.length,
+                    indicatorWordIdx
                 });
+                // Mark indicator words as consumed
+                const indWords = indicator.split(/\s+/);
+                for (let w = 0; w < indWords.length; w++) {
+                    consumedWordIndices.add(indicatorWordIdx + w);
+                }
             }
         }
+    }
+
+    // Second pass: pair each indicator with fodder
+    for (const ind of preliminaryFound.sort((a, b) => a.startIdx - b.startIdx)) {
+        let fodder: string | null = null;
+        let fodderIdx: number | null = null;
+        const indWords = ind.text.split(/\s+/);
+        const indicatorEndWordIdx = ind.indicatorWordIdx + indWords.length - 1;
+
+        // Look after indicator first
+        for (let i = indicatorEndWordIdx + 1; i < words.length; i++) {
+            if (consumedWordIndices.has(i)) continue;
+            const w = cleanText(words[i]).toLowerCase();
+            if (w.length < 2) continue;
+            fodder = words[i];
+            fodderIdx = i;
+            break;
+        }
+
+        // If no fodder after, look before
+        if (!fodder) {
+            for (let i = ind.indicatorWordIdx - 1; i >= 0; i--) {
+                if (consumedWordIndices.has(i)) continue;
+                const w = cleanText(words[i]).toLowerCase();
+                if (w.length < 2) continue;
+                fodder = words[i];
+                fodderIdx = i;
+                break;
+            }
+        }
+
+        // Mark fodder as consumed (except for container type)
+        if (fodderIdx !== null && ind.type !== 'container') {
+            consumedWordIndices.add(fodderIdx);
+        }
+
+        found.push({
+            text: ind.text,
+            type: ind.type,
+            entry: ind.entry,
+            grade: ind.grade,
+            fodder,
+            fodderIdx,
+            startIdx: ind.startIdx,
+            endIdx: ind.endIdx
+        });
     }
 
     return found.sort((a, b) => a.startIdx - b.startIdx);
