@@ -158,4 +158,47 @@ This reduces exponential search to a manageable set.
 
 ---
 
-*Last updated: 2026-01-05*
+## DEBUGGING CLUE IMPORT PARSING
+
+When a clue fails to parse correctly, follow this process:
+
+### Step 1: Run the Import
+
+```
+npx tsx test-clue.ts "Clue text here (N)" "ANSWER"
+```
+
+### Step 2: Show Clue and Steps
+
+Display each parsing step with:
+
+| Field | Description |
+|-------|-------------|
+| **Function** | Name of the function called |
+| **Inputs** | All parameters passed to the function |
+| **Logic** | What the function does (plain English) |
+| **Output** | The return value |
+
+### Example Output
+
+```
+=== STEP 1: findDefinitionFirst ===
+Function: findDefinitionFirst
+Inputs: { clue: "...", knownAnswer: "CASHCARDS" }
+Logic: Search for synonym match between clue words and answer
+Output: { definition: "means to get ready", position: "END" }
+
+=== STEP 2: findIndicators ===
+Function: findIndicators
+Inputs: { cleanClue: "...", lockedWordIndices: [5,6,7,8] }
+Logic: Scan for indicator words, skip locked definition indices
+Output: [{ text: "mostly", type: "deletion_last" }, ...]
+```
+
+### Step 3: Identify Failure Point
+
+Find the step where output diverges from expected behavior.
+
+---
+
+*Last updated: 2026-01-07*

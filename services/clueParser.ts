@@ -4216,13 +4216,16 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     logStep('findIndicators', { cleanClue, lockedWordIndices }, indicators);
 
     // Step 2b: Validate anagram indicators - if fodder can't anagram to answer, remove them
-    // Skip validation if deletion indicators present - they modify fodder, making simple letter comparison invalid
+    // Skip validation if:
+    // - Deletion indicators present (they modify fodder)
+    // - No definition found yet (we don't know fodder boundaries)
     const hasDeletionIndicators = indicators.some(i =>
         i.type === 'deletion_first' || i.type === 'deletion_last' ||
         i.entry.letterOp === 'first' || i.entry.letterOp === 'last'
     );
+    const hasDefinition = lockedWordIndices.length > 0;
 
-    if (knownAnswer && indicators.some(i => i.type === 'anagram') && !hasDeletionIndicators) {
+    if (knownAnswer && indicators.some(i => i.type === 'anagram') && !hasDeletionIndicators && hasDefinition) {
         const answerClean = normalizeAnswer(knownAnswer);
         const answerLettersSorted = answerClean.split('').sort().join('');
 
@@ -4252,9 +4255,12 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 { removed: indicators.filter(i => !validatedIndicators.includes(i)).map(i => i.text) });
             indicators = validatedIndicators;
         }
-    } else if (hasDeletionIndicators && indicators.some(i => i.type === 'anagram')) {
+    } else if (indicators.some(i => i.type === 'anagram') && (hasDeletionIndicators || !hasDefinition)) {
+        const reason = hasDeletionIndicators
+            ? 'Deletion indicators present - fodder will be modified'
+            : 'No definition found - fodder boundaries unknown';
         logStep('skipAnagramValidation',
-            { reason: 'Deletion indicators present - fodder will be modified' },
+            { reason },
             { keptIndicators: indicators.map(i => i.text) });
     }
 
