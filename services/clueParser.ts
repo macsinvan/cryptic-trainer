@@ -3563,10 +3563,10 @@ function tryDoubleDefinition(
     return null;
 }
 
-function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; startIdx: number; endIdx: number }[] {
+function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; startIdx: number; endIdx: number }[] {
     const cleanClue = cleanText(clue);
     const words = getClueWords(clue);
-    const found: { text: string; type: OperationType; entry: IndicatorEntry; startIdx: number; endIdx: number }[] = [];
+    const found: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; startIdx: number; endIdx: number }[] = [];
 
     // Build set of locked character ranges from locked word indices
     const lockedRanges: { start: number; end: number }[] = [];
@@ -3610,6 +3610,7 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
                     text: indicator,
                     type: entry.type,
                     entry,
+                    grade: entry.grade ?? null,
                     startIdx: idx,
                     endIdx: idx + indicator.length
                 });
