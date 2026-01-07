@@ -311,6 +311,9 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
 
     // --- PEOPLE / ROLES ---
     'man': ['CHAP', 'GUY', 'FELLOW', 'MALE', 'HE', 'BOY', 'GENT'],
+    'men': ['CHAPS', 'GUYS', 'FELLOWS', 'MALES', 'BOYS', 'GENTS'],
+    'chap': ['MAN', 'GUY', 'FELLOW', 'BLOKE', 'MEN'],
+    'chaps': ['MEN', 'GUYS', 'FELLOWS', 'BLOKES'],
     'woman': ['LADY', 'SHE', 'GAL', 'FEMALE', 'DAME', 'HER'],
     'boy': ['LAD', 'SON', 'YOUTH', 'CHAP'],
     'girl': ['LASS', 'MISS', 'GAL', 'MAID'],
@@ -1271,7 +1274,7 @@ export const SYNONYM_DICTIONARY: Record<string, string[]> = {
     'moment': ['MO', 'SEC', 'TICK', 'JIFFY', 'INSTANT'],
     'instant': ['MO', 'SEC', 'FLASH', 'MOMENT'],
     'era': ['AGE', 'PERIOD', 'TIME', 'EPOCH'],
-    'period': ['ERA', 'AGE', 'TIME', 'DOT', 'FULL STOP'],
+    'period': ['ERA', 'AGE', 'TIME', 'DOT', 'FULL STOP', 'SPACE'],
     'date': ['DAY', 'TIME', 'FRUIT', 'APPOINTMENT'],
     'past': ['AGO', 'OVER', 'GONE', 'BY', 'HISTORY'],
     'present': ['NOW', 'GIFT', 'HERE', 'CURRENT'],
