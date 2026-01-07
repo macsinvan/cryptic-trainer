@@ -3563,11 +3563,11 @@ function tryDoubleDefinition(
     return null;
 }
 
-function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodder: string | null; fodderIdx: number | null; startIdx: number; endIdx: number }[] {
+function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodderBefore: string | null; fodderBeforeIdx: number | null; fodderAfter: string | null; fodderAfterIdx: number | null; startIdx: number; endIdx: number }[] {
     const cleanClue = cleanText(clue);
     const words = getClueWords(clue);
-    const found: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodder: string | null; fodderIdx: number | null; startIdx: number; endIdx: number }[] = [];
-    const consumedWordIndices = new Set<number>(lockedWordIndices);
+    const found: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodderBefore: string | null; fodderBeforeIdx: number | null; fodderAfter: string | null; fodderAfterIdx: number | null; startIdx: number; endIdx: number }[] = [];
+    const lockedSet = new Set<number>(lockedWordIndices);
 
     // Build set of locked character ranges from locked word indices
     const lockedRanges: { start: number; end: number }[] = [];
@@ -3627,47 +3627,37 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
                     endIdx: idx + indicator.length,
                     indicatorWordIdx
                 });
-                // Mark indicator words as consumed
-                const indWords = indicator.split(/\s+/);
-                for (let w = 0; w < indWords.length; w++) {
-                    consumedWordIndices.add(indicatorWordIdx + w);
-                }
             }
         }
     }
 
-    // Second pass: pair each indicator with fodder
+    // Second pass: pair each indicator with BOTH adjacent fodders (before and after)
     for (const ind of preliminaryFound.sort((a, b) => a.startIdx - b.startIdx)) {
-        let fodder: string | null = null;
-        let fodderIdx: number | null = null;
+        let fodderBefore: string | null = null;
+        let fodderBeforeIdx: number | null = null;
+        let fodderAfter: string | null = null;
+        let fodderAfterIdx: number | null = null;
         const indWords = ind.text.split(/\s+/);
         const indicatorEndWordIdx = ind.indicatorWordIdx + indWords.length - 1;
 
-        // Look after indicator first
-        for (let i = indicatorEndWordIdx + 1; i < words.length; i++) {
-            if (consumedWordIndices.has(i)) continue;
+        // Find adjacent fodder BEFORE indicator (first non-locked word before)
+        for (let i = ind.indicatorWordIdx - 1; i >= 0; i--) {
+            if (lockedSet.has(i)) continue;
             const w = cleanText(words[i]).toLowerCase();
             if (w.length < 2) continue;
-            fodder = words[i];
-            fodderIdx = i;
+            fodderBefore = words[i];
+            fodderBeforeIdx = i;
             break;
         }
 
-        // If no fodder after, look before
-        if (!fodder) {
-            for (let i = ind.indicatorWordIdx - 1; i >= 0; i--) {
-                if (consumedWordIndices.has(i)) continue;
-                const w = cleanText(words[i]).toLowerCase();
-                if (w.length < 2) continue;
-                fodder = words[i];
-                fodderIdx = i;
-                break;
-            }
-        }
-
-        // Mark fodder as consumed (except for container type)
-        if (fodderIdx !== null && ind.type !== 'container') {
-            consumedWordIndices.add(fodderIdx);
+        // Find adjacent fodder AFTER indicator (first non-locked word after)
+        for (let i = indicatorEndWordIdx + 1; i < words.length; i++) {
+            if (lockedSet.has(i)) continue;
+            const w = cleanText(words[i]).toLowerCase();
+            if (w.length < 2) continue;
+            fodderAfter = words[i];
+            fodderAfterIdx = i;
+            break;
         }
 
         found.push({
@@ -3675,8 +3665,10 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
             type: ind.type,
             entry: ind.entry,
             grade: ind.grade,
-            fodder,
-            fodderIdx,
+            fodderBefore,
+            fodderBeforeIdx,
+            fodderAfter,
+            fodderAfterIdx,
             startIdx: ind.startIdx,
             endIdx: ind.endIdx
         });
