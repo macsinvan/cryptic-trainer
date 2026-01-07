@@ -4180,15 +4180,16 @@ export function clearParserLog() {
 
 export function parseClue(clue: string, knownAnswer?: string, coaching?: string[]): ParseResult {
     clearParserLog();
+    logStep('parseClue', { clue, knownAnswer, coaching }, 'Starting...');
 
     const wordCount = extractTargetLength(clue);
-    logStep('Extract target length from clue', { clue }, { wordCount });
+    logStep('extractTargetLength', { clue }, { wordCount });
 
     const cleanClue = getClueWithoutCount(clue);
-    logStep('Remove word count from clue', { clue }, { cleanClue });
+    logStep('getClueWithoutCount', { clue }, { cleanClue });
 
     const clueWords = getClueWords(clue);
-    logStep('Tokenize clue into words', { clue }, { clueWords });
+    logStep('getClueWords', { clue }, { clueWords });
 
     // NEW FLOW: Find definition FIRST, lock those words, then find indicators
     let definition: string;
@@ -4200,7 +4201,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     // Step 1: If we have the answer, find definition first using synonym matching
     if (knownAnswer) {
         const defFirst = findDefinitionFirst(clue, knownAnswer);
-        logStep('Find definition using synonym matching', { clue, knownAnswer }, defFirst);
+        logStep('findDefinitionFirst', { clue, knownAnswer }, defFirst);
         if (defFirst) {
             definition = defFirst.definition;
             defPosition = defFirst.position;
@@ -4212,7 +4213,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
     // Step 2: Find indicators, excluding locked definition words
     let indicators = findIndicators(cleanClue, lockedWordIndices);
-    logStep('Find wordplay indicators', { cleanClue, lockedWordIndices }, indicators);
+    logStep('findIndicators', { cleanClue, lockedWordIndices }, indicators);
 
     // Step 2b: Validate anagram indicators - if fodder can't anagram to answer, remove them
     if (knownAnswer && indicators.some(i => i.type === 'anagram')) {
@@ -4231,17 +4232,17 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
             const isValidAnagram = fodderSorted === answerLettersSorted;
 
             if (!isValidAnagram) {
-                logStep('Anagram indicator validation failed - removing',
-                    { indicator: ind.text, fodder: wordsBeforeIndicator, fodderLetters, answerLetters: answerClean },
-                    { valid: false, reason: 'Letters do not match' });
+                logStep('validateAnagramIndicator',
+                    { indicator: ind.text, fodder: wordsBeforeIndicator, fodderLetters, answerClean, fodderSorted, answerLettersSorted },
+                    { valid: false, reason: 'Fodder letters do not match answer letters' });
             }
 
             return isValidAnagram;
         });
 
         if (validatedIndicators.length < indicators.length) {
-            logStep('Filtered invalid anagram indicators',
-                { before: indicators.length, after: validatedIndicators.length },
+            logStep('filterInvalidAnagramIndicators',
+                { originalIndicators: indicators, validatedIndicators },
                 { removed: indicators.filter(i => !validatedIndicators.includes(i)).map(i => i.text) });
             indicators = validatedIndicators;
         }
@@ -4251,7 +4252,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     // because words like "in", "out", "or" can be parts of definition phrases
     if (knownAnswer) {
         const doubleDef = tryDoubleDefinition(clue, knownAnswer);
-        logStep('Try double definition pattern', { clue, knownAnswer }, doubleDef);
+        logStep('tryDoubleDefinition', { clue, knownAnswer }, doubleDef);
         if (doubleDef?.success) {
             const variables: Record<string, string> = {
                 'def_text': doubleDef.def1,
@@ -4358,7 +4359,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
                 const wordplayText = wordplayWords.join(' ');
                 const charade = tryCharadeSplit(wordplayText, knownAnswer);
-                logStep('Try charade split (no indicators path)', { wordplayText, knownAnswer }, charade);
+                logStep('tryCharadeSplit', { wordplayText, knownAnswer, defText, position }, charade);
 
                 if (charade?.success) {
                     // Check if definition has a cryptic meaning hint
@@ -4482,7 +4483,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
         const wordplayTextForComposite = wordplayWordsForComposite.join(' ');
         const composite = tryCompositeCharade(wordplayTextForComposite, knownAnswer, indicators);
-        logStep('Try composite charade', { wordplayText: wordplayTextForComposite, knownAnswer, indicatorCount: indicators.length }, composite);
+        logStep('tryCompositeCharade', { wordplayText: wordplayTextForComposite, knownAnswer, indicators, definition, defPosition }, composite);
 
         if (composite?.success) {
             const variables: Record<string, string> = {

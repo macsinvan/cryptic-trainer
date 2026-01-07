@@ -1,5 +1,12 @@
 
-=== STEP 1: Extract target length from clue ===
+=== STEP 1: parseClue ===
+INPUT: {
+  "clue": "Period with old chap suited high-flying lady (10)",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: "Starting..."
+
+=== STEP 2: extractTargetLength ===
 INPUT: {
   "clue": "Period with old chap suited high-flying lady (10)"
 }
@@ -7,7 +14,7 @@ RESULT: {
   "wordCount": 10
 }
 
-=== STEP 2: Remove word count from clue ===
+=== STEP 3: getClueWithoutCount ===
 INPUT: {
   "clue": "Period with old chap suited high-flying lady (10)"
 }
@@ -15,7 +22,7 @@ RESULT: {
   "cleanClue": "Period with old chap suited high-flying lady"
 }
 
-=== STEP 3: Tokenize clue into words ===
+=== STEP 4: getClueWords ===
 INPUT: {
   "clue": "Period with old chap suited high-flying lady (10)"
 }
@@ -31,14 +38,14 @@ RESULT: {
   ]
 }
 
-=== STEP 4: Find definition using synonym matching ===
+=== STEP 5: findDefinitionFirst ===
 INPUT: {
   "clue": "Period with old chap suited high-flying lady (10)",
   "knownAnswer": "SPACEWOMEN"
 }
 RESULT: null
 
-=== STEP 5: Find wordplay indicators ===
+=== STEP 6: findIndicators ===
 INPUT: {
   "cleanClue": "Period with old chap suited high-flying lady",
   "lockedWordIndices": []
@@ -56,22 +63,35 @@ RESULT: [
   }
 ]
 
-=== STEP 6: Anagram indicator validation failed - removing ===
+=== STEP 7: validateAnagramIndicator ===
 INPUT: {
   "indicator": "flying",
   "fodder": "Period with old chap suited high-",
   "fodderLetters": "PERIODWITHOLDCHAPSUITEDHIGH",
-  "answerLetters": "SPACEWOMEN"
+  "answerClean": "SPACEWOMEN",
+  "fodderSorted": "ACDDDEEGHHHHIIIILOOPPRSTTUW",
+  "answerLettersSorted": "ACEEMNOPSW"
 }
 RESULT: {
   "valid": false,
-  "reason": "Letters do not match"
+  "reason": "Fodder letters do not match answer letters"
 }
 
-=== STEP 7: Filtered invalid anagram indicators ===
+=== STEP 8: filterInvalidAnagramIndicators ===
 INPUT: {
-  "before": 1,
-  "after": 0
+  "originalIndicators": [
+    {
+      "text": "flying",
+      "type": "anagram",
+      "entry": {
+        "type": "anagram",
+        "grade": 7
+      },
+      "startIdx": 33,
+      "endIdx": 39
+    }
+  ],
+  "validatedIndicators": []
 }
 RESULT: {
   "removed": [
@@ -79,52 +99,64 @@ RESULT: {
   ]
 }
 
-=== STEP 8: Try double definition pattern ===
+=== STEP 9: tryDoubleDefinition ===
 INPUT: {
   "clue": "Period with old chap suited high-flying lady (10)",
   "knownAnswer": "SPACEWOMEN"
 }
 RESULT: null
 
-=== STEP 9: Try charade split (no indicators path) ===
+=== STEP 10: tryCharadeSplit ===
 INPUT: {
   "wordplayText": "with old chap suited high-flying lady",
-  "knownAnswer": "SPACEWOMEN"
+  "knownAnswer": "SPACEWOMEN",
+  "defText": "Period",
+  "position": "START"
 }
 RESULT: null
 
-=== STEP 10: Try charade split (no indicators path) ===
+=== STEP 11: tryCharadeSplit ===
 INPUT: {
   "wordplayText": "old chap suited high-flying lady",
-  "knownAnswer": "SPACEWOMEN"
+  "knownAnswer": "SPACEWOMEN",
+  "defText": "Period with",
+  "position": "START"
 }
 RESULT: null
 
-=== STEP 11: Try charade split (no indicators path) ===
+=== STEP 12: tryCharadeSplit ===
 INPUT: {
   "wordplayText": "chap suited high-flying lady",
-  "knownAnswer": "SPACEWOMEN"
+  "knownAnswer": "SPACEWOMEN",
+  "defText": "Period with old",
+  "position": "START"
 }
 RESULT: null
 
-=== STEP 12: Try charade split (no indicators path) ===
+=== STEP 13: tryCharadeSplit ===
 INPUT: {
   "wordplayText": "suited high-flying lady",
-  "knownAnswer": "SPACEWOMEN"
+  "knownAnswer": "SPACEWOMEN",
+  "defText": "Period with old chap",
+  "position": "START"
 }
 RESULT: null
 
-=== STEP 13: Try charade split (no indicators path) ===
+=== STEP 14: tryCharadeSplit ===
 INPUT: {
   "wordplayText": "high-flying lady",
-  "knownAnswer": "SPACEWOMEN"
+  "knownAnswer": "SPACEWOMEN",
+  "defText": "Period with old chap suited",
+  "position": "START"
 }
 RESULT: null
 
-=== STEP 14: Try charade split (no indicators path) ===
+=== STEP 15: tryCharadeSplit ===
 INPUT: {
   "wordplayText": "Period with old chap suited high-flying",
-  "knownAnswer": "SPACEWOMEN"
+  "knownAnswer": "SPACEWOMEN",
+  "defText": "lady",
+  "position": "END"
 }
 RESULT: {
   "parts": [
