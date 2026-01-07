@@ -3563,10 +3563,11 @@ function tryDoubleDefinition(
     return null;
 }
 
-function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; startIdx: number; endIdx: number }[] {
+function findIndicators(clue: string, lockedWordIndices: number[] = []): { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodderBefore: string | null; fodderBeforeIdx: number | null; fodderAfter: string | null; fodderAfterIdx: number | null; startIdx: number; endIdx: number }[] {
     const cleanClue = cleanText(clue);
     const words = getClueWords(clue);
-    const found: { text: string; type: OperationType; entry: IndicatorEntry; startIdx: number; endIdx: number }[] = [];
+    const found: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; fodderBefore: string | null; fodderBeforeIdx: number | null; fodderAfter: string | null; fodderAfterIdx: number | null; startIdx: number; endIdx: number }[] = [];
+    const lockedSet = new Set<number>(lockedWordIndices);
 
     // Build set of locked character ranges from locked word indices
     const lockedRanges: { start: number; end: number }[] = [];
@@ -3579,13 +3580,25 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
         charPos += wordLen + 1; // +1 for space
     }
 
+    // Helper to find word index from character position
+    function getWordIndexAtChar(charIdx: number): number {
+        let pos = 0;
+        for (let i = 0; i < words.length; i++) {
+            const wordLen = cleanText(words[i]).length;
+            if (charIdx >= pos && charIdx < pos + wordLen) return i;
+            pos += wordLen + 1;
+        }
+        return -1;
+    }
+
     // Sort indicators by length (longest first) to match phrases before single words
     const sortedIndicators = Object.entries(INDICATOR_DICTIONARY)
         .sort((a, b) => b[0].length - a[0].length);
 
+    // First pass: find all indicators
+    const preliminaryFound: { text: string; type: OperationType; entry: IndicatorEntry; grade: number | null; startIdx: number; endIdx: number; indicatorWordIdx: number }[] = [];
+
     for (const [indicator, entry] of sortedIndicators) {
-        // Use word boundary matching to avoid matching inside words
-        // e.g., "new" should not match inside "newspaper"
         const escapedIndicator = indicator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const pattern = new RegExp(`\\b${escapedIndicator}\\b`, 'i');
         const match = cleanClue.match(pattern);
@@ -3593,28 +3606,72 @@ function findIndicators(clue: string, lockedWordIndices: number[] = []): { text:
         if (match && match.index !== undefined) {
             const idx = match.index;
 
-            // Check if this indicator falls within a locked (definition) range
             const inLockedRange = lockedRanges.some(r =>
                 (idx >= r.start && idx < r.end) ||
                 (idx + indicator.length > r.start && idx + indicator.length <= r.end)
             );
-            if (inLockedRange) continue; // Skip - this word is part of the definition
+            if (inLockedRange) continue;
 
-            // Check it's not already covered by a longer match
-            const alreadyCovered = found.some(f =>
+            const alreadyCovered = preliminaryFound.some(f =>
                 (idx >= f.startIdx && idx < f.endIdx) ||
                 (idx + indicator.length > f.startIdx && idx + indicator.length <= f.endIdx)
             );
             if (!alreadyCovered) {
-                found.push({
+                const indicatorWordIdx = getWordIndexAtChar(idx);
+                preliminaryFound.push({
                     text: indicator,
                     type: entry.type,
                     entry,
+                    grade: entry.grade ?? null,
                     startIdx: idx,
-                    endIdx: idx + indicator.length
+                    endIdx: idx + indicator.length,
+                    indicatorWordIdx
                 });
             }
         }
+    }
+
+    // Second pass: pair each indicator with BOTH adjacent fodders (before and after)
+    for (const ind of preliminaryFound.sort((a, b) => a.startIdx - b.startIdx)) {
+        let fodderBefore: string | null = null;
+        let fodderBeforeIdx: number | null = null;
+        let fodderAfter: string | null = null;
+        let fodderAfterIdx: number | null = null;
+        const indWords = ind.text.split(/\s+/);
+        const indicatorEndWordIdx = ind.indicatorWordIdx + indWords.length - 1;
+
+        // Find adjacent fodder BEFORE indicator (first non-locked word before)
+        for (let i = ind.indicatorWordIdx - 1; i >= 0; i--) {
+            if (lockedSet.has(i)) continue;
+            const w = cleanText(words[i]).toLowerCase();
+            if (w.length < 2) continue;
+            fodderBefore = words[i];
+            fodderBeforeIdx = i;
+            break;
+        }
+
+        // Find adjacent fodder AFTER indicator (first non-locked word after)
+        for (let i = indicatorEndWordIdx + 1; i < words.length; i++) {
+            if (lockedSet.has(i)) continue;
+            const w = cleanText(words[i]).toLowerCase();
+            if (w.length < 2) continue;
+            fodderAfter = words[i];
+            fodderAfterIdx = i;
+            break;
+        }
+
+        found.push({
+            text: ind.text,
+            type: ind.type,
+            entry: ind.entry,
+            grade: ind.grade,
+            fodderBefore,
+            fodderBeforeIdx,
+            fodderAfter,
+            fodderAfterIdx,
+            startIdx: ind.startIdx,
+            endIdx: ind.endIdx
+        });
     }
 
     return found.sort((a, b) => a.startIdx - b.startIdx);
@@ -4156,10 +4213,39 @@ function splitAcrosticFodder(fodder: string, answer: string): {
 
 // --- MAIN PARSER ---
 
+// Parser step logger - captures each step with purpose, input, and result
+const parserLog: Array<{ step: number; purpose: string; input: any; result: any }> = [];
+let stepNum = 0;
+
+function logStep(purpose: string, input: any, result: any) {
+    stepNum++;
+    const entry = { step: stepNum, purpose, input, result };
+    parserLog.push(entry);
+    console.log(`\n=== STEP ${stepNum}: ${purpose} ===`);
+    console.log('INPUT:', JSON.stringify(input, null, 2));
+    console.log('RESULT:', JSON.stringify(result, null, 2));
+}
+
+export function getParserLog() {
+    return parserLog;
+}
+
+export function clearParserLog() {
+    parserLog.length = 0;
+    stepNum = 0;
+}
+
 export function parseClue(clue: string, knownAnswer?: string, coaching?: string[]): ParseResult {
+    clearParserLog();
+
     const wordCount = extractTargetLength(clue);
+    logStep('extractTargetLength', { clue }, { wordCount });
+
     const cleanClue = getClueWithoutCount(clue);
+    logStep('getClueWithoutCount', { clue }, { cleanClue });
+
     const clueWords = getClueWords(clue);
+    logStep('getClueWords', { clue }, { clueWords });
 
     // NEW FLOW: Find definition FIRST, lock those words, then find indicators
     let definition: string;
@@ -4171,6 +4257,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     // Step 1: If we have the answer, find definition first using synonym matching
     if (knownAnswer) {
         const defFirst = findDefinitionFirst(clue, knownAnswer);
+        logStep('findDefinitionFirst', { clue, knownAnswer }, defFirst);
         if (defFirst) {
             definition = defFirst.definition;
             defPosition = defFirst.position;
@@ -4181,12 +4268,63 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     }
 
     // Step 2: Find indicators, excluding locked definition words
-    const indicators = findIndicators(cleanClue, lockedWordIndices);
+    let indicators = findIndicators(cleanClue, lockedWordIndices);
+    logStep('findIndicators', { cleanClue, lockedWordIndices }, indicators);
+
+    // Step 2b: Validate anagram indicators - if fodder can't anagram to answer, remove them
+    // Skip validation if:
+    // - Deletion indicators present (they modify fodder)
+    // - No definition found yet (we don't know fodder boundaries)
+    const hasDeletionIndicators = indicators.some(i =>
+        i.type === 'deletion_first' || i.type === 'deletion_last' ||
+        i.entry.letterOp === 'first' || i.entry.letterOp === 'last'
+    );
+    const hasDefinition = lockedWordIndices.length > 0;
+
+    if (knownAnswer && indicators.some(i => i.type === 'anagram') && !hasDeletionIndicators && hasDefinition) {
+        const answerClean = normalizeAnswer(knownAnswer);
+        const answerLettersSorted = answerClean.split('').sort().join('');
+
+        const validatedIndicators = indicators.filter(ind => {
+            if (ind.type !== 'anagram') return true;  // Keep non-anagram indicators
+
+            // Get fodder words (words before the indicator, excluding definition)
+            const wordsBeforeIndicator = cleanClue.slice(0, ind.startIdx).trim();
+            const fodderLetters = wordsBeforeIndicator.replace(/[^a-zA-Z]/g, '').toUpperCase();
+            const fodderSorted = fodderLetters.split('').sort().join('');
+
+            // Check if fodder can anagram to answer
+            const isValidAnagram = fodderSorted === answerLettersSorted;
+
+            if (!isValidAnagram) {
+                logStep('validateAnagramIndicator',
+                    { indicator: ind.text, fodder: wordsBeforeIndicator, fodderLetters, answerClean, fodderSorted, answerLettersSorted },
+                    { valid: false, reason: 'Fodder letters do not match answer letters' });
+            }
+
+            return isValidAnagram;
+        });
+
+        if (validatedIndicators.length < indicators.length) {
+            logStep('filterInvalidAnagramIndicators',
+                { originalIndicators: indicators, validatedIndicators },
+                { removed: indicators.filter(i => !validatedIndicators.includes(i)).map(i => i.text) });
+            indicators = validatedIndicators;
+        }
+    } else if (indicators.some(i => i.type === 'anagram') && (hasDeletionIndicators || !hasDefinition)) {
+        const reason = hasDeletionIndicators
+            ? 'Deletion indicators present - fodder will be modified'
+            : 'No definition found - fodder boundaries unknown';
+        logStep('skipAnagramValidation',
+            { reason },
+            { keptIndicators: indicators.map(i => i.text) });
+    }
 
     // Always try double definition first - it should take priority even if indicators are found
     // because words like "in", "out", "or" can be parts of definition phrases
     if (knownAnswer) {
         const doubleDef = tryDoubleDefinition(clue, knownAnswer);
+        logStep('tryDoubleDefinition', { clue, knownAnswer }, doubleDef);
         if (doubleDef?.success) {
             const variables: Record<string, string> = {
                 'def_text': doubleDef.def1,
@@ -4293,6 +4431,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
                 const wordplayText = wordplayWords.join(' ');
                 const charade = tryCharadeSplit(wordplayText, knownAnswer);
+                logStep('tryCharadeSplit', { wordplayText, knownAnswer, defText, position }, charade);
 
                 if (charade?.success) {
                     // Check if definition has a cryptic meaning hint
@@ -4416,6 +4555,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
         const wordplayTextForComposite = wordplayWordsForComposite.join(' ');
         const composite = tryCompositeCharade(wordplayTextForComposite, knownAnswer, indicators);
+        logStep('tryCompositeCharade', { wordplayText: wordplayTextForComposite, knownAnswer, indicators, definition, defPosition }, composite);
 
         if (composite?.success) {
             const variables: Record<string, string> = {

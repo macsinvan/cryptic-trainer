@@ -71,6 +71,18 @@ Claude: [makes the edit]
 ❌ Make multiple file edits without checking in
 ❌ Assume approval from previous session
 ❌ Skip the summary step
+❌ **NO HALLUCINATION** - Do not guess or make things up to fit. If you do not have facts to back something up, say "I do not know"
+
+---
+
+## COMPLETION VERIFICATION
+
+❌ Do NOT self-report "done" without verification
+✅ Run tests to prove completion
+✅ Define success criteria BEFORE starting
+✅ Keep working until criteria are met, not until it "feels done"
+
+**Binary done check:** Can you run a test that proves the task is complete? YES/NO
 
 ---
 
@@ -158,4 +170,53 @@ This reduces exponential search to a manageable set.
 
 ---
 
-*Last updated: 2026-01-05*
+## DEBUGGING CLUE IMPORT PARSING
+
+When a clue fails to parse correctly, follow this process:
+
+### Step 1: Run the Import
+
+```
+npx tsx test-clue.ts "Clue text here (N)" "ANSWER"
+```
+
+### Step 2: Show Clue and Steps
+
+Display EVERY parsing step. Show raw data, no interpretation.
+
+For each step show:
+
+| Field | Description |
+|-------|-------------|
+| **Function** | Name of the function called |
+| **Inputs** | All parameters passed to the function |
+| **Logic** | What the function does (plain English) |
+| **Output** | The return value |
+
+**IMPORTANT:**
+- Show ALL steps. Do not summarize or skip steps.
+- Steps must be real function calls, not debug placeholders like "Starting..."
+
+### Example Output
+
+```
+=== STEP 1: findDefinitionFirst ===
+Function: findDefinitionFirst
+Inputs: { clue: "...", knownAnswer: "CASHCARDS" }
+Logic: Search for synonym match between clue words and answer
+Output: { definition: "means to get ready", position: "END" }
+
+=== STEP 2: findIndicators ===
+Function: findIndicators
+Inputs: { cleanClue: "...", lockedWordIndices: [5,6,7,8] }
+Logic: Scan for indicator words, skip locked definition indices
+Output: [{ text: "mostly", type: "deletion_last" }, ...]
+```
+
+### Step 3: Identify Failure Point
+
+Find the step where output diverges from expected behavior.
+
+---
+
+*Last updated: 2026-01-07*

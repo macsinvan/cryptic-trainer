@@ -9,6 +9,7 @@ export type OperationType = 'deletion_first' | 'deletion_last' | 'anagram' | 're
 
 export interface IndicatorEntry {
     type: OperationType;
+    grade?: number;  // Confidence 1-10: 10=definite indicator, 5=likely, 1=weak/ambiguous
     synonymRequired?: boolean;  // Does fodder typically need synonym first?
     letterOp?: 'first' | 'last' | 'ends' | 'middle' | 'alternate';  // For extractions
     letterCount?: number;  // Number of letters to extract (e.g., 3 for "leading trio")
@@ -269,9 +270,9 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'jumping': { type: 'anagram' },
     'leaping': { type: 'anagram' },
     'bounding': { type: 'anagram' },
-    'springing': { type: 'anagram' },
-    'flying': { type: 'anagram' },
-    'soaring': { type: 'anagram' },
+    'springing': { type: 'anagram', grade: 7 },
+    'flying': { type: 'anagram', grade: 7 },  // Often legit but can be surface
+    'soaring': { type: 'anagram', grade: 6 },
     'dashing': { type: 'anagram' },
     'rushing': { type: 'anagram' },
     'hurrying': { type: 'anagram' },
@@ -557,9 +558,9 @@ export const INDICATOR_DICTIONARY: Record<string, IndicatorEntry> = {
     'sloshed': { type: 'anagram' },
     'tipsy': { type: 'anagram' },
     'tight': { type: 'anagram' },
-    'stoned': { type: 'anagram' },
-    'high': { type: 'anagram' },
-    'wasted': { type: 'anagram' },
+    'stoned': { type: 'anagram', grade: 7 },
+    // 'high' removed - too ambiguous, often part of definition (e.g., "high-flying lady")
+    'wasted': { type: 'anagram', grade: 8 },
     'trashed': { type: 'anagram' },
     'totalled': { type: 'anagram' },
     'demolished': { type: 'anagram' },
