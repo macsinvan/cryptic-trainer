@@ -45,19 +45,11 @@ INPUT: {
 }
 RESULT: [
   {
-    "text": "high",
-    "type": "anagram",
-    "entry": {
-      "type": "anagram"
-    },
-    "startIdx": 28,
-    "endIdx": 32
-  },
-  {
     "text": "flying",
     "type": "anagram",
     "entry": {
-      "type": "anagram"
+      "type": "anagram",
+      "grade": 7
     },
     "startIdx": 33,
     "endIdx": 39
@@ -75,7 +67,7 @@ RESULT: null
 INPUT: {
   "wordplayText": "Period with old chap suited",
   "knownAnswer": "SPACEWOMEN",
-  "indicatorCount": 2
+  "indicatorCount": 1
 }
 RESULT: {
   "parts": [
