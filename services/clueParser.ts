@@ -4216,7 +4216,13 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     logStep('findIndicators', { cleanClue, lockedWordIndices }, indicators);
 
     // Step 2b: Validate anagram indicators - if fodder can't anagram to answer, remove them
-    if (knownAnswer && indicators.some(i => i.type === 'anagram')) {
+    // Skip validation if deletion indicators present - they modify fodder, making simple letter comparison invalid
+    const hasDeletionIndicators = indicators.some(i =>
+        i.type === 'deletion_first' || i.type === 'deletion_last' ||
+        i.entry.letterOp === 'first' || i.entry.letterOp === 'last'
+    );
+
+    if (knownAnswer && indicators.some(i => i.type === 'anagram') && !hasDeletionIndicators) {
         const answerClean = normalizeAnswer(knownAnswer);
         const answerLettersSorted = answerClean.split('').sort().join('');
 
@@ -4246,6 +4252,10 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
                 { removed: indicators.filter(i => !validatedIndicators.includes(i)).map(i => i.text) });
             indicators = validatedIndicators;
         }
+    } else if (hasDeletionIndicators && indicators.some(i => i.type === 'anagram')) {
+        logStep('skipAnagramValidation',
+            { reason: 'Deletion indicators present - fodder will be modified' },
+            { keptIndicators: indicators.map(i => i.text) });
     }
 
     // Always try double definition first - it should take priority even if indicators are found
