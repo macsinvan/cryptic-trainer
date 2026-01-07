@@ -4156,10 +4156,39 @@ function splitAcrosticFodder(fodder: string, answer: string): {
 
 // --- MAIN PARSER ---
 
+// Parser step logger - captures each step with purpose, input, and result
+const parserLog: Array<{ step: number; purpose: string; input: any; result: any }> = [];
+let stepNum = 0;
+
+function logStep(purpose: string, input: any, result: any) {
+    stepNum++;
+    const entry = { step: stepNum, purpose, input, result };
+    parserLog.push(entry);
+    console.log(`\n=== STEP ${stepNum}: ${purpose} ===`);
+    console.log('INPUT:', JSON.stringify(input, null, 2));
+    console.log('RESULT:', JSON.stringify(result, null, 2));
+}
+
+export function getParserLog() {
+    return parserLog;
+}
+
+export function clearParserLog() {
+    parserLog.length = 0;
+    stepNum = 0;
+}
+
 export function parseClue(clue: string, knownAnswer?: string, coaching?: string[]): ParseResult {
+    clearParserLog();
+
     const wordCount = extractTargetLength(clue);
+    logStep('Extract target length from clue', { clue }, { wordCount });
+
     const cleanClue = getClueWithoutCount(clue);
+    logStep('Remove word count from clue', { clue }, { cleanClue });
+
     const clueWords = getClueWords(clue);
+    logStep('Tokenize clue into words', { clue }, { clueWords });
 
     // NEW FLOW: Find definition FIRST, lock those words, then find indicators
     let definition: string;
@@ -4171,6 +4200,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
     // Step 1: If we have the answer, find definition first using synonym matching
     if (knownAnswer) {
         const defFirst = findDefinitionFirst(clue, knownAnswer);
+        logStep('Find definition using synonym matching', { clue, knownAnswer }, defFirst);
         if (defFirst) {
             definition = defFirst.definition;
             defPosition = defFirst.position;
@@ -4182,11 +4212,13 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
     // Step 2: Find indicators, excluding locked definition words
     const indicators = findIndicators(cleanClue, lockedWordIndices);
+    logStep('Find wordplay indicators', { cleanClue, lockedWordIndices }, indicators);
 
     // Always try double definition first - it should take priority even if indicators are found
     // because words like "in", "out", "or" can be parts of definition phrases
     if (knownAnswer) {
         const doubleDef = tryDoubleDefinition(clue, knownAnswer);
+        logStep('Try double definition pattern', { clue, knownAnswer }, doubleDef);
         if (doubleDef?.success) {
             const variables: Record<string, string> = {
                 'def_text': doubleDef.def1,
@@ -4293,6 +4325,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
                 const wordplayText = wordplayWords.join(' ');
                 const charade = tryCharadeSplit(wordplayText, knownAnswer);
+                logStep('Try charade split (no indicators path)', { wordplayText, knownAnswer }, charade);
 
                 if (charade?.success) {
                     // Check if definition has a cryptic meaning hint
@@ -4416,6 +4449,7 @@ export function parseClue(clue: string, knownAnswer?: string, coaching?: string[
 
         const wordplayTextForComposite = wordplayWordsForComposite.join(' ');
         const composite = tryCompositeCharade(wordplayTextForComposite, knownAnswer, indicators);
+        logStep('Try composite charade', { wordplayText: wordplayTextForComposite, knownAnswer, indicatorCount: indicators.length }, composite);
 
         if (composite?.success) {
             const variables: Record<string, string> = {
