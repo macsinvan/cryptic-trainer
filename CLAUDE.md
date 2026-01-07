@@ -75,6 +75,17 @@ Claude: [makes the edit]
 
 ---
 
+## COMPLETION VERIFICATION
+
+❌ Do NOT self-report "done" without verification
+✅ Run tests to prove completion
+✅ Define success criteria BEFORE starting
+✅ Keep working until criteria are met, not until it "feels done"
+
+**Binary done check:** Can you run a test that proves the task is complete? YES/NO
+
+---
+
 ## DESIGN DOCUMENTATION
 
 | Document | Purpose |
