@@ -1,0 +1,89 @@
+
+=== STEP 1: Extract target length from clue ===
+INPUT: {
+  "clue": "Period with old chap suited high-flying lady (10)"
+}
+RESULT: {
+  "wordCount": 10
+}
+
+=== STEP 2: Remove word count from clue ===
+INPUT: {
+  "clue": "Period with old chap suited high-flying lady (10)"
+}
+RESULT: {
+  "cleanClue": "Period with old chap suited high-flying lady"
+}
+
+=== STEP 3: Tokenize clue into words ===
+INPUT: {
+  "clue": "Period with old chap suited high-flying lady (10)"
+}
+RESULT: {
+  "clueWords": [
+    "Period",
+    "with",
+    "old",
+    "chap",
+    "suited",
+    "high-flying",
+    "lady"
+  ]
+}
+
+=== STEP 4: Find definition using synonym matching ===
+INPUT: {
+  "clue": "Period with old chap suited high-flying lady (10)",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: null
+
+=== STEP 5: Find wordplay indicators ===
+INPUT: {
+  "cleanClue": "Period with old chap suited high-flying lady",
+  "lockedWordIndices": []
+}
+RESULT: [
+  {
+    "text": "high",
+    "type": "anagram",
+    "entry": {
+      "type": "anagram"
+    },
+    "startIdx": 28,
+    "endIdx": 32
+  },
+  {
+    "text": "flying",
+    "type": "anagram",
+    "entry": {
+      "type": "anagram"
+    },
+    "startIdx": 33,
+    "endIdx": 39
+  }
+]
+
+=== STEP 6: Try double definition pattern ===
+INPUT: {
+  "clue": "Period with old chap suited high-flying lady (10)",
+  "knownAnswer": "SPACEWOMEN"
+}
+RESULT: null
+
+=== STEP 7: Try composite charade ===
+INPUT: {
+  "wordplayText": "Period with old chap suited",
+  "knownAnswer": "SPACEWOMEN",
+  "indicatorCount": 2
+}
+RESULT: {
+  "parts": [
+    {
+      "text": "Period + with + old + chap",
+      "result": "SPACEWOMEN",
+      "operation": "anagram of SPACEWOMEN"
+    }
+  ],
+  "success": true
+}
