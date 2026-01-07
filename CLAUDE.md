@@ -181,7 +181,9 @@ For each step show:
 | **Logic** | What the function does (plain English) |
 | **Output** | The return value |
 
-**IMPORTANT:** Show ALL steps. Do not summarize or skip steps.
+**IMPORTANT:**
+- Show ALL steps. Do not summarize or skip steps.
+- Steps must be real function calls, not debug placeholders like "Starting..."
 
 ### Example Output
 

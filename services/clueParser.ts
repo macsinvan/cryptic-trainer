@@ -4180,7 +4180,6 @@ export function clearParserLog() {
 
 export function parseClue(clue: string, knownAnswer?: string, coaching?: string[]): ParseResult {
     clearParserLog();
-    logStep('parseClue', { clue, knownAnswer, coaching }, 'Starting...');
 
     const wordCount = extractTargetLength(clue);
     logStep('extractTargetLength', { clue }, { wordCount });
