@@ -2,44 +2,58 @@
 
 A training app for learning to solve Times-style cryptic crosswords.
 
+## Architecture
+
+The system has two components:
+
+1. **Python Solver** (`cryptic_trainer_bundle/`) - Constraint-first solver with traceable proofs
+2. **React UI** (`relaxed-lamarr/`) - Training interface that displays solver output
+
+**Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
+
 ## Quick Start
 
 ```bash
+# Terminal 1: Start Python solver
+cd cryptic_trainer_bundle
+python3 server.py
+
+# Terminal 2: Start React UI
+cd relaxed-lamarr
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173
+Open http://localhost:3000
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| `CLAUDE_RULES.md` | Interactive protocol for AI assistance |
-| `MASTER_APP_SPECIFICATION.md` | Full application specification |
-| `parser_updates.md` | Parser architecture & explanation templates |
+| `cryptic_trainer_bundle/DESIGN_SPEC.md` | Python solver design & training workflow |
+| `CLAUDE.md` | Interactive protocol for AI assistance |
 | `INTERACTIVE_SOLVE_FLOW.md` | Solve UI step-by-step specification |
-
-## Architecture
-
-**Golden Rule:** All processing happens at import time. The solve session never calls AI.
-
-- **Parser** (`services/clueParser.ts`) - Deterministic clue parsing
-- **UI** (`components/`) - Dumb rendering, reads pre-computed values
-- **Data** (`data/synonymDictionary.ts`) - 350+ synonym mappings
 
 ## Testing
 
 ```bash
-npx tsx test-regression.ts     # Run import regression tests
-npx tsx test-clue-import.ts    # Test single clue parser output
-npx tsc --noEmit               # Type check
+# Test Python solver
+cd cryptic_trainer_bundle
+python3 cryptic_trainer.py solve --clue "Cross about Scottish inventor being guest announcer" --length 8 --pretty
+
+# Test against scraped puzzles
+python3 puzzle_tester.py puzzle.json --stop-on-fail
+
+# Build React UI
+cd relaxed-lamarr
+npm run build
 ```
 
-## Supported Pattern Types
+## Training Workflow
 
-- Anagram, Reversal, Hidden Word
-- Charade, Double Definition
-- Container, Deletion
-- Acrostic, Letter Movement
-- Homophone, Substitution
+See `cryptic_trainer_bundle/DESIGN_SPEC.md` for the full workflow:
+
+1. Scrape clues from Times for the Times
+2. Run cold test against solver
+3. Fix gaps (add synonyms, indicators, phrases)
+4. Add to regression, repeat

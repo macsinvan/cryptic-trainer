@@ -38,51 +38,36 @@ Before editing ANY file, you MUST:
 
 ---
 
-## EXAMPLE WORKFLOW
-
-```
-User: "The definition is showing at the wrong position"
-
-Claude: "My understanding: The definition position is displaying incorrectly
-in the UI.
-
-Let me investigate the root cause...
-
-[reads files, searches code]
-
-Root cause: The `definition_position` variable isn't being passed to
-computeDerivedFields().
-
-Fix: Add `definition_position` to the variables object in clueParser.ts
-line 3448.
-
-Want me to go ahead?"
-
-User: "go"
-
-Claude: [makes the edit]
-```
-
----
-
 ## WHAT NOT TO DO
 
-❌ Start editing without explaining what you'll change
-❌ Make multiple file edits without checking in
-❌ Assume approval from previous session
-❌ Skip the summary step
-❌ **NO HALLUCINATION** - Do not guess or make things up to fit. If you do not have facts to back something up, say "I do not know"
+- Do not edit first and explain later
+- Do not make multiple file edits without checking in
+- Do not assume approval from previous session
+- Do not skip the summary step
+- **NO HALLUCINATION** - If you lack evidence, say "I don't know"
 
 ---
 
 ## COMPLETION VERIFICATION
 
-❌ Do NOT self-report "done" without verification
-✅ Run tests to prove completion
-✅ Define success criteria BEFORE starting
-✅ Keep working until criteria are met, not until it "feels done"
+- Do NOT self-report "done" without verification
+- Run tests to prove completion
+- Define success criteria BEFORE starting
 
 **Binary done check:** Can you run a test that proves the task is complete? YES/NO
+
+---
+
+## ARCHITECTURE
+
+The system has two components:
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Python Solver | `cryptic_trainer_bundle/` | Constraint-first solver with traceable proofs |
+| React UI | `relaxed-lamarr/` | Training interface that displays solver output |
+
+**Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
 
 ---
 
@@ -90,18 +75,16 @@ Claude: [makes the edit]
 
 | Document | Purpose |
 |----------|---------|
-| `CLAUDE_RULES.md` | This file — interactive protocol (read first) |
-| `parser_updates.md` | Parser architecture & explanation templates |
-| `MASTER_APP_SPECIFICATION.md` | Full app specification |
-| `INTERACTIVE_SOLVE_FLOW.md` | Solve UI specification |
+| `cryptic_trainer_bundle/DESIGN_SPEC.md` | Python solver design & training workflow |
+| `INTERACTIVE_SOLVE_FLOW.md` | Solve UI step-by-step specification |
 
 ---
 
 ## CORE DESIGN PRINCIPLE: NO CLUE IS LOGICALLY HARD
 
-**CRITICAL**: If you find yourself analyzing hundreds of combinations, you are on the wrong track. EXIT IMMEDIATELY.
+**CRITICAL**: If you find yourself analyzing hundreds of combinations, EXIT IMMEDIATELY.
 
-A human solver cannot compute permutations. Cryptic clues are designed to be solved by pattern recognition and positional logic, not brute force.
+Cryptic clues are solved by pattern recognition and positional logic, not brute force.
 
 ### Key Insight: Positional Information
 
@@ -115,108 +98,29 @@ Indicators tell you the RELATIONSHIP between adjacent words:
 1. STOP trying combinations
 2. Ask: "What does the indicator tell me about word positions?"
 3. Use that to constrain the search to 1-3 possibilities max
-4. If still stuck, ask the user - they can help
+4. If still stuck, ask the user
 
 ---
 
-## DEBUGGING COMPLEX CLUES (Constrained Combination Search)
+## DEBUGGING THE SOLVER
 
-When a clue times out or produces too many combinations, use this method:
+### Test a clue directly:
 
-### Step 1: Extract Known Facts
-
-From the clue, identify:
-- **Definition** → tells you the answer
-- **Answer length** → the key constraint
-
-### Step 2: Get Synonym Candidates
-
-For each wordplay piece, list the synonym results with their letter counts.
-
-### Step 3: Filter by Letter Count
-
-Only consider combinations where the letter counts sum to the answer length.
-
-**Example: TELEPROMPTER**
-
-```
-Clue: "What newsreaders read in French, the expert seducer conceals"
-Answer: TELEPROMPTER (12 letters)
-
-Pieces:
-- "in French, the" → LE (2)
-- "expert" → PRO (3)
-- "seducer" → TEMPTER (7)
-
-Check: 2 + 3 + 7 = 12 ✓
-
-Result: Only test this ONE combination instead of thousands.
+```bash
+cd cryptic_trainer_bundle
+python3 cryptic_trainer.py solve --clue "Clue text here" --length 8 --pretty
 ```
 
-### Step 4: Implement in Parser
+### Test against scraped puzzles:
 
-The parser should:
-1. Calculate answer length from definition match
-2. Get all synonym candidates with their lengths
-3. Prune combinations that can't possibly sum to answer length
-4. Only test remaining (few) combinations
+```bash
+python3 puzzle_tester.py puzzle.json --stop-on-fail
+```
 
-This reduces exponential search to a manageable set.
+### Training workflow:
 
-### Phase 4: Commit
-
-1. Run full regression: `npx tsx test-regression.ts`
-2. Commit with count: "feat: Add N clues (X required code changes)"
+See `cryptic_trainer_bundle/DESIGN_SPEC.md` for the full Times for the Times workflow.
 
 ---
 
-## DEBUGGING CLUE IMPORT PARSING
-
-When a clue fails to parse correctly, follow this process:
-
-### Step 1: Run the Import
-
-```
-npx tsx test-clue.ts "Clue text here (N)" "ANSWER"
-```
-
-### Step 2: Show Clue and Steps
-
-Display EVERY parsing step. Show raw data, no interpretation.
-
-For each step show:
-
-| Field | Description |
-|-------|-------------|
-| **Function** | Name of the function called |
-| **Inputs** | All parameters passed to the function |
-| **Logic** | What the function does (plain English) |
-| **Output** | The return value |
-
-**IMPORTANT:**
-- Show ALL steps. Do not summarize or skip steps.
-- Steps must be real function calls, not debug placeholders like "Starting..."
-
-### Example Output
-
-```
-=== STEP 1: findDefinitionFirst ===
-Function: findDefinitionFirst
-Inputs: { clue: "...", knownAnswer: "CASHCARDS" }
-Logic: Search for synonym match between clue words and answer
-Output: { definition: "means to get ready", position: "END" }
-
-=== STEP 2: findIndicators ===
-Function: findIndicators
-Inputs: { cleanClue: "...", lockedWordIndices: [5,6,7,8] }
-Logic: Scan for indicator words, skip locked definition indices
-Output: [{ text: "mostly", type: "deletion_last" }, ...]
-```
-
-### Step 3: Identify Failure Point
-
-Find the step where output diverges from expected behavior.
-
----
-
-*Last updated: 2026-01-07*
+*Last updated: 2026-01-08*
