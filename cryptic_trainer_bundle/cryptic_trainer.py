@@ -1886,7 +1886,9 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         LEARNED_CACHE_STATS["solves_attempted"] = LEARNED_CACHE_STATS.get("solves_attempted", 0) + 1
         _save_cache_stats()
 
-    tokens = tokenize(clue)
+    # Strip trailing enumeration before tokenizing (e.g., "(5)", "(3,6)", "(7-3)")
+    clue_text = re.sub(r'\s*\([0-9,\-]+\)\s*$', '', clue)
+    tokens = tokenize(clue_text)
 
     # Build full expansion map first
     exmap = all_expansions(tokens)
