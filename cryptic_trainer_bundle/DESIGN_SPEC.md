@@ -217,37 +217,76 @@ This is the **primary debugging tool**.
 
 ---
 
-## Iterative Learning Workflow
+## Training Workflow: Times for the Times
 
-### Step 1: Add training clue
-Append to `clue_pool.json`:
-- id
-- clue text
-- length
-- expected answer (spaces removed)
+The solver is trained using real clues scraped from the Times for the Times blog (https://timesforthetimes.co.uk/). This provides ground truth including definitions (from underline markup) and wordplay explanations.
 
-### Step 2: Run regression
-`python regress.py`
+### Step 1: Scrape Ground Truth
 
-### Step 3: Inspect failures
-For a failure, run:
-`python cryptic_trainer.py "<clue>" <len> --known-answer <ANSWER> --trace trace.json`
+```bash
+python puzzle_scraper.py https://timesforthetimes.co.uk/times-29431-just-right --output puzzle.json
+```
 
-Look for:
-- missing indicator hit?
-- modifier not applied?
-- frame not generated?
-- missing lexicon entry for a standard abbrev/phrase?
+This extracts:
+- Clue text with enumeration
+- Answer (from `<strong>` tags)
+- Definition (from underlined markup)
+- Definition position (start/end)
+- Wordplay explanation
 
-### Step 4: Patch minimal gap
-Only one category of patch at a time:
-- add indicator mapping
-- add a small lexicon entry
-- expand a frame generator (e.g., allow 2-word container indicators)
-- never “solve by guessing”
+### Step 2: Run Cold Test
 
-### Step 5: Re-run regression
-Goal: regression stays green for the entire pool.
+```bash
+python puzzle_tester.py puzzle.json --stop-on-fail
+```
+
+Tests the solver against each clue using **only the clue text** (no answer hints). Compares output to scraped ground truth.
+
+### Step 3: Analyze First Failure
+
+When a clue fails, examine:
+- Did solver find the correct answer in candidates?
+- Is the answer ranked #1?
+- Does definition match?
+
+Run detailed trace if needed:
+```bash
+python cryptic_trainer.py solve --clue "Clue text here" --length 8 --pretty
+```
+
+### Step 4: Fix the Gap (One Minimal Fix)
+
+Only one category of patch per cycle:
+- Add missing synonym to `SYNONYMS` (e.g., `"cross": ["ROOD"]`)
+- Add missing abbreviation to `ABBREVS` (e.g., `"part": ["PT"]`)
+- Add missing phrase to `PHRASES` (e.g., `"guest announcer": ["DOORBELL"]`)
+- Add missing indicator to indicator sets (e.g., `"ruined"` to `ANAGRAM_1`)
+- Fix parser logic if needed (e.g., bidirectional anagram fodder)
+
+**Key Principle**: Never "teach the answer" — fix the solver to derive it from the clue using legitimate cryptic logic.
+
+### Step 5: Add to Regression
+
+Add passing clue to `regression_cases.json`:
+```json
+{
+  "clue": "Cross about Scottish inventor being guest announcer (8)",
+  "length": 8,
+  "expected_answer": "DOORBELL"
+}
+```
+
+### Step 6: Verify Regression
+
+```bash
+python cryptic_trainer.py solve --clue "..." --length N
+```
+
+Ensure all existing tests still pass.
+
+### Step 7: Repeat
+
+Move to next failing clue. Iterate until puzzle passes.
 
 ---
 
