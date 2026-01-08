@@ -39,36 +39,78 @@ from collections import defaultdict
 AI_SYNONYM_CACHE: Dict[Tuple[str, int], List[str]] = {}  # Session cache for AI results
 AI_LOOKUP_ENABLED = True  # Set to False to disable AI lookups
 
-# Learned synonyms - persisted to file, only contains validated synonyms
+# Learned synonyms & abbreviations - persisted to file, only contains validated entries
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEARNED_SYNONYMS_FILE = os.path.join(_SCRIPT_DIR, "learned_synonyms.json")
-LEARNED_SYNONYMS_STATS_FILE = os.path.join(_SCRIPT_DIR, "learned_synonyms_stats.json")
+LEARNED_ABBREVS_FILE = os.path.join(_SCRIPT_DIR, "learned_abbreviations.json")
+LEARNED_CACHE_STATS_FILE = os.path.join(_SCRIPT_DIR, "learned_cache_stats.json")
 LEARNED_SYNONYMS: Dict[str, List[str]] = {}  # word -> [validated synonyms]
-LEARNED_SYNONYMS_STATS: Dict[str, int] = {"cache_hits": 0, "ai_lookups": 0}
+LEARNED_ABBREVS: Dict[str, List[str]] = {}  # word -> [validated abbreviations]
+LEARNED_CACHE_STATS: Dict[str, int] = {
+    "solves_attempted": 0, "solves_passed": 0, "solves_no_ai": 0,  # cold solve stats
+    "syn_hits": 0, "syn_lookups": 0,  # synonym cache stats
+    "abbr_hits": 0, "abbr_lookups": 0,  # abbreviation cache stats
+    "total_ai_queries": 0  # cumulative AI queries across all solves
+}
+# Per-solve AI query counter (reset each solve)
+_SOLVE_AI_QUERIES = 0
 
-def load_learned_synonyms() -> None:
-    """Load validated synonyms and stats from persistent files."""
-    global LEARNED_SYNONYMS, LEARNED_SYNONYMS_STATS
+def load_learned_cache() -> None:
+    """Load validated synonyms, abbreviations and stats from persistent files."""
+    global LEARNED_SYNONYMS, LEARNED_ABBREVS, LEARNED_CACHE_STATS
     if os.path.exists(LEARNED_SYNONYMS_FILE):
         try:
             with open(LEARNED_SYNONYMS_FILE, 'r') as f:
                 LEARNED_SYNONYMS = json.load(f)
         except Exception:
             LEARNED_SYNONYMS = {}
-    if os.path.exists(LEARNED_SYNONYMS_STATS_FILE):
+    if os.path.exists(LEARNED_ABBREVS_FILE):
         try:
-            with open(LEARNED_SYNONYMS_STATS_FILE, 'r') as f:
-                LEARNED_SYNONYMS_STATS = json.load(f)
+            with open(LEARNED_ABBREVS_FILE, 'r') as f:
+                LEARNED_ABBREVS = json.load(f)
         except Exception:
-            LEARNED_SYNONYMS_STATS = {"cache_hits": 0, "ai_lookups": 0}
+            LEARNED_ABBREVS = {}
+    if os.path.exists(LEARNED_CACHE_STATS_FILE):
+        try:
+            with open(LEARNED_CACHE_STATS_FILE, 'r') as f:
+                LEARNED_CACHE_STATS = json.load(f)
+        except Exception:
+            LEARNED_CACHE_STATS = {"solves_attempted": 0, "solves_passed": 0, "solves_no_ai": 0, "syn_hits": 0, "syn_lookups": 0, "abbr_hits": 0, "abbr_lookups": 0, "total_ai_queries": 0}
 
-def _save_stats() -> None:
+def _save_cache_stats() -> None:
     """Save stats to persistent file."""
     try:
-        with open(LEARNED_SYNONYMS_STATS_FILE, 'w') as f:
-            json.dump(LEARNED_SYNONYMS_STATS, f, indent=2)
+        with open(LEARNED_CACHE_STATS_FILE, 'w') as f:
+            json.dump(LEARNED_CACHE_STATS, f, indent=2)
     except Exception:
         pass
+
+def get_stats_summary() -> Dict[str, Any]:
+    """Return stats summary with counts and rates."""
+    s = LEARNED_CACHE_STATS
+    attempted = s.get("solves_attempted", 0)
+    passed = s.get("solves_passed", 0)
+    no_ai = s.get("solves_no_ai", 0)
+    total_ai = s.get("total_ai_queries", 0)
+    total_hits = s.get("syn_hits", 0) + s.get("abbr_hits", 0)
+
+    return {
+        "cold_solve": {
+            "attempted": attempted,
+            "passed": passed,
+            "pass_rate": f"{100 * passed / max(1, attempted):.1f}%",
+            "no_ai": no_ai,
+            "no_ai_rate": f"{100 * no_ai / max(1, attempted):.1f}%"
+        },
+        "ai_queries": {
+            "total": total_ai,
+            "avg_per_clue": f"{total_ai / max(1, attempted):.1f}"
+        },
+        "cache_hits": {
+            "total": total_hits,
+            "rate": f"{100 * total_hits / max(1, total_hits + total_ai):.1f}%"
+        }
+    }
 
 def save_learned_synonym(word: str, synonym: str) -> None:
     """Save a validated synonym to the persistent file."""
@@ -84,8 +126,22 @@ def save_learned_synonym(word: str, synonym: str) -> None:
         except Exception as e:
             print(f"Failed to save learned synonym: {e}", file=__import__('sys').stderr)
 
-# Load learned synonyms at module import
-load_learned_synonyms()
+def save_learned_abbrev(word: str, abbrev: str) -> None:
+    """Save a validated abbreviation to the persistent file."""
+    word_key = word.lower()
+    abbrev_upper = abbrev.upper()
+    if word_key not in LEARNED_ABBREVS:
+        LEARNED_ABBREVS[word_key] = []
+    if abbrev_upper not in LEARNED_ABBREVS[word_key]:
+        LEARNED_ABBREVS[word_key].append(abbrev_upper)
+        try:
+            with open(LEARNED_ABBREVS_FILE, 'w') as f:
+                json.dump(LEARNED_ABBREVS, f, indent=2, sort_keys=True)
+        except Exception as e:
+            print(f"Failed to save learned abbrev: {e}", file=__import__('sys').stderr)
+
+# Load learned cache at module import
+load_learned_cache()
 
 def ai_lookup_synonyms(word: str, length: int) -> List[str]:
     """
@@ -103,26 +159,28 @@ def ai_lookup_synonyms(word: str, length: int) -> List[str]:
     if word_lower in LEARNED_SYNONYMS:
         learned = [s for s in LEARNED_SYNONYMS[word_lower] if len(s) == length]
         if learned:
-            LEARNED_SYNONYMS_STATS["cache_hits"] += 1
-            _save_stats()
+            LEARNED_CACHE_STATS["syn_hits"] += 1
+            _save_cache_stats()
             return learned
 
     # Check session cache (don't count as hit - same session)
     if cache_key in AI_SYNONYM_CACHE:
         return AI_SYNONYM_CACHE[cache_key]
 
-    # Track AI lookup (cache miss)
-    LEARNED_SYNONYMS_STATS["ai_lookups"] += 1
-    _save_stats()
-
     # Check for API key (must be non-empty)
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not anthropic_key and not openai_key:
         return []
-    api_key = anthropic_key or openai_key
 
-    prompt = f"I am trying to solve a Times UK cryptic crossword clue. I need to find candidate synonyms for '{word}' with exactly {length} letters. Return ONLY a comma-separated list of words, no explanations. If none exist, return NONE."
+    # Track AI lookup (cache miss) - only count if we actually make API call
+    global _SOLVE_AI_QUERIES
+    LEARNED_CACHE_STATS["syn_lookups"] = LEARNED_CACHE_STATS.get("syn_lookups", 0) + 1
+    LEARNED_CACHE_STATS["total_ai_queries"] = LEARNED_CACHE_STATS.get("total_ai_queries", 0) + 1
+    _SOLVE_AI_QUERIES += 1
+    _save_cache_stats()
+
+    prompt = f"For a UK cryptic crossword, give synonyms for '{word}' with exactly {length} letters. Include British slang, informal terms, and colloquial UK English. Return ONLY a comma-separated list, no explanations. If none, return NONE."
 
     try:
         if anthropic_key:
@@ -141,6 +199,66 @@ def ai_lookup_synonyms(word: str, length: int) -> List[str]:
         print(f"AI lookup failed for '{word}': {e}", file=__import__('sys').stderr)
 
     AI_SYNONYM_CACHE[cache_key] = []
+    return []
+
+AI_ABBREV_CACHE: Dict[Tuple[str, int], List[str]] = {}  # Session cache for AI abbrev results
+
+def ai_lookup_abbreviations(word: str, length: int) -> List[str]:
+    """
+    Query AI for abbreviations of a word with a specific length.
+    Checks learned (validated) abbreviations first, then falls back to AI query.
+    Returns a list of candidate abbreviations (uppercase).
+    """
+    if not AI_LOOKUP_ENABLED:
+        return []
+
+    word_lower = word.lower()
+    cache_key = (word_lower, length)
+
+    # Check learned abbreviations first (these are validated)
+    if word_lower in LEARNED_ABBREVS:
+        learned = [a for a in LEARNED_ABBREVS[word_lower] if len(a) == length]
+        if learned:
+            LEARNED_CACHE_STATS["abbr_hits"] += 1
+            _save_cache_stats()
+            return learned
+
+    # Check session cache (don't count as hit - same session)
+    if cache_key in AI_ABBREV_CACHE:
+        return AI_ABBREV_CACHE[cache_key]
+
+    # Check for API key (must be non-empty)
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not anthropic_key and not openai_key:
+        return []
+
+    # Track AI lookup (cache miss) - only count if we actually make API call
+    global _SOLVE_AI_QUERIES
+    LEARNED_CACHE_STATS["abbr_lookups"] = LEARNED_CACHE_STATS.get("abbr_lookups", 0) + 1
+    LEARNED_CACHE_STATS["total_ai_queries"] = LEARNED_CACHE_STATS.get("total_ai_queries", 0) + 1
+    _SOLVE_AI_QUERIES += 1
+    _save_cache_stats()
+
+    prompt = f"In Times UK cryptic crosswords, what are common abbreviations for '{word}' that are exactly {length} letter(s)? Return ONLY a comma-separated list of abbreviations, no explanations. If none exist, return NONE."
+
+    try:
+        if anthropic_key:
+            results = _call_anthropic(prompt, anthropic_key)
+        else:
+            results = _call_openai(prompt, openai_key)
+
+        # Parse results
+        if results and results.upper() != "NONE":
+            abbrevs = [a.strip().upper() for a in results.split(",") if a.strip()]
+            # Filter to exact length
+            abbrevs = [a for a in abbrevs if len(a) == length and a.isalpha()]
+            AI_ABBREV_CACHE[cache_key] = abbrevs
+            return abbrevs
+    except Exception as e:
+        print(f"AI abbrev lookup failed for '{word}': {e}", file=__import__('sys').stderr)
+
+    AI_ABBREV_CACHE[cache_key] = []
     return []
 
 def _call_anthropic(prompt: str, api_key: str) -> Optional[str]:
@@ -287,7 +405,7 @@ CONTAINER_1 = {
     "entertaining", "hiding", "house", "interrupts", "covers", "conceals",
 }
 
-REVERSAL_1 = {"return", "returned", "back", "backwards", "reversed", "up", "about"}  # 'up' for downs, 'about' = turning
+REVERSAL_1 = {"return", "returned", "back", "backing", "backwards", "reversed", "up", "about"}  # 'up' for downs, 'about' = turning
 
 ANAGRAM_1 = {"wild", "mad", "crazily", "broken", "mixed", "drunk", "odd", "high", "flying", "about", "ruined", "damaged", "wrecked", "smashed"}  # not exhaustive
 
@@ -506,6 +624,33 @@ def augment_with_ai_synonyms(tokens: List[str], exmap: Dict[Tuple[int,int], List
             ai_syns = ai_lookup_synonyms(t, length)
             for syn in ai_syns:
                 exmap[span].append((syn, f"ai_syn:{t}"))
+
+def augment_with_ai_abbreviations(tokens: List[str], exmap: Dict[Tuple[int,int], List[Tuple[str,str]]], target_length: int) -> None:
+    """
+    Augment expansion map with AI abbreviation lookups for tokens that have no lexicon abbreviation.
+    """
+    if not AI_LOOKUP_ENABLED:
+        return
+
+    for i, tok in enumerate(tokens):
+        span = (i, i+1)
+        existing = exmap.get(span, [])
+
+        # Skip if we already have abbreviation expansions
+        has_abbrev = any(prov.startswith("abbrev:") for _, prov in existing)
+        if has_abbrev:
+            continue
+
+        t = tok.lower()
+        # Skip very short words (unlikely to have abbreviations)
+        if len(t) < 4:
+            continue
+
+        # Query AI for short abbreviations (1-3 letters typical)
+        for length in range(1, min(4, target_length + 1)):
+            ai_abbrevs = ai_lookup_abbreviations(t, length)
+            for abbrev in ai_abbrevs:
+                exmap[span].append((abbrev, f"ai_abbrev:{t}"))
 
 def apply_local_modifiers(tokens: List[str], exmap: Dict[Tuple[int,int], List[Tuple[str,str]]]) -> None:
     """Apply 1-word modifiers like 'extremely' to the immediately following single-token span."""
@@ -1374,6 +1519,9 @@ def _best_end_definition(tokens: List[str], used: List[bool], indicator_spans: O
     if n == 0:
         return {"text": None, "span": None, "side": None, "confidence": 0.0, "rationale": "no tokens"}
 
+    # Invalid starting words for definitions
+    INVALID_DEF_STARTS = {"and", "or", "but", "is", "are", "was", "were", "of", "in", "with", "for", "to", "from"}
+
     prefer_right = None
     if indicator_spans:
         mid = sum((a + b) / 2 for a, b in indicator_spans) / len(indicator_spans)
@@ -1381,6 +1529,8 @@ def _best_end_definition(tokens: List[str], used: List[bool], indicator_spans: O
 
     def left_candidate(k: int):
         if n >= k and not any(used[i] for i in range(0, k)):
+            if tokens[0].lower() in INVALID_DEF_STARTS:
+                return None
             return {
                 "text": " ".join(tokens[0:k]),
                 "span": [0, k],
@@ -1392,6 +1542,8 @@ def _best_end_definition(tokens: List[str], used: List[bool], indicator_spans: O
 
     def right_candidate(k: int):
         if n >= k and not any(used[i] for i in range(n - k, n)):
+            if tokens[n - k].lower() in INVALID_DEF_STARTS:
+                return None
             return {
                 "text": " ".join(tokens[n - k:n]),
                 "span": [n - k, n],
@@ -1597,13 +1749,239 @@ def build_analysis_result(clue: str, enumeration: str, length: int, tokens: List
     }
 
 
+def _get_definition_candidates(tokens: List[str], indicator_spans: List[List[int]] = None, log: bool = False) -> List[Dict[str, Any]]:
+    """
+    Return valid definition candidates using prioritized logic:
+    1. Primary: Single-word definition at opposite end from indicators
+    2. Secondary: Multi-word definition (2-3 words)
+    3. Fallback 1: Cryptic definition (deferred to caller)
+    4. Fallback 2: Double definition (no indicators, split clue)
+    """
+    import sys
+    def _log(msg):
+        if log:
+            print(f"[DEF] {msg}", file=sys.stderr)
+
+    INVALID_DEF_STARTS = {"and", "or", "but", "is", "are", "was", "were", "of", "in", "with", "for", "to", "from"}
+    n = len(tokens)
+
+    _log(f"Tokens: {tokens}")
+    _log(f"Indicator spans: {indicator_spans}")
+
+    # Determine preferred side based on indicator position
+    prefer_right = None
+    if indicator_spans:
+        mid = sum((a + b) / 2 for a, b in indicator_spans) / len(indicator_spans)
+        prefer_right = (mid < n / 2)  # indicators in left half -> prefer right definition
+        _log(f"Indicator midpoint: {mid:.1f}, n/2: {n/2}, prefer_right: {prefer_right}")
+    else:
+        _log("No indicators found - will try both sides equally")
+
+    candidates = []
+
+    def is_valid_start(token):
+        return token.lower() not in INVALID_DEF_STARTS
+
+    # === PRIMARY: Single-word definitions ===
+    _log("--- PRIMARY: Single-word definitions ---")
+
+    if prefer_right is True:
+        sides = [("right", n-1, n), ("left", 0, 1)]
+    elif prefer_right is False:
+        sides = [("left", 0, 1), ("right", n-1, n)]
+    else:
+        sides = [("left", 0, 1), ("right", n-1, n)]
+
+    for side, start, end in sides:
+        if is_valid_start(tokens[start]):
+            weight = 1.0 if (prefer_right is True and side == "right") or (prefer_right is False and side == "left") else 0.8
+            cand = {
+                "text": tokens[start],
+                "span": [start, end],
+                "side": side,
+                "type": "primary",
+                "weight": weight
+            }
+            candidates.append(cand)
+            _log(f"  Added: '{cand['text']}' ({side}, weight={weight})")
+        else:
+            _log(f"  Rejected: '{tokens[start]}' ({side}) - invalid start word")
+
+    # === SECONDARY: Multi-word definitions (2-3 words) ===
+    _log("--- SECONDARY: Multi-word definitions ---")
+
+    def has_no_structural_words(token_list):
+        return not any(t.lower() in INVALID_DEF_STARTS for t in token_list)
+
+    for k in (2, 3):
+        if n >= k:
+            # Left side
+            left_tokens = tokens[0:k]
+            if has_no_structural_words(left_tokens):
+                weight = 0.6 if prefer_right is False else 0.4
+                cand = {
+                    "text": " ".join(left_tokens),
+                    "span": [0, k],
+                    "side": "left",
+                    "type": "secondary",
+                    "weight": weight
+                }
+                candidates.append(cand)
+                _log(f"  Added: '{cand['text']}' (left, {k} words, weight={weight})")
+            else:
+                _log(f"  Rejected: '{' '.join(left_tokens)}' (left, {k} words) - contains structural word")
+
+            # Right side
+            right_tokens = tokens[n-k:n]
+            if has_no_structural_words(right_tokens):
+                weight = 0.6 if prefer_right is True else 0.4
+                cand = {
+                    "text": " ".join(right_tokens),
+                    "span": [n-k, n],
+                    "side": "right",
+                    "type": "secondary",
+                    "weight": weight
+                }
+                candidates.append(cand)
+                _log(f"  Added: '{cand['text']}' (right, {k} words, weight={weight})")
+            else:
+                _log(f"  Rejected: '{' '.join(right_tokens)}' (right, {k} words) - contains structural word")
+
+    # === FALLBACK 2: Double definition ===
+    if not indicator_spans:
+        _log("--- FALLBACK 2: Double definition (no indicators) ---")
+        if n >= 2:
+            mid_idx = n // 2
+            cand = {
+                "text": f"{' '.join(tokens[:mid_idx])} | {' '.join(tokens[mid_idx:])}",
+                "span": None,
+                "side": "both",
+                "type": "double_def",
+                "weight": 0.3,
+                "left_span": [0, mid_idx],
+                "right_span": [mid_idx, n]
+            }
+            candidates.append(cand)
+            _log(f"  Added double definition: '{cand['text']}'")
+    else:
+        _log("--- FALLBACK 2: Skipped (indicators present) ---")
+
+    # Sort by weight descending
+    candidates.sort(key=lambda x: -x.get("weight", 0))
+
+    _log(f"--- FINAL CANDIDATES ({len(candidates)}) ---")
+    for i, c in enumerate(candidates):
+        _log(f"  {i+1}. [{c['type']}] '{c['text']}' ({c['side']}, weight={c.get('weight', 0)})")
+
+    return candidates
+
+
 def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Optional[str] = None, training_json: Optional[str] = None) -> Dict[str, Any]:
+    # Reset per-solve AI query counter
+    global _SOLVE_AI_QUERIES
+    _SOLVE_AI_QUERIES = 0
+
+    # Track solve attempt if known_answer provided
+    if known_answer:
+        LEARNED_CACHE_STATS["solves_attempted"] = LEARNED_CACHE_STATS.get("solves_attempted", 0) + 1
+        _save_cache_stats()
+
     tokens = tokenize(clue)
+
+    # Build full expansion map first
     exmap = all_expansions(tokens)
     augment_with_ai_synonyms(tokens, exmap, length)  # AI fallback for missing synonyms
+    augment_with_ai_abbreviations(tokens, exmap, length)  # AI fallback for missing abbreviations
     apply_local_modifiers(tokens, exmap)
     apply_local_homophones(tokens, exmap)
     hits = detect_indicators(tokens)
+
+    # Get indicator spans for definition logic
+    ind_spans = [[h.span[0], h.span[1]] for h in hits] if hits else None
+
+    # Get possible definition positions (using indicator info)
+    def_candidates = _get_definition_candidates(tokens, indicator_spans=ind_spans, log=True)
+
+    # Normalize known_answer for comparison
+    ka = re.sub(r"[^A-Z]", "", known_answer.upper()) if known_answer else None
+
+    # Try solving with each definition candidate in priority order
+    # Stop on first success (answer found)
+    all_cands: List[Candidate] = []
+    winning_def_cand = None
+
+    import sys
+    for def_idx, def_cand in enumerate(def_candidates):
+        def_span = def_cand.get("span")
+        def_type = def_cand.get("type", "unknown")
+        def_weight = def_cand.get("weight", 0.5)
+        def_text = def_cand.get("text", "")
+
+        print(f"[SOLVE] Trying definition #{def_idx+1}: '{def_text}' ({def_type}, w={def_weight})", file=sys.stderr)
+
+        # Skip double_def for now (no wordplay to solve)
+        if def_type == "double_def":
+            print(f"[SOLVE]   Skipped (double_def not implemented)", file=sys.stderr)
+            continue
+
+        # Filter exmap to exclude definition span
+        if def_span:
+            filtered_exmap = {
+                span: expansions
+                for span, expansions in exmap.items()
+                if span[1] <= def_span[0] or span[0] >= def_span[1]  # no overlap with definition
+            }
+        else:
+            filtered_exmap = exmap
+
+        # Build units from filtered expansion map
+        units = build_units(tokens, filtered_exmap, max_units=10)
+
+        # Generate candidates with this definition excluded
+        gen = []
+        gen.extend([("charade2", charade_candidates(units, length, 2))])
+        gen.extend([("charade3", charade_candidates(units, length, 3))])
+        gen.extend([("charade_rev", charade_with_reversal_candidates(units, length))])
+        gen.extend([("container", container_candidates(units, length))])
+        gen.extend([("reversal", reversal_candidates(units, length))])
+        gen.extend([("anagram", anagram_candidates(units, length))])
+
+        def_cands: List[Candidate] = []
+        for method, outs in gen:
+            for ans, steps in outs:
+                sc = score_candidate(ans, steps, method, tokens) * def_weight
+                notes = [f"def:{def_cand['side']}:{def_text} ({def_type}, w={def_weight})"]
+                if hits:
+                    notes.append("indicators: " + ", ".join(sorted({h.kind for h in hits})))
+                def_cands.append(Candidate(answer=ans, length=length, score=sc, steps=steps, method=method, notes=notes))
+
+        print(f"[SOLVE]   Generated {len(def_cands)} candidates", file=sys.stderr)
+
+        # Check if known_answer found in this batch
+        if ka:
+            found_in_batch = any(c.answer == ka for c in def_cands)
+            if found_in_batch:
+                print(f"[SOLVE]   ✓ FOUND '{ka}' with definition '{def_text}' (candidate #{def_idx+1})", file=sys.stderr)
+                winning_def_cand = def_cand
+                all_cands.extend(def_cands)
+                break  # Stop on first success
+            else:
+                print(f"[SOLVE]   ✗ '{ka}' not found, trying next definition...", file=sys.stderr)
+
+        all_cands.extend(def_cands)
+
+        # In non-training mode, stop after first definition that produces candidates
+        if not ka and def_cands:
+            print(f"[SOLVE]   Stopping (non-training mode, got candidates)", file=sys.stderr)
+            break
+
+    # Log training validation result
+    if ka and winning_def_cand:
+        print(f"[SOLVE] Definition validation: '{winning_def_cand['text']}' was correct (type={winning_def_cand['type']}, weight={winning_def_cand['weight']})", file=sys.stderr)
+    elif ka:
+        print(f"[SOLVE] Definition validation: FAILED - '{ka}' not found in any definition candidate", file=sys.stderr)
+
+    # Also try with full tokens (no definition excluded) for backwards compatibility
     units = build_units(tokens, exmap, max_units=10)
 
     cands: List[Candidate] = []
@@ -1806,6 +2184,9 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
                 notes.append("indicators: " + ", ".join(sorted({h.kind for h in hits})))
             cands.append(Candidate(answer=ans, length=length, score=sc, steps=steps, method=method, notes=notes))
 
+    # Merge candidates from definition-aware solving
+    cands.extend(all_cands)
+
     # de-dup by answer+method
     seen = set()
     uniq = []
@@ -1819,20 +2200,69 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
             break
 
 
-    # If we have a known answer, record any AI synonyms that contributed to it
+    # If we have a known answer, check if we found it and record stats
     if known_answer:
+        import sys
         ka = re.sub(r"[^A-Z]", "", known_answer.upper())
-        for c in uniq:
-            if c.answer == ka:
-                # Found matching candidate - extract ai_syn provenances from steps
-                for step in c.steps:
-                    note = step.note or ""
-                    if note.startswith("ai_syn:"):
-                        # Extract word and synonym: note is "ai_syn:word", out is the synonym
-                        source_word = note[7:]  # strip "ai_syn:"
-                        synonym = step.out
-                        save_learned_synonym(source_word, synonym)
-                break
+
+        # Check if answer was found in candidates
+        found = any(c.answer == ka for c in uniq)
+        winning = next((c for c in uniq if c.answer == ka), None) if found else None
+
+        # Battle card checks
+        has_definition = winning is not None  # If we found answer, we likely had definition
+        # Charade clues often have no explicit indicator - accept charade methods as implicit indicators
+        has_indicator = len(hits) > 0 or (winning and winning.method in ("charade2", "charade3"))
+        has_fodder = winning is not None and any(
+            s.op in ("fodder_tokens", "fodder_concat", "unit", "recipe_fodder", "recipe_base", "recipe_part", "recipe_outer", "recipe_inner")
+            for s in winning.steps
+        )
+        has_answer = found
+
+        # Full solve requires ALL elements: definition, indicator, fodder, answer
+        full_solve = has_definition and has_indicator and has_fodder and has_answer
+
+        # Only count as passed if full solve (all battle card elements checked)
+        if full_solve:
+            LEARNED_CACHE_STATS["solves_passed"] = LEARNED_CACHE_STATS.get("solves_passed", 0) + 1
+            if _SOLVE_AI_QUERIES == 0:
+                LEARNED_CACHE_STATS["solves_no_ai"] = LEARNED_CACHE_STATS.get("solves_no_ai", 0) + 1
+            _save_cache_stats()
+            # Extract ai_syn/ai_abbrev provenances from steps and save validated ones
+            for step in winning.steps:
+                note = step.note or ""
+                if note.startswith("ai_syn:"):
+                    source_word = note[7:]  # strip "ai_syn:"
+                    save_learned_synonym(source_word, step.out)
+                elif note.startswith("ai_abbrev:"):
+                    source_word = note[10:]  # strip "ai_abbrev:"
+                    save_learned_abbrev(source_word, step.out)
+
+        # Print enhanced clue result to stderr (battle card format)
+        ai_status = "no-AI" if _SOLVE_AI_QUERIES == 0 else f"AI:{_SOLVE_AI_QUERIES}"
+        mark = "✓" if full_solve else "✗"
+        def chk(b): return "✓" if b else "✗"
+
+        print(f"\n{'═'*65}", file=sys.stderr)
+        print(f"{mark} {ka} ({length}) [{ai_status}] <- {clue}", file=sys.stderr)
+        print(f"{'─'*65}", file=sys.stderr)
+        print(f"Battle Card: [{chk(has_definition)}] definition  [{chk(has_indicator)}] indicator  [{chk(has_fodder)}] fodder  [{chk(has_answer)}] answer", file=sys.stderr)
+
+        # Show steps from winning candidate
+        if found and winning and winning.steps:
+            print(f"Steps:", file=sys.stderr)
+            for i, step in enumerate(winning.steps, 1):
+                src_str = ", ".join(str(s) for s in step.src) if step.src else ""
+                note_str = f" ({step.note})" if step.note else ""
+                print(f"  {i}. {step.out} <- {src_str} [{step.op}]{note_str}", file=sys.stderr)
+        else:
+            print(f"No winning candidate found.", file=sys.stderr)
+
+        # Show cumulative stats
+        stats = get_stats_summary()
+        cs = stats["cold_solve"]
+        print(f"Stats: {cs['passed']}/{cs['attempted']} passed ({cs['pass_rate']}), {cs['no_ai']}/{cs['attempted']} no-AI ({cs['no_ai_rate']}), avg AI/clue: {stats['ai_queries']['avg_per_clue']}", file=sys.stderr)
+        print(f"{'═'*65}\n", file=sys.stderr)
 
     # Build UI-facing analysis result (schema v1)
     cands_out = [c.to_dict() for c in uniq]
@@ -1859,13 +2289,32 @@ def main():
     ap_trace = sub.add_parser("trace", help="Only show tokenization + indicator hits")
     ap_trace.add_argument("--clue", required=True)
 
+    sub.add_parser("stats", help="Show solve and cache statistics")
+    sub.add_parser("clear-stats", help="Reset all statistics to zero")
+
     args = ap.parse_args()
+
+    if args.cmd == "clear-stats":
+        global LEARNED_CACHE_STATS
+        LEARNED_CACHE_STATS = {
+            "solves_attempted": 0, "solves_passed": 0, "solves_no_ai": 0,
+            "syn_hits": 0, "syn_lookups": 0,
+            "abbr_hits": 0, "abbr_lookups": 0,
+            "total_ai_queries": 0
+        }
+        _save_cache_stats()
+        print("Stats cleared.", file=__import__('sys').stderr)
+        return
 
     if args.cmd == "trace":
         tokens = tokenize(args.clue)
         hits = detect_indicators(tokens)
         out = {"clue": args.clue, "tokens": tokens, "indicator_hits": [asdict(h) for h in hits]}
         print(json.dumps(out, indent=2))
+        return
+
+    if args.cmd == "stats":
+        print(json.dumps(get_stats_summary(), indent=2))
         return
 
     if args.cmd == "solve":
