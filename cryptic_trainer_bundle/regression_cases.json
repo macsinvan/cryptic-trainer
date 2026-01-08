@@ -1,0 +1,1964 @@
+[
+  {
+    "clue": "Chat with me and Mark about union negotiator",
+    "length": 10,
+    "known_answer": "MATCHMAKER",
+    "expected": {
+      "clue": {
+        "text": "Chat with me and Mark about union negotiator",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "MATCHMAKER",
+          "method": null
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Block return of large sum of money",
+    "length": 4,
+    "known_answer": "STOP",
+    "expected_method": "reversal",
+    "expected": {
+      "clue": {
+        "text": "Block return of large sum of money",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "STOP",
+          "method": "reversal"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "ever interrupts the French classes",
+    "length": 7,
+    "known_answer": "LEAGUES",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"LES\", \"inner\": \"AGUE\", \"at\": 2, \"outer_source\": \"the French\", \"inner_source\": \"fever\"}",
+    "expected": {
+      "clue": {
+        "text": "ever interrupts the French classes",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "LEAGUES",
+          "method": "training_container"
+        }
+      ]
+    },
+    "expected_patternData": {
+      "patternId": "Container",
+      "answer": "LEAGUES",
+      "techniquesUsed": ["container"],
+      "setterHintContains": ["container"]
+    }
+  },
+  {
+    "clue": "Extremely dirty and unpleasant old soap",
+    "length": 7,
+    "known_answer": "DYNASTY",
+    "expected_method": "charade2",
+    "expected": {
+      "clue": {
+        "text": "Extremely dirty and unpleasant old soap",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "DYNASTY",
+          "method": "charade2"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Picked up chess piece, and something resembling it, in difficult situation",
+    "length": 9,
+    "known_answer": "NIGHTMARE",
+    "expected_method": "charade2",
+    "expected": {
+      "clue": {
+        "text": "Picked up chess piece, and something resembling it, in difficult situation",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "NIGHTMARE",
+          "method": "charade2"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Cooler to not tell the truth before huge fraud, and more stupid",
+    "length": 15,
+    "known_answer": "LIEBIGCONDENSER",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"LIE\", \"BIG\", \"CON\", \"DENSER\"]}",
+    "expected": {
+      "clue": {
+        "text": "Cooler to not tell the truth before huge fraud, and more stupid",
+        "enumeration": "15",
+        "length": 15
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "LIEBIGCONDENSER",
+          "method": "training_charade"
+        }
+      ]
+    },
+    "expected_patternData": {
+      "patternId": "Charade",
+      "answer": "LIEBIGCONDENSER",
+      "isComplete": true,
+      "techniquesUsed": ["charade"]
+    }
+  },
+  {
+    "clue": "Temporary hitch in the end admitted by celebrated coach scratching head",
+    "length": 15,
+    "known_answer": "STARTERMARRIAGE",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"STAR\", \"TERM\", \"ARRIAGE\"]}",
+    "expected": {
+      "clue": {
+        "text": "Temporary hitch in the end admitted by celebrated coach scratching head",
+        "enumeration": "15",
+        "length": 15
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "STARTERMARRIAGE",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "With it starting late, perhaps March dance can encompass beginning of Easter",
+    "length": 9,
+    "known_answer": "ONTHEBALL",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"ON\", \"THE\", \"BALL\"]}",
+    "expected": {
+      "clue": {
+        "text": "With it starting late, perhaps March dance can encompass beginning of Easter",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ONTHEBALL",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Pick up golf tip",
+    "length": 5,
+    "known_answer": "GLEAN",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"G\", \"LEAN\"]}",
+    "expected": {
+      "clue": {
+        "text": "Pick up golf tip",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "GLEAN",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Cryptically, 2 Kings 6:29, for example, is in disorder",
+    "length": 7,
+    "known_answer": "OVERSET",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"OT\", \"inner\": \"VERSE\", \"at\": 1, \"outer_source\": \"Old Testament (cryptically)\", \"inner_source\": \"for example (VERSE)\"}",
+    "expected": {
+      "clue": {
+        "text": "Cryptically, 2 Kings 6:29, for example, is in disorder",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "OVERSET",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Three-dimensional representation of moon in theatre",
+    "length": 7,
+    "known_answer": "DIORAMA",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"DRAMA\", \"inner\": \"IO\", \"at\": 1, \"outer_source\": \"theatre\", \"inner_source\": \"moon (Io)\"}",
+    "expected": {
+      "clue": {
+        "text": "Three-dimensional representation of moon in theatre",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "DIORAMA",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Pity husband after period of sexual excitement",
+    "length": 4,
+    "known_answer": "RUTH",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"RUT\", \"H\"]}",
+    "expected": {
+      "clue": {
+        "text": "Pity husband after period of sexual excitement",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "RUTH",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "School members married wearing decorated fabric, helped by me?",
+    "length": 10,
+    "known_answer": "BRIDESMAID",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"BRAID\", \"inner\": \"IDESM\", \"at\": 2, \"outer_source\": \"decorated fabric\", \"inner_source\": \"school members (IDES) + married (M)\"}",
+    "expected": {
+      "clue": {
+        "text": "School members married wearing decorated fabric, helped by me?",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "BRIDESMAID",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Spies entertaining cryptic clue for \u201cparticles\u201d",
+    "length": 9,
+    "known_answer": "MOLECULES",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"MOLES\", \"inner\": \"CLUE\", \"at\": 2}, {\"op\": \"anagram_check\", \"fodder\": \"MOCLUELES\", \"result\": \"MOLECULES\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Spies entertaining cryptic clue for \u201cparticles\u201d",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "MOLECULES",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Drag queen hiding in shadow",
+    "length": 5,
+    "known_answer": "TRAIL",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"TAIL\", \"inner\": \"R\", \"at\": 1, \"outer_source\": \"shadow\", \"inner_source\": \"queen (R)\"}",
+    "expected": {
+      "clue": {
+        "text": "Drag queen hiding in shadow",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "TRAIL",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Lady in charge content to shout \u2014 big match nerves?",
+    "length": 13,
+    "known_answer": "HOUSEMISTRESS",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"HOU\", \"SEMI\", \"STRESS\"], \"note\": \"content to shout -> inner letters of SHOUT = HOU\"}",
+    "expected": {
+      "clue": {
+        "text": "Lady in charge content to shout \u2014 big match nerves?",
+        "enumeration": "13",
+        "length": 13
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "HOUSEMISTRESS",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Element of surprise ultimately lost by Wenger, football manager no longer in charge",
+    "length": 7,
+    "known_answer": "ARSENIC",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"ARSEN\", \"IC\"], \"note\": \"ARSENE minus ultimate E + IC (in charge)\"}",
+    "expected": {
+      "clue": {
+        "text": "Element of surprise ultimately lost by Wenger, football manager no longer in charge",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ARSENIC",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "European arranged to house pet for president",
+    "length": 7,
+    "known_answer": "ERDOGAN",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"ERAN\", \"inner\": \"DOG\", \"at\": 2, \"outer_source\": \"E + RAN\", \"inner_source\": \"pet\"}",
+    "expected": {
+      "clue": {
+        "text": "European arranged to house pet for president",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ERDOGAN",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Posed around clergyman\u2019s house with a drink",
+    "length": 9,
+    "known_answer": "TASMANSEA",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"TAS\", \"MANSE\", \"A\"], \"note\": \"TAS is SAT reversed\"}",
+    "expected": {
+      "clue": {
+        "text": "Posed around clergyman\u2019s house with a drink",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "TASMANSEA",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Recipient of money agreed to cut exercises",
+    "length": 5,
+    "known_answer": "PAYEE",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"PE\", \"inner\": \"AYE\", \"at\": 1, \"outer_source\": \"exercises (PE)\", \"inner_source\": \"agreed (AYE)\"}",
+    "expected": {
+      "clue": {
+        "text": "Recipient of money agreed to cut exercises",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "PAYEE",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Crazy Horse entering Hell",
+    "length": 13,
+    "known_answer": "NETHERREGIONS",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"HORSEENTERING\"}, {\"op\": \"anagram_check\", \"fodder\": \"HORSEENTERING\", \"result\": \"NETHERREGIONS\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Crazy Horse entering Hell",
+        "enumeration": "13",
+        "length": 13
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "NETHERREGIONS",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Court test cases dispatched, ignoring second demand",
+    "length": 9,
+    "known_answer": "EXACTMENT",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"EXAMENT\", \"inner\": \"CT\", \"at\": 3}]}",
+    "expected": {
+      "clue": {
+        "text": "Court test cases dispatched, ignoring second demand",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "EXACTMENT",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Shot her away from the coast, in part of Germany",
+    "length": 9,
+    "known_answer": "RHEINLAND",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"RHE\", \"INLAND\"], \"note\": \"RHE (shot her) + INLAND (away from coast)\"}",
+    "expected": {
+      "clue": {
+        "text": "Shot her away from the coast, in part of Germany",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "RHEINLAND",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Schedule includes a chicken for cooking?",
+    "length": 7,
+    "known_answer": "ROASTER",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"ROSTER\", \"inner\": \"A\", \"at\": 2, \"outer_source\": \"schedule (ROSTER)\", \"inner_source\": \"a\"}",
+    "expected": {
+      "clue": {
+        "text": "Schedule includes a chicken for cooking?",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ROASTER",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Referred every man dropping dead, at first",
+    "length": 7,
+    "known_answer": "ALLUDED",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"ALL\", \"UDED\"], \"note\": \"DUDE with D moved to end -> UDED; then ALL + UDED\"}",
+    "expected": {
+      "clue": {
+        "text": "Referred every man dropping dead, at first",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ALLUDED",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Musk is old and miserable",
+    "length": 5,
+    "known_answer": "ODOUR",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"O\", \"DOUR\"], \"note\": \"O(ld)+DOUR\"}",
+    "expected": {
+      "clue": {
+        "text": "Musk is old and miserable",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ODOUR",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Some paralegals lying about satellite",
+    "length": 5,
+    "known_answer": "ELARA",
+    "expected_method": "training_hidden_rev",
+    "training_json": "{\"type\": \"hidden_rev\", \"text\": \"paralEGALs\", \"text_source\": \"Some paralegals\"}",
+    "expected": {
+      "clue": {
+        "text": "Some paralegals lying about satellite",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ELARA",
+          "method": "training_hidden_rev"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "American kills leader abandoning upper-class people",
+    "length": 4,
+    "known_answer": "OFFS",
+    "expected_method": "training_delete_head",
+    "training_json": "{\"type\": \"delete_head\", \"base\": \"TOFFS\", \"n\": 1, \"base_source\": \"upper-class people (TOFFS)\"}",
+    "expected": {
+      "clue": {
+        "text": "American kills leader abandoning upper-class people",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "OFFS",
+          "method": "training_delete_head"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Insect infesting rubbish endlessly fed to dog",
+    "length": 10,
+    "known_answer": "COCKCHAFER",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"COCKER\", \"inner\": \"CHAF\", \"at\": 4, \"outer_source\": \"dog (COCKER)\", \"inner_source\": \"rubbish endlessly (CHAF[f])\"}",
+    "expected": {
+      "clue": {
+        "text": "Insect infesting rubbish endlessly fed to dog",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "COCKCHAFER",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Ancient folk tale incorrectly recalled in parts",
+    "length": 10,
+    "known_answer": "CINDERELLA",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"IN\", \"RECALLED\"]}, {\"op\": \"anagram_check\", \"fodder\": \"INRECALLED\", \"result\": \"CINDERELLA\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Ancient folk tale incorrectly recalled in parts",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "CINDERELLA",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Savagely attack Frost\u2019s first narrative poem",
+    "length": 4,
+    "known_answer": "FLAY",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"F\", \"LAY\"], \"note\": \"Frost's first + LAY (narrative poem)\"}",
+    "expected": {
+      "clue": {
+        "text": "Savagely attack Frost\u2019s first narrative poem",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "FLAY",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Always interrupting fluent movement",
+    "length": 6,
+    "known_answer": "GAYLIB",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"GLIB\", \"inner\": \"AY\", \"at\": 1, \"outer_source\": \"fluent (GLIB)\", \"inner_source\": \"always (AY)\"}",
+    "expected": {
+      "clue": {
+        "text": "Always interrupting fluent movement",
+        "enumeration": "6",
+        "length": 6
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "GAYLIB",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Most here ailing?",
+    "length": 8,
+    "known_answer": "RESTHOME",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"MOSTHERE\"}, {\"op\": \"anagram_check\", \"fodder\": \"MOSTHERE\", \"result\": \"RESTHOME\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Most here ailing?",
+        "enumeration": "8",
+        "length": 8
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "RESTHOME",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "He composed letter after a bit of work",
+    "length": 4,
+    "known_answer": "BERG",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"B\", \"ERG\"], \"note\": \"letter after A + unit of work\"}",
+    "expected": {
+      "clue": {
+        "text": "He composed letter after a bit of work",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "BERG",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Worry defender in America doesn\u2019t give enough?",
+    "length": 10,
+    "known_answer": "UNDERFEEDS",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"DEFENDER\", \"US\"]}, {\"op\": \"anagram_check\", \"fodder\": \"DEFENDERUS\", \"result\": \"UNDERFEEDS\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Worry defender in America doesn\u2019t give enough?",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "UNDERFEEDS",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Police officer under pressure made to look worn",
+    "length": 10,
+    "known_answer": "DISTRESSED",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"DI\", \"STRESSED\"], \"note\": \"DI + stressed\"}",
+    "expected": {
+      "clue": {
+        "text": "Police officer under pressure made to look worn",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "DISTRESSED",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Ice mass sheared away a little lower?",
+    "length": 4,
+    "known_answer": "CALF",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"CALF\"], \"note\": \"definition-only; sheared away from ice mass\"}",
+    "expected": {
+      "clue": {
+        "text": "Ice mass sheared away a little lower?",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "CALF",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Marriage promise at some other time for admirer",
+    "length": 8,
+    "known_answer": "IDOLATER",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"IDO\", \"LATER\"], \"note\": \"I DO + LATER\"}",
+    "expected": {
+      "clue": {
+        "text": "Marriage promise at some other time for admirer",
+        "enumeration": "8",
+        "length": 8
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "IDOLATER",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Troops in support for Nelson at Trafalgar?",
+    "length": 6,
+    "known_answer": "COLUMN",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"COLUMN\"], \"note\": \"definition-only: Trafalgar column\"}",
+    "expected": {
+      "clue": {
+        "text": "Troops in support for Nelson at Trafalgar?",
+        "enumeration": "6",
+        "length": 6
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "COLUMN",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "See rook kept by wacky cybernaut",
+    "length": 10,
+    "known_answer": "CANTERBURY",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"CYBERNAUT\", \"R\"]}, {\"op\": \"anagram_check\", \"fodder\": \"CYBERNAUTR\", \"result\": \"CANTERBURY\"}]}",
+    "expected": {
+      "clue": {
+        "text": "See rook kept by wacky cybernaut",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "CANTERBURY",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Wesleyans denatured alcohol opened by poet",
+    "length": 10,
+    "known_answer": "METHODISTS",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"METHS\", \"ODIST\"]}, {\"op\": \"anagram_check\", \"fodder\": \"METHSODIST\", \"result\": \"METHODISTS\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Wesleyans denatured alcohol opened by poet",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "METHODISTS",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Characters regularly seen in rougher industrial area",
+    "length": 4,
+    "known_answer": "RUHR",
+    "expected_method": "training_regular_letters",
+    "training_json": "{\"type\": \"regular_letters\", \"base\": \"ROUGHER\", \"which\": \"odd\", \"base_source\": \"rougher (odd letters)\"}",
+    "expected": {
+      "clue": {
+        "text": "Characters regularly seen in rougher industrial area",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "RUHR",
+          "method": "training_regular_letters"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Gear in Providence right in order for marine flyer",
+    "length": 11,
+    "known_answer": "FRIGATEBIRD",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"F\", \"RIG\", \"ATE\", \"BIRD\"], \"note\": \"RIG in FATE; R in BID -> BIRD (training simplified)\"}",
+    "expected": {
+      "clue": {
+        "text": "Gear in Providence right in order for marine flyer",
+        "enumeration": "11",
+        "length": 11
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "FRIGATEBIRD",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Incidental illustration second one to please greatly",
+    "length": 9,
+    "known_answer": "SIDELIGHT",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"S\", \"I\", \"DELIGHT\"], \"note\": \"S + I + DELIGHT\"}",
+    "expected": {
+      "clue": {
+        "text": "Incidental illustration second one to please greatly",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "SIDELIGHT",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Tundra dwellers you found beneath a ridge in county",
+    "length": 7,
+    "known_answer": "CARIBOU",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"CA\", \"RIB\", \"OU\"], \"note\": \"CO with A RIB with U at bottom -> CARIBOU (training simplified)\"}",
+    "expected": {
+      "clue": {
+        "text": "Tundra dwellers you found beneath a ridge in county",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "CARIBOU",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "US race trouble starts suddenly in city there?",
+    "length": 15,
+    "known_answer": "COLORADOSPRINGS",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"COLOR\", \"ADO\", \"SPRINGS\"], \"note\": \"race + trouble + starts suddenly\"}",
+    "expected": {
+      "clue": {
+        "text": "US race trouble starts suddenly in city there?",
+        "enumeration": "15",
+        "length": 15
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "COLORADOSPRINGS",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Relatively common boy necking a sherry regularly",
+    "length": 7,
+    "known_answer": "COARSER",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"COR\", \"A\", \"SER\"]}, {\"op\": \"anagram_check\", \"fodder\": \"CORASER\", \"result\": \"COARSER\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Relatively common boy necking a sherry regularly",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "COARSER",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Write up extract from manuscript",
+    "length": 5,
+    "known_answer": "FOLIO",
+    "expected_method": "training_reversal",
+    "training_json": "{\"type\": \"reversal\", \"base\": \"OILOF\", \"base_source\": \"OIL OF (extract)\"}",
+    "expected": {
+      "clue": {
+        "text": "Write up extract from manuscript",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "FOLIO",
+          "method": "training_reversal"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "What poets often do that Keats and Yeats don\u2019t?",
+    "length": 5,
+    "known_answer": "RHYME",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"RHYME\"], \"note\": \"definition-only\"}",
+    "expected": {
+      "clue": {
+        "text": "What poets often do that Keats and Yeats don\u2019t?",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "RHYME",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Mother initially cradled him, ruined in Eliot\u2019s work",
+    "length": 11,
+    "known_answer": "MIDDLEMARCH",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"M\", \"CRADLEDHIM\"]}, {\"op\": \"anagram_check\", \"fodder\": \"MCRADLEDHIM\", \"result\": \"MIDDLEMARCH\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Mother initially cradled him, ruined in Eliot\u2019s work",
+        "enumeration": "11",
+        "length": 11
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "MIDDLEMARCH",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Old bore\u2019s spoken for well-known brand",
+    "length": 9,
+    "known_answer": "EXCALIBUR",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"EX\", \"CALIBUR\"], \"note\": \"EX + homophone calibre\"}",
+    "expected": {
+      "clue": {
+        "text": "Old bore\u2019s spoken for well-known brand",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "EXCALIBUR",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Lured in \u2014 temperature cool in butt",
+    "length": 7,
+    "known_answer": "ENTICED",
+    "expected_method": "training_container",
+    "training_json": "{\"type\": \"container\", \"outer\": \"END\", \"inner\": \"TICE\", \"at\": 2, \"outer_source\": \"butt (END)\", \"inner_source\": \"T + ICE\"}",
+    "expected": {
+      "clue": {
+        "text": "Lured in \u2014 temperature cool in butt",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ENTICED",
+          "method": "training_container"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Hero elevated in Scotland knows devil",
+    "length": 7,
+    "known_answer": "DICKENS",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"DIC\", \"KENS\"], \"note\": \"CID reversed + KENS\"}",
+    "expected": {
+      "clue": {
+        "text": "Hero elevated in Scotland knows devil",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "DICKENS",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Man following instinctive desires in style",
+    "length": 5,
+    "known_answer": "IDIOM",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"ID\", \"IOM\"], \"note\": \"ID + IOM (Isle of Man)\"}",
+    "expected": {
+      "clue": {
+        "text": "Man following instinctive desires in style",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "IDIOM",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Group round court extremely elegant",
+    "length": 5,
+    "known_answer": "OCTET",
+    "expected_method": "training_charade",
+    "training_json": "{\"type\": \"charade\", \"parts\": [\"O\", \"CT\", \"ET\"], \"note\": \"O + CT + E..T extremes\"}",
+    "expected": {
+      "clue": {
+        "text": "Group round court extremely elegant",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "OCTET",
+          "method": "training_charade"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Illegal reproduction of photo largely blue",
+    "length": 6,
+    "known_answer": "PIRACY",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"delete_tail\", \"base\": \"PIC\", \"n\": 1}, {\"op\": \"charade\", \"parts\": [\"PI\", \"RACY\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Illegal reproduction of photo largely blue",
+        "enumeration": "6",
+        "length": 6
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "PIRACY",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Stone breaks pieces of glass instrument",
+    "length": 8,
+    "known_answer": "PANPIPES",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"PANES\", \"inner\": \"PIP\", \"at\": 3}]}",
+    "expected": {
+      "clue": {
+        "text": "Stone breaks pieces of glass instrument",
+        "enumeration": "8",
+        "length": 8
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "PANPIPES",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Reported means of controlling verification for replacement Superbowl ticket?",
+    "length": 9,
+    "known_answer": "RAINCHECK",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"RAIN\", \"CHECK\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Reported means of controlling verification for replacement Superbowl ticket?",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "RAINCHECK",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Voodoo\u2019s back with a doll made of wood",
+    "length": 5,
+    "known_answer": "OAKEN",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"delete_head\", \"base\": \"VOODOO\", \"n\": 5}, {\"op\": \"charade\", \"parts\": [\"O\", \"A\", \"KEN\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Voodoo\u2019s back with a doll made of wood",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "OAKEN",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "I also corrected dodgy artificial eye drops",
+    "length": 14,
+    "known_answer": "CROCODILETEARS",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"IALSOCORRECTED\"}, {\"op\": \"anagram_check\", \"fodder\": \"IALSOCORRECTED\", \"result\": \"CROCODILETEARS\"}]}",
+    "expected": {
+      "clue": {
+        "text": "I also corrected dodgy artificial eye drops",
+        "enumeration": "14",
+        "length": 14
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "CROCODILETEARS",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Run out of large part of church",
+    "length": 5,
+    "known_answer": "LAPSE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"L\", \"APSE\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Run out of large part of church",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "LAPSE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Practising hobby regularly with help",
+    "length": 9,
+    "known_answer": "OBSERVANT",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"OB\", \"SERVANT\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Practising hobby regularly with help",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "OBSERVANT",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Broke in to crack den overnight, at last",
+    "length": 9,
+    "known_answer": "INSOLVENT",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"IN\", \"SOLVE\", \"N\", \"T\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Broke in to crack den overnight, at last",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "INSOLVENT",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Nerd drew after losing on buzzer round",
+    "length": 5,
+    "known_answer": "DWEEB",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"delete_head\", \"base\": \"DREW\", \"n\": 2}, {\"op\": \"charade\", \"parts\": [\"DW\", \"EEB\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Nerd drew after losing on buzzer round",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "DWEEB",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Children bite me for changing nursery rhyme",
+    "length": 14,
+    "known_answer": "THREEBLINDMICE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"CHILDRENBITEME\"}, {\"op\": \"anagram_check\", \"fodder\": \"CHILDRENBITEME\", \"result\": \"THREEBLINDMICE\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Children bite me for changing nursery rhyme",
+        "enumeration": "14",
+        "length": 14
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "THREEBLINDMICE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Relish bluster by leader of opposition",
+    "length": 5,
+    "known_answer": "GUSTO",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"delete_tail\", \"base\": \"OPPOSITION\", \"n\": 9}, {\"op\": \"charade\", \"parts\": [\"GUST\", \"O\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Relish bluster by leader of opposition",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "GUSTO",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Pit crew spoiled short race?",
+    "length": 9,
+    "known_answer": "ORCHESTRA",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"SHORTRACE\"}, {\"op\": \"anagram_check\", \"fodder\": \"SHORTRACE\", \"result\": \"ORCHESTRA\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Pit crew spoiled short race?",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ORCHESTRA",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "After finally leaving, come in again briefly with a drink",
+    "length": 8,
+    "known_answer": "GREENTEA",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"G\", \"REEN\", \"TE\", \"A\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "After finally leaving, come in again briefly with a drink",
+        "enumeration": "8",
+        "length": 8
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "GREENTEA",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Tossed coin with setter for earnings",
+    "length": 6,
+    "known_answer": "INCOME",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"COIN\"}, {\"op\": \"anagram_check\", \"fodder\": \"COIN\", \"result\": \"INCO\"}, {\"op\": \"charade\", \"parts\": [\"INCO\", \"ME\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Tossed coin with setter for earnings",
+        "enumeration": "6",
+        "length": 6
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "INCOME",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Reduction in amount of wine is grating?",
+    "length": 10,
+    "known_answer": "PORTCULLIS",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"PORT\", \"CULL\", \"IS\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Reduction in amount of wine is grating?",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "PORTCULLIS",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Greek\u2019s letter to bank not out for money",
+    "length": 5,
+    "known_answer": "RHINO",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"RHO\", \"inner\": \"IN\", \"at\": 2}]}",
+    "expected": {
+      "clue": {
+        "text": "Greek\u2019s letter to bank not out for money",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "RHINO",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Large Turner in public gallery ultimately replica?",
+    "length": 7,
+    "known_answer": "CYCLONE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"C\", \"Y\", \"CLONE\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Large Turner in public gallery ultimately replica?",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "CYCLONE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Body part from an animal turned up",
+    "length": 5,
+    "known_answer": "ANKLE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"AN\", \"KLE\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Body part from an animal turned up",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "ANKLE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Trailblazer in seaside attraction eating sole",
+    "length": 7,
+    "known_answer": "PIONEER",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"PIER\", \"inner\": \"ONE\", \"at\": 2}]}",
+    "expected": {
+      "clue": {
+        "text": "Trailblazer in seaside attraction eating sole",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "PIONEER",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Rod smashed cafe mug showing no emotion",
+    "length": 9,
+    "known_answer": "POKERFACE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"POKER\", \"FACE\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Rod smashed cafe mug showing no emotion",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "POKERFACE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "All there was extra in file, conclusively",
+    "length": 4,
+    "known_answer": "SANE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"S\", \"A\", \"N\", \"E\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "All there was extra in file, conclusively",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "SANE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "What will get you half-way from A to B?",
+    "length": 8,
+    "known_answer": "SEMITONE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"SEMITONE\"}]}",
+    "expected": {
+      "clue": {
+        "text": "What will get you half-way from A to B?",
+        "enumeration": "8",
+        "length": 8
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "SEMITONE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Nag colleague to declare hosting capable maiden?",
+    "length": 10,
+    "known_answer": "STABLEMATE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"STATE\", \"inner\": \"ABLEM\", \"at\": 2}]}",
+    "expected": {
+      "clue": {
+        "text": "Nag colleague to declare hosting capable maiden?",
+        "enumeration": "10",
+        "length": 10
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "STABLEMATE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Dash to the pass very quickly",
+    "length": 9,
+    "known_answer": "POSTHASTE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"unit\", \"value\": \"TOTHEPASS\"}, {\"op\": \"anagram_check\", \"fodder\": \"TOTHEPASS\", \"result\": \"POSTHASTE\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Dash to the pass very quickly",
+        "enumeration": "9",
+        "length": 9
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "POSTHASTE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Bit of stage scenery in corner, perhaps",
+    "length": 8,
+    "known_answer": "SETPIECE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"SET\", \"PIECE\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Bit of stage scenery in corner, perhaps",
+        "enumeration": "8",
+        "length": 8
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "SETPIECE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Wasn\u2019t honest to have short rest?",
+    "length": 7,
+    "known_answer": "LIEDOWN",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"charade\", \"parts\": [\"LIED\", \"OWN\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Wasn\u2019t honest to have short rest?",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "LIEDOWN",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Resentment once golf stops guy working",
+    "length": 7,
+    "known_answer": "DUDGEON",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"DUDE\", \"inner\": \"G\", \"at\": 3}, {\"op\": \"charade\", \"parts\": [\"DUDGE\", \"ON\"]}]}",
+    "expected": {
+      "clue": {
+        "text": "Resentment once golf stops guy working",
+        "enumeration": "7",
+        "length": 7
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "DUDGEON",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Spirits possibly live outside madhouse to the north",
+    "length": 5,
+    "known_answer": "BOOZE",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"BE\", \"inner\": \"ZOO\", \"at\": 1}, {\"op\": \"unit\", \"value\": \"BOOZE\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Spirits possibly live outside madhouse to the north",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "BOOZE",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Prelude featured in fortnightly retrospective?",
+    "length": 5,
+    "known_answer": "INTRO",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"reversal\", \"base\": \"ORTNI\"}, {\"op\": \"unit\", \"value\": \"INTRO\"}]}",
+    "expected": {
+      "clue": {
+        "text": "Prelude featured in fortnightly retrospective?",
+        "enumeration": "5",
+        "length": 5
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "INTRO",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  },
+  {
+    "clue": "Eager to leave silver plates",
+    "length": 4,
+    "known_answer": "AGOG",
+    "expected_method": "training_pipeline",
+    "training_json": "{\"pipeline\": [{\"op\": \"container\", \"outer\": \"AG\", \"inner\": \"GO\", \"at\": 1}]}",
+    "expected": {
+      "clue": {
+        "text": "Eager to leave silver plates",
+        "enumeration": "4",
+        "length": 4
+      },
+      "analysis": {
+        "clue_type": {}
+      },
+      "candidates": [
+        {
+          "answer": "AGOG",
+          "method": "training_pipeline"
+        }
+      ]
+    }
+  }
+]
