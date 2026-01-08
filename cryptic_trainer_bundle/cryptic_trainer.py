@@ -25,10 +25,160 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import urllib.request
+import urllib.error
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional, Tuple, Iterable, Any
 from collections import defaultdict
+
+# ---------------------------------
+# AI Synonym Lookup (fallback)
+# ---------------------------------
+AI_SYNONYM_CACHE: Dict[Tuple[str, int], List[str]] = {}  # Session cache for AI results
+AI_LOOKUP_ENABLED = True  # Set to False to disable AI lookups
+
+# Learned synonyms - persisted to file, only contains validated synonyms
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+LEARNED_SYNONYMS_FILE = os.path.join(_SCRIPT_DIR, "learned_synonyms.json")
+LEARNED_SYNONYMS_STATS_FILE = os.path.join(_SCRIPT_DIR, "learned_synonyms_stats.json")
+LEARNED_SYNONYMS: Dict[str, List[str]] = {}  # word -> [validated synonyms]
+LEARNED_SYNONYMS_STATS: Dict[str, int] = {"cache_hits": 0, "ai_lookups": 0}
+
+def load_learned_synonyms() -> None:
+    """Load validated synonyms and stats from persistent files."""
+    global LEARNED_SYNONYMS, LEARNED_SYNONYMS_STATS
+    if os.path.exists(LEARNED_SYNONYMS_FILE):
+        try:
+            with open(LEARNED_SYNONYMS_FILE, 'r') as f:
+                LEARNED_SYNONYMS = json.load(f)
+        except Exception:
+            LEARNED_SYNONYMS = {}
+    if os.path.exists(LEARNED_SYNONYMS_STATS_FILE):
+        try:
+            with open(LEARNED_SYNONYMS_STATS_FILE, 'r') as f:
+                LEARNED_SYNONYMS_STATS = json.load(f)
+        except Exception:
+            LEARNED_SYNONYMS_STATS = {"cache_hits": 0, "ai_lookups": 0}
+
+def _save_stats() -> None:
+    """Save stats to persistent file."""
+    try:
+        with open(LEARNED_SYNONYMS_STATS_FILE, 'w') as f:
+            json.dump(LEARNED_SYNONYMS_STATS, f, indent=2)
+    except Exception:
+        pass
+
+def save_learned_synonym(word: str, synonym: str) -> None:
+    """Save a validated synonym to the persistent file."""
+    word_key = word.lower()
+    syn_upper = synonym.upper()
+    if word_key not in LEARNED_SYNONYMS:
+        LEARNED_SYNONYMS[word_key] = []
+    if syn_upper not in LEARNED_SYNONYMS[word_key]:
+        LEARNED_SYNONYMS[word_key].append(syn_upper)
+        try:
+            with open(LEARNED_SYNONYMS_FILE, 'w') as f:
+                json.dump(LEARNED_SYNONYMS, f, indent=2, sort_keys=True)
+        except Exception as e:
+            print(f"Failed to save learned synonym: {e}", file=__import__('sys').stderr)
+
+# Load learned synonyms at module import
+load_learned_synonyms()
+
+def ai_lookup_synonyms(word: str, length: int) -> List[str]:
+    """
+    Query AI for synonyms of a word with a specific length.
+    Checks learned (validated) synonyms first, then falls back to AI query.
+    Returns a list of candidate synonyms (uppercase).
+    """
+    if not AI_LOOKUP_ENABLED:
+        return []
+
+    word_lower = word.lower()
+    cache_key = (word_lower, length)
+
+    # Check learned synonyms first (these are validated)
+    if word_lower in LEARNED_SYNONYMS:
+        learned = [s for s in LEARNED_SYNONYMS[word_lower] if len(s) == length]
+        if learned:
+            LEARNED_SYNONYMS_STATS["cache_hits"] += 1
+            _save_stats()
+            return learned
+
+    # Check session cache (don't count as hit - same session)
+    if cache_key in AI_SYNONYM_CACHE:
+        return AI_SYNONYM_CACHE[cache_key]
+
+    # Track AI lookup (cache miss)
+    LEARNED_SYNONYMS_STATS["ai_lookups"] += 1
+    _save_stats()
+
+    # Check for API key (must be non-empty)
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not anthropic_key and not openai_key:
+        return []
+    api_key = anthropic_key or openai_key
+
+    prompt = f"I am trying to solve a Times UK cryptic crossword clue. I need to find candidate synonyms for '{word}' with exactly {length} letters. Return ONLY a comma-separated list of words, no explanations. If none exist, return NONE."
+
+    try:
+        if anthropic_key:
+            results = _call_anthropic(prompt, anthropic_key)
+        else:
+            results = _call_openai(prompt, openai_key)
+
+        # Parse results
+        if results and results.upper() != "NONE":
+            synonyms = [s.strip().upper() for s in results.split(",") if s.strip()]
+            # Filter to exact length
+            synonyms = [s for s in synonyms if len(s) == length and s.isalpha()]
+            AI_SYNONYM_CACHE[cache_key] = synonyms
+            return synonyms
+    except Exception as e:
+        print(f"AI lookup failed for '{word}': {e}", file=__import__('sys').stderr)
+
+    AI_SYNONYM_CACHE[cache_key] = []
+    return []
+
+def _call_anthropic(prompt: str, api_key: str) -> Optional[str]:
+    """Call Anthropic Claude API."""
+    url = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01"
+    }
+    data = json.dumps({
+        "model": "claude-3-haiku-20240307",
+        "max_tokens": 100,
+        "messages": [{"role": "user", "content": prompt}]
+    }).encode('utf-8')
+
+    req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+    with urllib.request.urlopen(req, timeout=10) as response:
+        result = json.loads(response.read().decode('utf-8'))
+        return result.get("content", [{}])[0].get("text", "")
+
+def _call_openai(prompt: str, api_key: str) -> Optional[str]:
+    """Call OpenAI API."""
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    data = json.dumps({
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 100,
+        "messages": [{"role": "user", "content": prompt}]
+    }).encode('utf-8')
+
+    req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+    with urllib.request.urlopen(req, timeout=10) as response:
+        result = json.loads(response.read().decode('utf-8'))
+        return result.get("choices", [{}])[0].get("message", {}).get("content", "")
 
 # ---------------------------------
 # Lexicons (controlled / minimal)
@@ -324,6 +474,39 @@ def all_expansions(tokens: List[str]) -> Dict[Tuple[int, int], List[Tuple[str, s
     for k, v in list(m.items()):
         m[k] = uniq_preserve(v)
     return m
+
+def augment_with_ai_synonyms(tokens: List[str], exmap: Dict[Tuple[int,int], List[Tuple[str,str]]], target_length: int) -> None:
+    """
+    Augment expansion map with AI synonym lookups for tokens that have no lexicon synonym.
+    Only queries AI for single-word tokens that look like they could be synonym sources.
+    """
+    if not AI_LOOKUP_ENABLED:
+        return
+
+    # Words to skip (common structural/indicator words that shouldn't be synonyms)
+    skip_words = STOPWORDS | set(MODIFIERS_1.keys()) | set(MODIFIERS_2.keys())
+
+    for i, tok in enumerate(tokens):
+        span = (i, i+1)
+        existing = exmap.get(span, [])
+
+        # Skip if we already have synonym expansions (not just literal/abbrev)
+        has_syn = any(prov.startswith("syn:") or prov.startswith("synphrase:") for _, prov in existing)
+        if has_syn:
+            continue
+
+        t = tok.lower()
+        # Skip function words, indicators, very short words
+        if t in skip_words or len(t) < 3:
+            continue
+
+        # Query AI for lengths that could contribute to the target
+        # Try lengths from 2 to target_length (for potential charade parts)
+        for length in range(2, min(target_length + 1, 10)):
+            ai_syns = ai_lookup_synonyms(t, length)
+            for syn in ai_syns:
+                exmap[span].append((syn, f"ai_syn:{t}"))
+
 def apply_local_modifiers(tokens: List[str], exmap: Dict[Tuple[int,int], List[Tuple[str,str]]]) -> None:
     """Apply 1-word modifiers like 'extremely' to the immediately following single-token span."""
     for i, tok in enumerate(tokens[:-1]):
@@ -1417,6 +1600,7 @@ def build_analysis_result(clue: str, enumeration: str, length: int, tokens: List
 def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Optional[str] = None, training_json: Optional[str] = None) -> Dict[str, Any]:
     tokens = tokenize(clue)
     exmap = all_expansions(tokens)
+    augment_with_ai_synonyms(tokens, exmap, length)  # AI fallback for missing synonyms
     apply_local_modifiers(tokens, exmap)
     apply_local_homophones(tokens, exmap)
     hits = detect_indicators(tokens)
@@ -1634,7 +1818,22 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         if len(uniq) >= max_candidates:
             break
 
-    
+
+    # If we have a known answer, record any AI synonyms that contributed to it
+    if known_answer:
+        ka = re.sub(r"[^A-Z]", "", known_answer.upper())
+        for c in uniq:
+            if c.answer == ka:
+                # Found matching candidate - extract ai_syn provenances from steps
+                for step in c.steps:
+                    note = step.note or ""
+                    if note.startswith("ai_syn:"):
+                        # Extract word and synonym: note is "ai_syn:word", out is the synonym
+                        source_word = note[7:]  # strip "ai_syn:"
+                        synonym = step.out
+                        save_learned_synonym(source_word, synonym)
+                break
+
     # Build UI-facing analysis result (schema v1)
     cands_out = [c.to_dict() for c in uniq]
     enumeration = str(length)
