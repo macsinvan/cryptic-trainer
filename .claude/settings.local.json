@@ -29,7 +29,9 @@
       "Bash(git branch:*)",
       "Bash(git show:*)",
       "WebFetch(domain:timesforthetimes.co.uk)",
-      "WebFetch(domain:www.timesforthetimes.co.uk)"
+      "WebFetch(domain:www.timesforthetimes.co.uk)",
+      "Bash(python cryptic_trainer.py solve:*)",
+      "Bash(python3:*)"
     ]
   }
 }

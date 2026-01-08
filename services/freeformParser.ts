@@ -1,6 +1,27 @@
 
 import { PatternInstance } from '../types';
-import { parseClue, analyzeClueWithoutAnswer, ClueAnalysis } from './clueParser';
+
+// Stub types - old TS solver removed, using Python solver now
+interface ClueAnalysis {
+    derivedAnswer?: string;
+    definitionCandidates: string[];
+    obviousElements: Array<{ type: string; fodder: string; result: string }>;
+    solveSteps: string[];
+}
+
+// Stub function - returns empty result, Python solver handles actual parsing
+function parseClue(_clueText: string, _answer: string, _coaching?: string[]): { patternData?: PatternInstance } {
+    return {};
+}
+
+// Stub function - returns empty analysis, Python solver handles actual analysis
+function analyzeClueWithoutAnswer(_clueText: string): ClueAnalysis {
+    return {
+        definitionCandidates: [],
+        obviousElements: [],
+        solveSteps: []
+    };
+}
 
 /**
  * Normalize text from copy/paste to handle smart quotes, dashes, and special spaces.
