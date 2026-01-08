@@ -1,5 +1,5 @@
 # Cryptic Trainer – Design Specification
-_Last updated: 2026-01-08_
+_Last updated: 2026-01-08 (v3 — prioritized definition detection)_
 
 ## Purpose
 
@@ -144,20 +144,50 @@ The solver **must only use the clue text (and optional training input)** — no 
 
 ---
 
-## Definition Detection (Improved)
+## Definition Detection (v3 — Prioritized Candidates)
 
-### Current heuristic (v2)
+The solver identifies definition candidates using a prioritized system and tries them sequentially until a successful solve is found.
 
-1. Identify all **wordplay spans** already used (from trace).
-2. Identify **indicator spans** (e.g. reversal, anagram indicators).
-3. Prefer a definition at the **opposite end of the clue** from the indicator centre.
-4. Try 1–3 token definitions.
-5. Fall back only if necessary.
+### Candidate Priority
+
+| Priority | Type | Weight | Description |
+|----------|------|--------|-------------|
+| Primary | Single-word | 0.8 | First or last word of clue |
+| Secondary | Multi-word | 0.6 | 2-3 words at clue ends |
+| Fallback | Double-def | 0.3 | Split clue (no indicators) |
+
+### Structural Word Filter
+
+Multi-word definitions are rejected if they contain linking/structural words:
+- `and, or, but, is, are, was, were, of, in, with, for, to, from`
+
+Examples:
+- ✓ "guest announcer" — valid
+- ✗ "and miserable" — rejected (starts with "and")
+- ✗ "musk is old" — rejected (contains "is")
+
+### Indicator-Based Preference
+
+When indicators are detected:
+- Calculate indicator center position
+- Prefer definition at **opposite end** from indicator center
+- Example: indicator at start → prefer definition at end
+
+### Sequential Processing
+
+1. Generate definition candidates sorted by weight (descending)
+2. For each candidate:
+   - Exclude definition span from wordplay tokens
+   - Generate answer candidates from remaining tokens
+   - If known answer found → stop, use this definition
+   - Otherwise → try next candidate
+3. First successful definition wins
 
 This correctly handles clues such as:
 
-> *Cross about Scottish inventor being guest announcer (8)*  
-→ definition = **guest announcer**
+> *Musk is old and miserable (5)*
+→ definition = **musk** (single-word, left side)
+→ wordplay = O (old) + DOUR (miserable) = ODOUR
 
 ---
 
@@ -232,12 +262,42 @@ This allows **incremental tightening** of expectations without breaking tests.
 
 ---
 
+## Battle Card Output
+
+During training (cold solve with `--known-answer`), the solver outputs a battle card showing solve status.
+
+### Format
+
+```
+═══════════════════════════════════════════════════════════════════
+✓ ODOUR (5) [no-AI] <- Musk is old and miserable
+───────────────────────────────────────────────────────────────────
+Battle Card: [✓] definition  [✓] indicator  [✓] fodder  [✓] answer
+Steps:
+  1. O <- (2, 3) [unit] (abbrev:old)
+  2. DOUR <- (4, 5) [unit] (ai_syn:miserable)
+  3. ODOUR <- O, DOUR [charade] (2-part)
+Stats: 2/16 passed (12.5%), 1/16 no-AI (6.2%), avg AI/clue: 16.4
+═══════════════════════════════════════════════════════════════════
+```
+
+### Elements
+
+- **Definition**: ✓ if answer found in candidates
+- **Indicator**: ✓ if explicit indicator OR charade method (implicit)
+- **Fodder**: ✓ if steps include unit/fodder operations
+- **Answer**: ✓ if known answer matches a candidate
+
+Full pass requires all four elements.
+
+---
+
 ## Roadmap (Near-term)
 
-- Prefer exact definition span trimming (e.g. `guest announcer` vs `being guest announcer`)
 - Expand named referents (authors, composers, inventors)
 - Confidence calibration per clue type
-- UI prototype using spans
+- Cryptic definition detection
+- Double definition solving
 
 ---
 
@@ -246,4 +306,9 @@ This allows **incremental tightening** of expectations without breaking tests.
 The system is now:
 - structurally stable,
 - regression-safe,
-- and suitable for building a teaching UI.
+- supports prioritized definition detection,
+- includes AI-assisted synonym/abbreviation lookups with validated caching,
+- outputs battle card format for training validation,
+- and is suitable for building a teaching UI.
+
+_Last updated: 2026-01-08_

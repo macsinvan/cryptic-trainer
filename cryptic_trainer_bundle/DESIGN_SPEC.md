@@ -290,6 +290,37 @@ Move to next failing clue. Iterate until puzzle passes.
 
 ---
 
+## Definition Detection
+
+The solver identifies definition candidates using a prioritized system that tries candidates in order until a successful solve is found.
+
+### Prioritized Candidate System
+
+**Primary (weight 0.8)**: Single-word definitions at clue ends
+- First word of clue
+- Last word of clue
+- Preferred side is opposite from indicator center (if indicators detected)
+
+**Secondary (weight 0.6)**: Multi-word definitions (2-3 words)
+- Must not contain structural words: `and, or, but, is, are, was, were, of, in, with, for, to, from`
+- Example: "guest announcer" is valid, "and miserable" is rejected
+
+**Fallback (weight 0.3)**: Double definition
+- Only when no indicators are detected
+- Splits clue into two halves, each as a definition candidate
+
+### Sequential Processing
+
+The solver tries each definition candidate in priority order:
+1. Exclude definition span from wordplay tokens
+2. Generate candidates using remaining tokens
+3. If known answer is found, stop and record winning definition
+4. Otherwise, try next candidate
+
+This ensures the highest-weighted valid definition is used.
+
+---
+
 ## Definition Validation
 
 The solver validates that the identified definition actually relates to the answer before marking a result as complete.
@@ -321,6 +352,77 @@ Candidates are scored to rank the most likely answer first.
 
 ---
 
+## Battle Card Validation
+
+During training (cold solve with known answer), the solver outputs a "battle card" showing which elements were successfully identified.
+
+### Battle Card Format
+
+```
+═══════════════════════════════════════════════════════════════════
+✓ ODOUR (5) [no-AI] <- Musk is old and miserable
+───────────────────────────────────────────────────────────────────
+Battle Card: [✓] definition  [✓] indicator  [✓] fodder  [✓] answer
+Steps:
+  1. O <- (2, 3) [unit] (abbrev:old)
+  2. DOUR <- (4, 5) [unit] (ai_syn:miserable)
+  3. ODOUR <- O, DOUR [charade] (2-part)
+Stats: 2/16 passed (12.5%), 1/16 no-AI (6.2%), avg AI/clue: 16.4
+═══════════════════════════════════════════════════════════════════
+```
+
+### Pass Criteria
+
+A full solve (✓) requires ALL four elements:
+- **Definition**: Answer found in candidates
+- **Indicator**: Explicit indicator detected OR charade method used (implicit indicator)
+- **Fodder**: Steps include unit/fodder operations
+- **Answer**: Known answer matches a candidate
+
+### Implicit Indicators
+
+Charade clues often lack explicit indicator words. The solver accepts `charade2` and `charade3` methods as implicit indicators for battle card validation.
+
+---
+
+## AI-Assisted Lookups
+
+The solver uses AI to expand the lexicon when static tables don't have a match.
+
+### Synonym Lookup
+
+Queries AI for synonyms of a word with specific length:
+- Checks learned (validated) synonyms first
+- Falls back to AI query if not found
+- Prompt emphasizes British slang and UK English
+
+### Abbreviation Lookup
+
+Queries AI for abbreviations of a word with specific length:
+- Checks learned (validated) abbreviations first
+- Falls back to AI query if not found
+
+### Validated Caching
+
+When a solve passes (all battle card elements), AI-provided synonyms and abbreviations are saved to persistent files:
+- `learned_synonyms.json` — validated synonym mappings
+- `learned_abbreviations.json` — validated abbreviation mappings
+
+These are checked first on subsequent solves, reducing AI queries over time.
+
+### Statistics Tracking
+
+The solver tracks:
+- Solves attempted / passed / no-AI
+- Synonym cache hits / lookups
+- Abbreviation cache hits / lookups
+- Total AI queries
+
+View with: `python cryptic_trainer.py stats`
+Reset with: `python cryptic_trainer.py clear-stats`
+
+---
+
 ## Non-goals (for now)
 
 - Full dictionary-based solving
@@ -335,12 +437,6 @@ Candidates are scored to rank the most likely answer first.
 1) **Constrained anagram matcher**
    - Use letter-bag equality vs a candidate source list (wordlist) filtered by length and pattern.
 
-2) **Learning-assisted lexicon suggestions**
-   - Optional AI lookups in *strict mode*:
-     - "give me crossword abbrev(s) for X"
-     - "give me common 3–4 letter synonym(s) for X"
-   - Must return small lists, cached and reviewable.
-
 ## Recently Implemented
 
 1) **Definition validation** — answers are only marked complete if definition-answer relationship is verified
@@ -348,17 +444,34 @@ Candidates are scored to rank the most likely answer first.
 3) **Bidirectional anagram fodder** — checks both left and right of indicator
 4) **Scoring boosts** — definition phrase and synonym matches boost candidate ranking
 5) **UI integration** — HTTP server with patternData output for React frontend
+6) **Prioritized definition detection** — single-word primary, multi-word secondary, double-def fallback
+7) **Structural word filtering** — rejects definitions containing linking words (and, or, is, etc.)
+8) **Battle card validation** — visual pass/fail for definition, indicator, fodder, answer
+9) **AI-assisted lookups** — synonym and abbreviation queries with validated caching
+10) **Statistics tracking** — cold solve pass rates, AI query counts, cache hit rates
 
 ---
 
 ## File Inventory
 
+### Core Files
 - `cryptic_trainer.py` — solver, frame generation, trace
 - `server.py` — HTTP server wrapper (localhost:5001) for UI integration
+
+### Training & Testing
 - `regression_cases.json` — training set with expected answers
 - `puzzle_scraper.py` — scrapes Times for the Times blog for training data
 - `puzzle_tester.py` — test harness for comparing solver vs ground truth
-- `DESIGN_SPEC.md` — this document
+- `puzzle.json` — current puzzle being tested
+
+### Learned Cache (auto-generated)
+- `learned_synonyms.json` — validated AI-provided synonyms
+- `learned_abbreviations.json` — validated AI-provided abbreviations
+- `learned_cache_stats.json` — solve statistics and cache metrics
+
+### Documentation
+- `DESIGN_SPEC.md` — this document (architecture & workflow)
 - `CRYPTIC_TRAINER_DESIGN_SPEC.md` — detailed output schema
+- `README.md` — quick start guide
 
 ---
