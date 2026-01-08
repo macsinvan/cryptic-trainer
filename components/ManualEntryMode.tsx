@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Brain, Sparkles, Check, AlertCircle, Wand2, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, Brain, Sparkles, Check, AlertCircle, Loader2, Send } from 'lucide-react';
 import { getClueCount, saveClue, saveParserIssue, ParserIssue } from '../services/clueManager';
 import { parseFreeformInput, FreeformParseResult } from '../services/freeformParser';
-import { parseClue } from '../services/clueParser';
-import { solveClue, SolvedClue, testHypotheses, HypothesisInput } from '../services/aiService';
+import { SolvedClue } from '../services/aiService';
+import { solveCluePython } from '../services/pythonSolverService';
 import { ClueEvaluation, PatternInstance, DisplayBlock } from '../types';
 import { ClueSolver } from './ClueSolver';
 
@@ -69,104 +69,59 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     setIssueSent(true);
   };
 
-  // Preview the battlecard WITHOUT saving
-  // Can preview without answer to show partial analysis
-  // If no answer but we have hypotheses, auto-solve with AI
+  // Preview the battlecard using Python solver
   const previewBattlecard = async () => {
     if (!parseResult?.success || !parseResult.clueText) return;
 
-    // Try code-based parser first (pass coaching notes for cryptic definition detection)
-    // If no answer, use empty string to get partial analysis
-    const codeParseResult = parseClue(parseResult.clueText, parseResult.answer || '', parseResult.coaching);
+    setIsSolving(true);
+    setSolveError(null);
 
-    // Use code parser result if successful, otherwise use freeform-extracted data
-    let patternData: PatternInstance = codeParseResult.patternData || parseResult.patternData || {
-      id: `freeform-${Date.now()}`,
-      patternId: 'IMPORTED',
-      clueText: parseResult.clueText,
-      answer: parseResult.answer,
-      variables: {
-        'def_text': codeParseResult.parsed?.definition.text || ''
+    try {
+      // Extract length from clue if present
+      const lengthMatch = parseResult.clueText.match(/\((\d+)\)\s*$/);
+      const length = lengthMatch ? parseInt(lengthMatch[1]) : undefined;
+
+      // Call Python solver
+      const result = await solveCluePython(
+        parseResult.clueText,
+        length,
+        parseResult.answer
+      );
+
+      if (result.patternData) {
+        setActivePatternData(result.patternData);
+
+        // Build evaluation from Python solver result
+        const evaluation: ClueEvaluation = {
+          id: result.patternData.id,
+          clue: parseResult.clueText,
+          answer: result.patternData.answer || parseResult.answer || '',
+          type: result.patternData.patternId || 'unknown',
+          difficulty: 'Medium',
+          definition: {
+            text: result.patternData.definitionText || '',
+            position: (result.patternData.definitionPosition?.toUpperCase() as 'START' | 'END' | 'ENTIRE') || 'START'
+          },
+          wordplay: [],
+          structure: result.patternData.parsingSummary || '',
+          card: [],
+          learnings: result.patternData.solveSteps || [],
+          parsing: result.patternData.parsingSummary || '',
+          hints: [],
+          reasoning: ''
+        };
+
+        setFullAnalysis(evaluation);
+        setIsAccepted(false);
+        setIsTutorMode(true);
+      } else {
+        setSolveError('Solver returned no results. Check that the Python server is running.');
       }
-    };
-
-    // AUTO-SOLVE: If no answer but we have hypotheses, test them with AI
-    let autoSolvedAnswer = parseResult.answer || '';
-    if (!parseResult.answer && patternData.analysis?.hypotheses) {
-      const hypotheses = patternData.analysis.hypotheses as Array<{
-        definitionCandidate: string;
-        wordplayParts: Array<{fodder: string; result: string}>;
-        synonymNeeded?: {fodder: string; letterCount: number};
-        targetLength: number;
-      }>;
-
-      // Convert to HypothesisInput format
-      const inputs: HypothesisInput[] = hypotheses
-        .filter(h => h.synonymNeeded)
-        .map(h => ({
-          definition: h.definitionCandidate,
-          synonymFodder: h.synonymNeeded!.fodder,
-          requiredLetterCount: h.synonymNeeded!.letterCount,
-          knownParts: h.wordplayParts.filter(p => p.result).map(p => p.result),
-          targetLength: h.targetLength
-        }));
-
-      if (inputs.length > 0) {
-        setIsSolving(true);
-        try {
-          const result = await testHypotheses(inputs);
-          if (result.bestHypothesis !== null) {
-            const winning = result.results[result.bestHypothesis];
-            if (winning.answer) {
-              autoSolvedAnswer = winning.answer;
-              setSolvedClue({
-                answer: winning.answer,
-                definition: inputs[result.bestHypothesis].definition,
-                definitionPosition: 'END',
-                parsing: `${inputs[result.bestHypothesis].knownParts.join(' + ')} + ${winning.synonym} = ${winning.answer}`,
-                explanation: winning.reasoning,
-                confidence: winning.confidence
-              });
-
-              // Re-parse with the answer to get full analysis
-              const fullParseResult = parseClue(parseResult.clueText, winning.answer, parseResult.coaching);
-              if (fullParseResult.patternData) {
-                patternData = fullParseResult.patternData;
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Auto-solve failed:', err);
-        } finally {
-          setIsSolving(false);
-        }
-      }
+    } catch (err) {
+      setSolveError(`Solver error: ${err instanceof Error ? err.message : 'Unknown error'}. Is the Python server running?`);
+    } finally {
+      setIsSolving(false);
     }
-
-    // Build evaluation from available data
-    const evaluation: ClueEvaluation = {
-      id: `freeform-${Date.now()}`,
-      clue: parseResult.clueText,
-      answer: autoSolvedAnswer,
-      type: autoSolvedAnswer ? detectClueType(patternData.patternId, parseResult.parsing || '') : 'Analysis',
-      difficulty: 'Medium',
-      definition: {
-        text: patternData.variables['def_text'] || '',
-        position: codeParseResult.parsed?.definition.position || 'START'
-      },
-      wordplay: [],
-      structure: parseResult.parsing || '',
-      card: [],
-      learnings: parseResult.coaching || [],
-      parsing: parseResult.parsing || '',
-      hints: [],
-      reasoning: ''
-    };
-
-    setFullAnalysis(evaluation);
-    setActivePatternData(patternData);
-    setIsAccepted(false);
-    setIsTutorMode(true);
   };
 
   // Accept and save to library
@@ -200,32 +155,6 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     if (lower.includes('deletion')) return 'Deletion';
     if (lower.includes('charade') || lower.includes('plus')) return 'Charade';
     return 'Mixed';
-  };
-
-  // Solve clue using AI when no answer is provided
-  const handleSolveClue = async () => {
-    if (!parseResult?.clueText) return;
-
-    setIsSolving(true);
-    setSolveError(null);
-    setSolvedClue(null);
-
-    try {
-      const result = await solveClue(parseResult.clueText);
-      if (result) {
-        setSolvedClue(result);
-        // Auto-populate the answer into the text field
-        const updatedText = freeformText + `\n\nAnswer: ${result.answer} – ${result.parsing}`;
-        setFreeformText(updatedText);
-      } else {
-        setSolveError('Could not solve this clue. Try adding more context or the answer manually.');
-      }
-    } catch (err) {
-      setSolveError('Failed to connect to AI service. Please try again.');
-      console.error('Solve error:', err);
-    } finally {
-      setIsSolving(false);
-    }
   };
 
   // Update a pattern variable
@@ -338,82 +267,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                   ))}
                 </div>
 
-                {/* Solve with AI button */}
-                {activePatternData.analysis?.hypotheses && (
-                  <>
-                    <button
-                      onClick={async () => {
-                        setIsSolving(true);
-                        setSolveError(null);
-                        try {
-                          const hypotheses = activePatternData.analysis?.hypotheses as Array<{
-                            definitionCandidate: string;
-                            wordplayParts: Array<{fodder: string; result: string}>;
-                            synonymNeeded?: {fodder: string; letterCount: number};
-                            targetLength: number;
-                          }>;
-
-                          // Convert to HypothesisInput format
-                          const inputs: HypothesisInput[] = hypotheses
-                            .filter(h => h.synonymNeeded)
-                            .map(h => ({
-                              definition: h.definitionCandidate,
-                              synonymFodder: h.synonymNeeded!.fodder,
-                              requiredLetterCount: h.synonymNeeded!.letterCount,
-                              knownParts: h.wordplayParts.filter(p => p.result).map(p => p.result),
-                              targetLength: h.targetLength
-                            }));
-
-                          const result = await testHypotheses(inputs);
-
-                          if (result.bestHypothesis !== null) {
-                            const winning = result.results[result.bestHypothesis];
-                            if (winning.answer) {
-                              // Update the freeform text with the answer
-                              const updatedText = freeformText + `\n\nAnswer: ${winning.answer}`;
-                              setFreeformText(updatedText);
-                              setSolvedClue({
-                                answer: winning.answer,
-                                definition: inputs[result.bestHypothesis].definition,
-                                definitionPosition: 'END',
-                                parsing: `${inputs[result.bestHypothesis].knownParts.join(' + ')} + ${winning.synonym} = ${winning.answer}`,
-                                explanation: winning.reasoning,
-                                confidence: winning.confidence
-                              });
-                            }
-                          } else {
-                            setSolveError('Could not verify any hypothesis. Try adding the answer manually.');
-                          }
-                        } catch (err) {
-                          setSolveError('AI verification failed. Try again or add answer manually.');
-                          console.error('Hypothesis test error:', err);
-                        } finally {
-                          setIsSolving(false);
-                        }
-                      }}
-                      disabled={isSolving}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isSolving ? (
-                        <>
-                          <Loader2 size={18} className="animate-spin" />
-                          Solving...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 size={18} />
-                          Solve with AI
-                        </>
-                      )}
-                    </button>
-                    {solveError && (
-                      <p className="text-red-600 text-sm mt-2">{solveError}</p>
-                    )}
-                  </>
-                )}
-
                 <p className="text-xs text-amber-600 italic mt-4">
-                  Or add the answer manually to see full verification
+                  Add the answer to see full verification
                 </p>
               </div>
             ) : !hasMissingInfo && !isAccepted ? (
@@ -983,11 +838,24 @@ TON + SURE → TONSURE (monk's haircut).`}
 
               <button
                 onClick={previewBattlecard}
-                disabled={!parseResult?.success}
+                disabled={!parseResult?.success || isSolving}
                 className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-[0.4em] text-[10px] rounded-xl shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
               >
-                Review Battlecard
+                {isSolving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  'Review Battlecard'
+                )}
               </button>
+
+              {solveError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                  {solveError}
+                </div>
+              )}
             </div>
           </div>
         )}

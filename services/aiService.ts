@@ -4,7 +4,10 @@
 // Default: claude
 
 import { ClueEvaluation, ScannedCrossword } from "../types";
-import { learnSynonym, lookupSynonyms, SYNONYM_DICTIONARY } from "../data/synonymDictionary";
+// Stub functions - old TS solver dictionaries removed, Python solver has its own lexicons
+const SYNONYM_DICTIONARY: Record<string, string[]> = {};
+function lookupSynonyms(_word: string): string[] { return []; }
+function learnSynonym(_word: string, _synonym: string): void { /* no-op */ }
 
 // --- Common Interfaces ---
 

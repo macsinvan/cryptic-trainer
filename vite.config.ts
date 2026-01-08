@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/api/solve': {
+            target: 'http://localhost:5001',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api\/solve/, '/solve')
+          }
+        }
       },
       plugins: [react()],
       define: {
