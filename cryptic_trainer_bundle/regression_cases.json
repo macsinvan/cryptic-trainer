@@ -13,6 +13,29 @@
     }
   },
   {
+    "clue": "Computer part used in US city work (6)",
+    "length": 6,
+    "known_answer": "LAPTOP",
+    "expected_method": "charade3",
+    "expected_patternData": {
+      "patternId": "Charade",
+      "answer": "LAPTOP",
+      "techniquesUsed": ["charade"]
+    }
+  },
+  {
+    "clue": "Later events ruined that frame (9)",
+    "length": 9,
+    "known_answer": "AFTERMATH",
+    "expected_method": "anagram_known",
+    "training_json": "{\"type\": \"anagram\", \"fodder\": \"THATFRAME\", \"fodder_source\": \"that frame\"}",
+    "expected_patternData": {
+      "patternId": "Anagram",
+      "answer": "AFTERMATH",
+      "techniquesUsed": ["anagram"]
+    }
+  },
+  {
     "clue": "Chat with me and Mark about union negotiator",
     "length": 10,
     "known_answer": "MATCHMAKER",

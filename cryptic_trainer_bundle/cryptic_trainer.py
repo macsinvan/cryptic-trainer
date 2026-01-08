@@ -48,6 +48,7 @@ ABBREVS: Dict[str, List[str]] = {
     "east": ["E"],
     "west": ["W"],
     "large": ["L"],
+    "part": ["PT"],
 }
 
 SYNONYMS: Dict[str, List[str]] = {
@@ -82,6 +83,8 @@ SYNONYMS: Dict[str, List[str]] = {
     "small amount": ["IOTA", "BIT", "JOT"],
     "cross": ["ROOD", "ANGRY", "IRATE"],
     "inventor": ["BELL"],  # Alexander Graham Bell
+    "computer": ["LAPTOP", "PC"],
+    "work": ["OP", "OPUS"],
 }
 
 PHRASES: Dict[str, List[str]] = {
@@ -95,6 +98,8 @@ PHRASES: Dict[str, List[str]] = {
     "old chap": ["O"],
     "large sum of money": ["POTS"],
     "guest announcer": ["DOORBELL"],
+    "us city": ["LA", "NY"],
+    "later events": ["AFTERMATH"],
 }
 
 # ---------------------------------
@@ -134,7 +139,7 @@ CONTAINER_1 = {
 
 REVERSAL_1 = {"return", "returned", "back", "backwards", "reversed", "up", "about"}  # 'up' for downs, 'about' = turning
 
-ANAGRAM_1 = {"wild", "mad", "crazily", "broken", "mixed", "drunk", "odd", "high", "flying", "about"}  # not exhaustive
+ANAGRAM_1 = {"wild", "mad", "crazily", "broken", "mixed", "drunk", "odd", "high", "flying", "about", "ruined", "damaged", "wrecked", "smashed"}  # not exhaustive
 
 HOMOPHONE_1 = {"heard", "we hear", "reportedly", "they say", "picked up", "sounds like"}
 
@@ -147,19 +152,38 @@ HOMOPHONES: Dict[str, List[str]] = {
 # ---------------------------------
 STOPWORDS = {"with", "and", "the", "a", "an", "to", "of", "in", "on", "for"}
 
-def extract_anagram_fodder(tokens: List[str], ind_span: Tuple[int,int]) -> Tuple[List[str], str]:
+def extract_anagram_fodder(tokens: List[str], ind_span: Tuple[int,int], target_length: int = 0) -> Tuple[List[str], str]:
     """
     Very small heuristic:
-    - take tokens to the LEFT of the anagram indicator span
-    - remove common link words (STOPWORDS)
+    - try tokens to the LEFT of the anagram indicator span
+    - if that doesn't match target length, try tokens to the RIGHT
+    - remove common link words (STOPWORDS) and enumeration numbers
     - concatenate remaining tokens' letters (A-Z)
     Returns (fodder_tokens, fodder_concat)
     """
-    i, _ = ind_span
+    i, j = ind_span
+
+    # Try LEFT first
     left = tokens[:i]
-    kept = [t for t in left if t not in STOPWORDS]
-    concat = "".join([re.sub(r"[^A-Z]", "", t.upper()) for t in kept])
-    return kept, concat
+    kept_left = [t for t in left if t not in STOPWORDS and not t.isdigit()]
+    concat_left = "".join([re.sub(r"[^A-Z]", "", t.upper()) for t in kept_left])
+
+    # Try RIGHT
+    right = tokens[j:]
+    kept_right = [t for t in right if t not in STOPWORDS and not t.isdigit()]
+    concat_right = "".join([re.sub(r"[^A-Z]", "", t.upper()) for t in kept_right])
+
+    # If target_length specified, prefer the one that matches
+    if target_length > 0:
+        if len(concat_right) == target_length:
+            return kept_right, concat_right
+        if len(concat_left) == target_length:
+            return kept_left, concat_left
+
+    # Default: prefer longer fodder, or right if equal
+    if len(concat_right) >= len(concat_left):
+        return kept_right, concat_right
+    return kept_left, concat_left
 
 
 # ---------------------------------
@@ -1408,10 +1432,10 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         if len(ka) == length:
             for h in hits:
                 if h.kind == "anagram":
-                    fod_toks, fod = extract_anagram_fodder(tokens, h.span)
+                    fod_toks, fod = extract_anagram_fodder(tokens, h.span, target_length=length)
                     if len(fod) == length and sorted(fod) == sorted(ka):
                         steps = [
-                            Step(op="fodder_tokens", src=fod_toks, out=" ".join(fod_toks), note="left of anagrind; stopwords removed"),
+                            Step(op="fodder_tokens", src=fod_toks, out=" ".join(fod_toks), note="fodder; stopwords removed"),
                             Step(op="fodder_concat", src=fod_toks, out=fod, note="concatenate letters"),
                             Step(op="anagram", src=[fod, h.value], out=ka, note=f"indicator='{h.value}'"),
                         ]
