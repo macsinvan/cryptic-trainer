@@ -1,5 +1,18 @@
 [
   {
+    "clue": "Cross about Scottish inventor being guest announcer (8)",
+    "length": 8,
+    "known_answer": "DOORBELL",
+    "expected_method": "charade_rev",
+    "expected_patternData": {
+      "patternId": "Charade",
+      "answer": "DOORBELL",
+      "isComplete": true,
+      "techniquesUsed": ["charade", "reversal"],
+      "definitionPosition": "end"
+    }
+  },
+  {
     "clue": "Chat with me and Mark about union negotiator",
     "length": 10,
     "known_answer": "MATCHMAKER",

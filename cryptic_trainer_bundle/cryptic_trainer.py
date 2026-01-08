@@ -721,6 +721,7 @@ NAMED_REFERENTS = {
 METHOD_TO_STEP_TYPE = {
     "charade2": "synonym",
     "charade3": "synonym",
+    "charade_rev": "reversal",
     "container": "container",
     "reversal": "reversal",
     "anagram": "anagram",
@@ -854,6 +855,7 @@ def build_pattern_instance(clue: str, length: int, tokens: List[str], best_candi
     pattern_id_map = {
         "charade2": "Charade",
         "charade3": "Charade",
+        "charade_rev": "Charade",
         "container": "Container",
         "reversal": "Reversal",
         "anagram": "Anagram",
