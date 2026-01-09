@@ -413,6 +413,10 @@ PHRASES: Dict[str, List[str]] = {
     "guest announcer": ["DOORBELL"],
     "us city": ["LA", "NY"],
     "later events": ["AFTERMATH"],
+    # Added from Times 29434
+    "marriage promise": ["IDO", "I DO"],
+    "at some other time": ["LATER"],
+    "some other time": ["LATER"],
 }
 
 # ---------------------------------
