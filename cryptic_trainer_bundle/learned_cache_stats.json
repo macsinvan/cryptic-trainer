@@ -1,10 +1,10 @@
 {
-  "solves_attempted": 16,
-  "solves_passed": 2,
-  "solves_no_ai": 1,
-  "syn_hits": 14,
+  "solves_attempted": 251,
+  "solves_passed": 79,
+  "solves_no_ai": 78,
+  "syn_hits": 64,
   "syn_lookups": 169,
-  "abbr_hits": 0,
+  "abbr_hits": 1,
   "abbr_lookups": 93,
   "total_ai_queries": 262
 }

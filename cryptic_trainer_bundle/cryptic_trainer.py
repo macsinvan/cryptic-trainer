@@ -27,11 +27,40 @@ import argparse
 import json
 import os
 import re
+import sys
 import urllib.request
 import urllib.error
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Tuple, Iterable, Any
+from typing import Dict, List, Optional, Tuple, Iterable, Any, Set
 from collections import defaultdict
+
+# ---------------------------------
+# Logging
+# ---------------------------------
+LOG_ENABLED = os.environ.get("LOG", "0") == "1"
+SUMMARY_ENABLED = False  # Set via --summary flag
+
+def log(func_name: str, msg: str):
+    """Log to stderr if LOG=1"""
+    if LOG_ENABLED:
+        if msg.startswith("═"):
+            print(f"\n{'─'*60}\n{func_name}\n{'─'*60}", file=sys.stderr)
+        else:
+            print(f"  {msg}", file=sys.stderr)
+
+def summary(stage: str, content: str = "", items: list = None, indent: int = 0):
+    """Print structured summary log to stderr if --summary flag is set"""
+    if not SUMMARY_ENABLED:
+        return
+    prefix = "  " * indent
+    if items is not None:
+        print(f"{prefix}[{stage}]", file=sys.stderr)
+        for item in items:
+            print(f"{prefix}  • {item}", file=sys.stderr)
+    elif content:
+        print(f"{prefix}[{stage}] {content}", file=sys.stderr)
+    else:
+        print(f"{prefix}[{stage}]", file=sys.stderr)
 
 # ---------------------------------
 # AI Synonym Lookup (fallback)
@@ -317,6 +346,8 @@ ABBREVS: Dict[str, List[str]] = {
     "west": ["W"],
     "large": ["L"],
     "part": ["PT"],
+    "nine": ["IX"],
+    "500": ["D"],
 }
 
 SYNONYMS: Dict[str, List[str]] = {
@@ -353,6 +384,11 @@ SYNONYMS: Dict[str, List[str]] = {
     "inventor": ["BELL"],  # Alexander Graham Bell
     "computer": ["LAPTOP", "PC"],
     "work": ["OP", "OPUS"],
+    "live": ["BE"],
+    "sheep": ["RAM"],
+    "long": ["ITCH"],
+    "drop": ["DITCH"],
+    "fuel": ["COAL"],
 }
 
 PHRASES: Dict[str, List[str]] = {
@@ -375,6 +411,7 @@ PHRASES: Dict[str, List[str]] = {
 # ---------------------------------
 MODIFIERS_3 = {
     ("ultimately", "lost", "by"): "__tailless__",
+    ("at", "the", "outset"): "__initial__",  # applies to PRECEDING word
 }
 MODIFIERS_2 = {
     ("starting", "late"): "__headless__",
@@ -386,6 +423,7 @@ MODIFIERS_2 = {
 MODIFIERS_1 = {
     "initially": "__initial__",
     "first": "__initial__",
+    "outset": "__initial__",
     "headless": "__headless__",
     "innards": "__inner__",
     "inside": "__inner__",
@@ -403,6 +441,7 @@ CONTAINER_2 = {
 CONTAINER_1 = {
     "in", "inside", "within", "around", "about", "cuddling", "wearing",
     "entertaining", "hiding", "house", "interrupts", "covers", "conceals",
+    "capturing", "covered",
 }
 
 REVERSAL_1 = {"return", "returned", "back", "backing", "backwards", "reversed", "up", "about"}  # 'up' for downs, 'about' = turning
@@ -544,17 +583,28 @@ def expand_token(token: str) -> List[Tuple[str, str]]:
     """
     out: List[Tuple[str, str]] = []
     t = token.lower()
+    # Handle possessive: "diver's" -> also check "diver"
+    base_t = t.rstrip("'s") if t.endswith("'s") else t
     # abbrev
     if t in ABBREVS:
         for v in ABBREVS[t]:
             out.append((v.upper(), f"abbrev:{t}"))
+    if base_t != t and base_t in ABBREVS:
+        for v in ABBREVS[base_t]:
+            out.append((v.upper(), f"abbrev:{base_t}"))
     # synonym
     if t in SYNONYMS:
         for v in SYNONYMS[t]:
             out.append((v.upper(), f"syn:{t}"))
-    # literal as-is (uppercased) - only if alpha
+    if base_t != t and base_t in SYNONYMS:
+        for v in SYNONYMS[base_t]:
+            out.append((v.upper(), f"syn:{base_t}"))
+    # literal as-is (uppercased) - only if alpha (allow possessive)
     if re.fullmatch(r"[a-z]+", t):
         out.append((t.upper(), "lit"))
+    elif re.fullmatch(r"[a-z]+'s", t):
+        # For possessive, use the base word as literal
+        out.append((base_t.upper(), "lit"))
     return uniq_preserve(out)
 
 def expand_phrase(tokens: List[str], i: int, j: int) -> List[Tuple[str, str]]:
@@ -653,11 +703,46 @@ def augment_with_ai_abbreviations(tokens: List[str], exmap: Dict[Tuple[int,int],
                 exmap[span].append((abbrev, f"ai_abbrev:{t}"))
 
 def apply_local_modifiers(tokens: List[str], exmap: Dict[Tuple[int,int], List[Tuple[str,str]]]) -> None:
-    """Apply 1-word modifiers like 'extremely' to the immediately following single-token span."""
-    for i, tok in enumerate(tokens[:-1]):
+    """Apply modifiers to adjacent tokens.
+
+    Handles:
+    - 1-word modifiers (MODIFIERS_1) apply to following word
+    - Special case: 'first' after possessive applies to PRECEDING word
+    - 3-word phrase modifiers (MODIFIERS_3) like "at the outset" apply to PRECEDING word
+    """
+    n = len(tokens)
+
+    # Handle 3-word phrase modifiers that apply to PRECEDING word
+    for i in range(n - 2):
+        trigram = (tokens[i].lower(), tokens[i+1].lower(), tokens[i+2].lower())
+        if trigram in MODIFIERS_3:
+            mod = MODIFIERS_3[trigram]
+            # Apply to preceding word
+            if i > 0:
+                target_span = (i-1, i)
+                if target_span in exmap:
+                    new = []
+                    for s, prov in exmap[target_span]:
+                        try:
+                            ms = apply_modifier(mod, s)
+                        except Exception:
+                            continue
+                        if ms:
+                            phrase_name = " ".join(trigram)
+                            new.append((ms, f"{prov}|mod:{phrase_name}"))
+                    exmap[target_span].extend(new)
+
+    # Handle 1-word modifiers
+    for i, tok in enumerate(tokens):
         if tok in MODIFIERS_1:
             mod = MODIFIERS_1[tok]
-            target_span = (i+1, i+2)
+            # Special case: "X's first" means first letter of X
+            if tok == "first" and i > 0 and tokens[i-1].endswith("'s"):
+                target_span = (i-1, i)
+            elif i < len(tokens) - 1:
+                target_span = (i+1, i+2)
+            else:
+                continue
             if target_span in exmap:
                 new = []
                 for s, prov in exmap[target_span]:
@@ -720,6 +805,10 @@ class IndicatorHit:
     value: str  # sentinel or indicator token
 
 def detect_indicators(tokens: List[str]) -> List[IndicatorHit]:
+    """Scan tokens for indicator words/phrases (modifier, container, reversal, anagram, homophone)."""
+    log("detect_indicators", "═" * 50)
+    log("detect_indicators", f"Scanning: {' '.join(tokens)}")
+
     hits: List[IndicatorHit] = []
 
     # modifiers 3-gram, 2-gram, 1-gram
@@ -746,7 +835,227 @@ def detect_indicators(tokens: List[str]) -> List[IndicatorHit]:
 
     # deterministic ordering: earlier spans first
     hits.sort(key=lambda h: (h.span[0], h.span[1], h.kind))
+
+    log("detect_indicators", f"Found {len(hits)} indicators:")
+    for h in hits:
+        words = ' '.join(tokens[h.span[0]:h.span[1]])
+        log("detect_indicators", f"  '{words}' -> {h.kind}")
     return hits
+
+
+# ---------------------------------
+# Indicator:Fodder pairing and conflict resolution
+# ---------------------------------
+@dataclass
+class IndicatorFodderPair:
+    indicator: IndicatorHit
+    fodder_span: Tuple[int, int]  # span of fodder word(s)
+    words_claimed: Set[int]       # all token indices used by this pair
+
+def build_indicator_fodder_pairs(tokens: List[str], indicators: List[IndicatorHit]) -> List[IndicatorFodderPair]:
+    """Pair each indicator with its fodder. Combines adjacent containers (e.g., 'covered'+'in')."""
+    log("build_pairs", "═" * 50)
+
+    pairs: List[IndicatorFodderPair] = []
+    n = len(tokens)
+
+    # First, try to combine adjacent container indicators (e.g., "covered" + "in" -> "covered in")
+    combined_containers: List[IndicatorHit] = []
+    skip_indices: Set[int] = set()
+
+    for i, ind in enumerate(indicators):
+        if i in skip_indices:
+            continue
+        if ind.kind == "container":
+            # Look for adjacent container indicator to combine
+            for j, ind2 in enumerate(indicators):
+                if j <= i or j in skip_indices:
+                    continue
+                if ind2.kind == "container" and ind2.span[0] == ind.span[1]:
+                    # Adjacent containers - combine them
+                    combined = IndicatorHit(
+                        kind="container",
+                        span=(ind.span[0], ind2.span[1]),
+                        value=f"{ind.value} {ind2.value}"
+                    )
+                    combined_containers.append(combined)
+                    skip_indices.add(i)
+                    skip_indices.add(j)
+                    log("build_pairs", f"Combined adjacent containers: '{ind.value}' + '{ind2.value}' -> '{combined.value}'")
+                    break
+            if i not in skip_indices:
+                combined_containers.append(ind)
+        else:
+            combined_containers.append(ind)
+
+    # Now build pairs from combined indicators
+    for ind in combined_containers:
+        ind_start, ind_end = ind.span
+        ind_words = ' '.join(tokens[ind_start:ind_end])
+        words_claimed = set(range(ind_start, ind_end))
+
+        if ind.kind == "modifier":
+            # Modifier acts on adjacent word - prefer PRECEDING word
+            if ind_start > 0:
+                fodder_span = (ind_start - 1, ind_start)
+                fodder_word = tokens[fodder_span[0]]
+                words_claimed.add(ind_start - 1)
+                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed))
+                log("build_pairs", f"  '{ind_words}' (modifier) acts on '{fodder_word}'")
+            elif ind_end < n:
+                fodder_span = (ind_end, ind_end + 1)
+                fodder_word = tokens[fodder_span[0]]
+                words_claimed.add(ind_end)
+                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed))
+                log("build_pairs", f"  '{ind_words}' (modifier) acts on '{fodder_word}'")
+
+        elif ind.kind in ("anagram", "reversal"):
+            # Acts on adjacent fodder - check both sides
+            if ind_end < n:
+                fodder_span = (ind_end, ind_end + 1)
+                fodder_word = tokens[fodder_span[0]]
+                words_claimed_copy = words_claimed.copy()
+                words_claimed_copy.add(ind_end)
+                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed_copy))
+                log("build_pairs", f"  '{ind_words}' ({ind.kind}) acts on '{fodder_word}' (after)")
+            if ind_start > 0:
+                fodder_span = (ind_start - 1, ind_start)
+                fodder_word = tokens[fodder_span[0]]
+                words_claimed_copy = words_claimed.copy()
+                words_claimed_copy.add(ind_start - 1)
+                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed_copy))
+                log("build_pairs", f"  '{ind_words}' ({ind.kind}) acts on '{fodder_word}' (before)")
+
+        elif ind.kind == "container":
+            # Container needs X in Y - fodder after indicator is outer (Y)
+            if ind_end < n:
+                fodder_span = (ind_end, ind_end + 1)
+                fodder_word = tokens[fodder_span[0]]
+                words_claimed.add(ind_end)
+                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed))
+                log("build_pairs", f"  '{ind_words}' (container) acts on '{fodder_word}'")
+
+    log("build_pairs", f"Built {len(pairs)} pairs")
+    return pairs
+
+def find_conflicts(tokens: List[str], pairs: List[IndicatorFodderPair]) -> List[Tuple[IndicatorFodderPair, IndicatorFodderPair]]:
+    """Find pairs where one indicator's span overlaps another's fodder span (conflict)."""
+    log("find_conflicts", "═" * 50)
+
+    conflicts: List[Tuple[IndicatorFodderPair, IndicatorFodderPair]] = []
+
+    for i, p1 in enumerate(pairs):
+        for p2 in pairs[i+1:]:
+            # Check if p1's indicator span overlaps with p2's fodder span or vice versa
+            p1_ind_indices = set(range(p1.indicator.span[0], p1.indicator.span[1]))
+            p2_ind_indices = set(range(p2.indicator.span[0], p2.indicator.span[1]))
+            p1_fodder_indices = set(range(p1.fodder_span[0], p1.fodder_span[1]))
+            p2_fodder_indices = set(range(p2.fodder_span[0], p2.fodder_span[1]))
+
+            # Conflict: p1's indicator is p2's fodder, or vice versa
+            if p1_ind_indices & p2_fodder_indices or p2_ind_indices & p1_fodder_indices:
+                conflicts.append((p1, p2))
+                p1_ind_words = ' '.join(tokens[p1.indicator.span[0]:p1.indicator.span[1]])
+                p2_ind_words = ' '.join(tokens[p2.indicator.span[0]:p2.indicator.span[1]])
+                log("find_conflicts", f"  Conflict: '{p1_ind_words}' ({p1.indicator.kind}) vs '{p2_ind_words}' ({p2.indicator.kind})")
+
+    if conflicts:
+        log("find_conflicts", f"Found {len(conflicts)} conflicts")
+    else:
+        log("find_conflicts", "No conflicts found")
+    return conflicts
+
+def resolve_conflicts(tokens: List[str], pairs: List[IndicatorFodderPair],
+                      conflicts: List[Tuple[IndicatorFodderPair, IndicatorFodderPair]],
+                      def_span: Tuple[int, int] = None) -> List[IndicatorFodderPair]:
+    """Pick winners from conflicting pairs by maximizing word coverage. Rule: all words must be used."""
+    log("resolve_conflicts", "═" * 50)
+
+    if not conflicts:
+        log("resolve_conflicts", "No conflicts to resolve")
+        return pairs
+
+    n = len(tokens)
+    def_indices = set(range(def_span[0], def_span[1])) if def_span else set()
+    def_words = ' '.join(tokens[def_span[0]:def_span[1]]) if def_span else "(none)"
+    wordplay_indices = set(range(n)) - def_indices
+    wordplay_words = [tokens[i] for i in sorted(wordplay_indices)]
+    log("resolve_conflicts", f"Definition: '{def_words}'")
+    log("resolve_conflicts", f"Wordplay words: {' '.join(wordplay_words)}")
+
+    # Track all pairs involved in conflicts and which ones lose
+    conflicting_pair_ids = set()
+    losing_pair_ids = set()
+    for p1, p2 in conflicts:
+        conflicting_pair_ids.add(id(p1))
+        conflicting_pair_ids.add(id(p2))
+
+    # Clean pairs = not involved in any conflict
+    clean_pairs = [p for p in pairs if id(p) not in conflicting_pair_ids]
+    if clean_pairs:
+        log("resolve_conflicts", f"Clean pairs (no conflict):")
+        for p in clean_pairs:
+            ind_words = ' '.join(tokens[p.indicator.span[0]:p.indicator.span[1]])
+            fodder_words = ' '.join(tokens[p.fodder_span[0]:p.fodder_span[1]])
+            log("resolve_conflicts", f"  '{ind_words}' ({p.indicator.kind}) on '{fodder_words}'")
+
+    # Words claimed by clean pairs
+    clean_claimed = set()
+    for p in clean_pairs:
+        clean_claimed |= p.words_claimed
+
+    # Resolve each conflict - pick winner, mark loser
+    winners = {}  # id -> pair
+    for p1, p2 in conflicts:
+        # Skip if we already resolved this pair
+        if id(p1) in winners or id(p2) in winners:
+            continue
+
+        # Test which option covers more wordplay words
+        p1_coverage = clean_claimed | p1.words_claimed
+        p2_coverage = clean_claimed | p2.words_claimed
+
+        p1_wp_coverage = len(p1_coverage & wordplay_indices)
+        p2_wp_coverage = len(p2_coverage & wordplay_indices)
+
+        p1_ind_words = ' '.join(tokens[p1.indicator.span[0]:p1.indicator.span[1]])
+        p2_ind_words = ' '.join(tokens[p2.indicator.span[0]:p2.indicator.span[1]])
+
+        if p1_wp_coverage >= p2_wp_coverage:
+            winners[id(p1)] = p1
+            losing_pair_ids.add(id(p2))
+            log("resolve_conflicts", f"Winner: '{p1_ind_words}' (covers {p1_wp_coverage} words) beats '{p2_ind_words}' (covers {p2_wp_coverage} words)")
+        else:
+            winners[id(p2)] = p2
+            losing_pair_ids.add(id(p1))
+            log("resolve_conflicts", f"Winner: '{p2_ind_words}' (covers {p2_wp_coverage} words) beats '{p1_ind_words}' (covers {p1_wp_coverage} words)")
+
+    # Result = clean pairs + winners
+    resolved = clean_pairs + list(winners.values())
+
+    # Deduplicate by (indicator span, fodder span)
+    seen = set()
+    deduped = []
+    for p in resolved:
+        key = (p.indicator.span, p.fodder_span)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(p)
+
+    log("resolve_conflicts", f"Resolved to {len(deduped)} pairs:")
+    for p in deduped:
+        ind_words = ' '.join(tokens[p.indicator.span[0]:p.indicator.span[1]])
+        fodder_words = ' '.join(tokens[p.fodder_span[0]:p.fodder_span[1]])
+        log("resolve_conflicts", f"  '{ind_words}' ({p.indicator.kind}) on '{fodder_words}'")
+    return deduped
+
+def get_resolved_indicators(tokens: List[str], def_span: Tuple[int, int] = None) -> List[IndicatorFodderPair]:
+    """Main entry: detect indicators -> build pairs -> resolve conflicts -> return winners."""
+    indicators = detect_indicators(tokens)
+    pairs = build_indicator_fodder_pairs(tokens, indicators)
+    conflicts = find_conflicts(tokens, pairs)
+    resolved = resolve_conflicts(tokens, pairs, conflicts, def_span)
+    return resolved
 
 
 # ---------------------------------
@@ -768,6 +1077,60 @@ def build_units(tokens: List[str], exmap: Dict[Tuple[int,int], List[Tuple[str,st
             break
     # trim
     return units[: max_units * 5]
+
+def units_from_resolved_pairs(tokens: List[str], resolved_pairs: List[IndicatorFodderPair], exmap: Dict[Tuple[int,int], List[Tuple[str,str]]]) -> List[Tuple[Tuple[int,int], str, str]]:
+    """Convert resolved pairs to units. Modifiers extract letters, containers get fodder expansions."""
+    log("units_from_pairs", "═" * 50)
+
+    units = []
+
+    for pair in resolved_pairs:
+        fodder_span = pair.fodder_span
+        fodder_text = tokens[fodder_span[0]].upper()
+        fodder_word = tokens[fodder_span[0]]
+        indicator_kind = pair.indicator.kind
+        indicator_value = pair.indicator.value
+        ind_words = ' '.join(tokens[pair.indicator.span[0]:pair.indicator.span[1]])
+
+        if indicator_kind == "modifier":
+            # Apply modifier to fodder
+            if indicator_value == "__initial__":
+                result = fodder_text[0] if fodder_text else ""
+                mod_name = "first letter"
+            elif indicator_value == "__final__":
+                result = fodder_text[-1] if fodder_text else ""
+                mod_name = "last letter"
+            elif indicator_value == "__inner__":
+                result = fodder_text[1:-1] if len(fodder_text) > 2 else ""
+                mod_name = "inner letters"
+            elif indicator_value == "__extremes__":
+                result = (fodder_text[0] + fodder_text[-1]) if len(fodder_text) >= 2 else fodder_text
+                mod_name = "extremes"
+            elif indicator_value == "__tailless__":
+                result = fodder_text[:-1] if fodder_text else ""
+                mod_name = "tailless"
+            else:
+                result = fodder_text
+                mod_name = "literal"
+
+            if result:
+                prov = f"lit|mod:{indicator_value.strip('_')}" if indicator_value.startswith("__") else "lit"
+                units.append((fodder_span, result, prov))
+                log("units_from_pairs", f"  '{ind_words}' on '{fodder_word}' -> {mod_name} -> '{result}'")
+
+        elif indicator_kind == "container":
+            # For container, get expansions of the outer fodder (e.g., "fuel" -> COAL)
+            if fodder_span in exmap:
+                for exp, prov in exmap[fodder_span]:
+                    units.append((fodder_span, exp, prov))
+                    log("units_from_pairs", f"  '{ind_words}' on '{fodder_word}' -> synonym -> '{exp}'")
+            else:
+                # Fallback to literal
+                units.append((fodder_span, fodder_text, "lit"))
+                log("units_from_pairs", f"  '{ind_words}' on '{fodder_word}' -> literal -> '{fodder_text}'")
+
+    log("units_from_pairs", f"Generated {len(units)} units")
+    return units
 
 def charade_candidates(units, length: int, k: int) -> List[Tuple[str, List[Step]]]:
     """
@@ -837,9 +1200,11 @@ def itertools_product(pool, repeat: int):
     return itertools.product(pool, repeat=repeat)
 
 def container_candidates(units, length: int) -> List[Tuple[str, List[Step]]]:
-    """
-    A in B or B around A: try inserting one unit into another.
-    """
+    """Insert unit A into unit B at each position. A in B or B around A."""
+    log("container_candidates", "═" * 50)
+    log("container_candidates", f"Target length: {length}")
+    log("container_candidates", f"Units available: {[u[1] for u in units[:10]]}")
+
     outs = []
     pool = units[:25]
     for a in pool:
@@ -858,6 +1223,9 @@ def container_candidates(units, length: int) -> List[Tuple[str, List[Step]]]:
                     Step(op="container", src=[A, B], out=s, note=f"insert at {cut}")
                 ]
                 outs.append((s, steps))
+                log("container_candidates", f"  '{A}' in '{B}' at position {cut} -> '{s}'")
+
+    log("container_candidates", f"Generated {len(outs)} container candidates")
     return outs
 
 def reversal_candidates(units, length: int) -> List[Tuple[str, List[Step]]]:
@@ -1886,9 +2254,24 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         LEARNED_CACHE_STATS["solves_attempted"] = LEARNED_CACHE_STATS.get("solves_attempted", 0) + 1
         _save_cache_stats()
 
+    log("solve", "═" * 50)
+    log("solve", f"Clue: {clue}")
+    log("solve", f"Length: {length}")
+    if known_answer:
+        log("solve", f"Expected answer: {known_answer}")
+
+    # === SUMMARY: Input ===
+    summary("INPUT", f'"{clue}" ({length})')
+    if known_answer:
+        summary("TARGET", known_answer)
+
     # Strip trailing enumeration before tokenizing (e.g., "(5)", "(3,6)", "(7-3)")
     clue_text = re.sub(r'\s*\([0-9,\-]+\)\s*$', '', clue)
     tokens = tokenize(clue_text)
+    log("solve", f"Tokens: {' | '.join(tokens)}")
+
+    # === SUMMARY: Tokens ===
+    summary("TOKENS", " | ".join(tokens))
 
     # Build full expansion map first
     exmap = all_expansions(tokens)
@@ -1898,11 +2281,28 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
     apply_local_homophones(tokens, exmap)
     hits = detect_indicators(tokens)
 
+    # === SUMMARY: Indicators ===
+    if hits:
+        ind_items = [f"{h.value} ({h.kind}) @ tokens[{h.span[0]}:{h.span[1]}]" for h in hits]
+        summary("INDICATORS", items=ind_items)
+    else:
+        summary("INDICATORS", "none found")
+
+    # === SUMMARY: Key Expansions ===
+    key_expansions = []
+    for span, exps in exmap.items():
+        for exp_val, exp_note in exps:
+            if "syn:" in exp_note or "abbrev:" in exp_note or "ai_" in exp_note or "phrase:" in exp_note:
+                tok_text = tokens[span[0]] if span[1] - span[0] == 1 else " ".join(tokens[span[0]:span[1]])
+                key_expansions.append(f"{tok_text} -> {exp_val} ({exp_note})")
+    if key_expansions:
+        summary("EXPANSIONS", items=key_expansions[:15])  # limit to 15
+
     # Get indicator spans for definition logic
     ind_spans = [[h.span[0], h.span[1]] for h in hits] if hits else None
 
     # Get possible definition positions (using indicator info)
-    def_candidates = _get_definition_candidates(tokens, indicator_spans=ind_spans, log=True)
+    def_candidates = _get_definition_candidates(tokens, indicator_spans=ind_spans, log=SUMMARY_ENABLED)
 
     # Normalize known_answer for comparison
     ka = re.sub(r"[^A-Z]", "", known_answer.upper()) if known_answer else None
@@ -1912,6 +2312,11 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
     all_cands: List[Candidate] = []
     winning_def_cand = None
 
+    # === SUMMARY: Definition Candidates ===
+    if def_candidates:
+        def_items = [f"'{d.get('text', '')}' ({d.get('type', '?')}, w={d.get('weight', 0):.1f})" for d in def_candidates[:6]]
+        summary("DEF_CANDIDATES", items=def_items)
+
     import sys
     for def_idx, def_cand in enumerate(def_candidates):
         def_span = def_cand.get("span")
@@ -1919,11 +2324,11 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         def_weight = def_cand.get("weight", 0.5)
         def_text = def_cand.get("text", "")
 
-        print(f"[SOLVE] Trying definition #{def_idx+1}: '{def_text}' ({def_type}, w={def_weight})", file=sys.stderr)
+        summary("TRY_DEF", f"#{def_idx+1} '{def_text}' ({def_type})", indent=1)
 
         # Skip double_def for now (no wordplay to solve)
         if def_type == "double_def":
-            print(f"[SOLVE]   Skipped (double_def not implemented)", file=sys.stderr)
+            summary("SKIP", "double_def not implemented", indent=2)
             continue
 
         # Filter exmap to exclude definition span
@@ -1939,7 +2344,40 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         # Build units from filtered expansion map
         units = build_units(tokens, filtered_exmap, max_units=10)
 
+        # Get resolved indicator:fodder pairs and generate additional units
+        resolved_pairs = get_resolved_indicators(tokens, def_span=def_span)
+        resolved_units = units_from_resolved_pairs(tokens, resolved_pairs, filtered_exmap)
+
+        # Merge resolved units (prioritize them by putting first)
+        seen_keys = set()
+        merged_units = []
+        for u in resolved_units:
+            key = (u[0], u[1])  # (span, value)
+            if key not in seen_keys:
+                seen_keys.add(key)
+                merged_units.append(u)
+        for u in units:
+            key = (u[0], u[1])
+            if key not in seen_keys:
+                seen_keys.add(key)
+                merged_units.append(u)
+        units = merged_units
+
+        # Determine clue type from indicators
+        indicator_kinds = set(h.kind for h in hits)
+        log("clue_type", "═" * 50)
+        log("clue_type", f"Indicators found: {indicator_kinds if indicator_kinds else 'none'}")
+        if "container" in indicator_kinds:
+            log("clue_type", "Clue type: CONTAINER (X in Y)")
+        elif "anagram" in indicator_kinds:
+            log("clue_type", "Clue type: ANAGRAM")
+        elif "reversal" in indicator_kinds:
+            log("clue_type", "Clue type: REVERSAL")
+        else:
+            log("clue_type", "Clue type: CHARADE (default)")
+
         # Generate candidates with this definition excluded
+        log("candidate_generation", "═" * 50)
         gen = []
         gen.extend([("charade2", charade_candidates(units, length, 2))])
         gen.extend([("charade3", charade_candidates(units, length, 3))])
@@ -1947,6 +2385,9 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         gen.extend([("container", container_candidates(units, length))])
         gen.extend([("reversal", reversal_candidates(units, length))])
         gen.extend([("anagram", anagram_candidates(units, length))])
+
+        for method, outs in gen:
+            log("candidate_generation", f"  {method}: {len(outs)} candidates")
 
         def_cands: List[Candidate] = []
         for method, outs in gen:
@@ -1957,34 +2398,54 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
                     notes.append("indicators: " + ", ".join(sorted({h.kind for h in hits})))
                 def_cands.append(Candidate(answer=ans, length=length, score=sc, steps=steps, method=method, notes=notes))
 
-        print(f"[SOLVE]   Generated {len(def_cands)} candidates", file=sys.stderr)
+        # === SUMMARY: Generation counts ===
+        gen_counts = [f"{m}: {len(o)}" for m, o in gen if len(o) > 0]
+        if gen_counts:
+            summary("GENERATED", ", ".join(gen_counts), indent=2)
 
         # Check if known_answer found in this batch
         if ka:
             found_in_batch = any(c.answer == ka for c in def_cands)
             if found_in_batch:
-                print(f"[SOLVE]   ✓ FOUND '{ka}' with definition '{def_text}' (candidate #{def_idx+1})", file=sys.stderr)
+                summary("FOUND", f"✓ '{ka}' with definition '{def_text}'", indent=2)
                 winning_def_cand = def_cand
                 all_cands.extend(def_cands)
                 break  # Stop on first success
             else:
-                print(f"[SOLVE]   ✗ '{ka}' not found, trying next definition...", file=sys.stderr)
+                summary("NOT_FOUND", f"'{ka}' not in {len(def_cands)} candidates", indent=2)
 
         all_cands.extend(def_cands)
 
         # In non-training mode, stop after first definition that produces candidates
         if not ka and def_cands:
-            print(f"[SOLVE]   Stopping (non-training mode, got candidates)", file=sys.stderr)
+            summary("STOP", f"non-training mode, got {len(def_cands)} candidates", indent=2)
             break
 
-    # Log training validation result
+    # === SUMMARY: Definition result ===
     if ka and winning_def_cand:
-        print(f"[SOLVE] Definition validation: '{winning_def_cand['text']}' was correct (type={winning_def_cand['type']}, weight={winning_def_cand['weight']})", file=sys.stderr)
+        summary("DEF_RESULT", f"✓ '{winning_def_cand['text']}' ({winning_def_cand['type']})")
     elif ka:
-        print(f"[SOLVE] Definition validation: FAILED - '{ka}' not found in any definition candidate", file=sys.stderr)
+        summary("DEF_RESULT", f"✗ FAILED - '{ka}' not found")
 
     # Also try with full tokens (no definition excluded) for backwards compatibility
     units = build_units(tokens, exmap, max_units=10)
+
+    # Also add resolved indicator:fodder units to main candidate generation
+    resolved_pairs_main = get_resolved_indicators(tokens, def_span=None)
+    resolved_units_main = units_from_resolved_pairs(tokens, resolved_pairs_main, exmap)
+    seen_keys = set()
+    merged_units_main = []
+    for u in resolved_units_main:
+        key = (u[0], u[1])
+        if key not in seen_keys:
+            seen_keys.add(key)
+            merged_units_main.append(u)
+    for u in units:
+        key = (u[0], u[1])
+        if key not in seen_keys:
+            seen_keys.add(key)
+            merged_units_main.append(u)
+    units = merged_units_main
 
     cands: List[Candidate] = []
 
@@ -2201,6 +2662,13 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         if len(uniq) >= max_candidates:
             break
 
+    # === SUMMARY: Top Candidates ===
+    summary("RESULTS", f"{len(uniq)} unique candidates")
+    top_items = []
+    for c in uniq[:8]:
+        top_items.append(f"{c.answer} ({c.method}, score={c.score:.2f})")
+    if top_items:
+        summary("TOP_CANDIDATES", items=top_items)
 
     # If we have a known answer, check if we found it and record stats
     if known_answer:
@@ -2211,9 +2679,24 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         found = any(c.answer == ka for c in uniq)
         winning = next((c for c in uniq if c.answer == ka), None) if found else None
 
+        log("battle_card", "═" * 50)
+        log("battle_card", "BATTLE CARD VALIDATION")
+        log("battle_card", f"Looking for: {ka}")
+        log("battle_card", f"Total candidates: {len(uniq)}")
+
+        if winning:
+            log("battle_card", f"Found {ka} via {winning.method}")
+            log("battle_card", f"Steps:")
+            for s in winning.steps:
+                log("battle_card", f"  {s.out} <- {s.src} [{s.op}]")
+        else:
+            log("battle_card", f"'{ka}' NOT FOUND in top {len(uniq)} candidates")
+            log("battle_card", f"Top 10 candidates:")
+            for c in uniq[:10]:
+                log("battle_card", f"  {c.answer} (score {c.score}, {c.method})")
+
         # Battle card checks
         has_definition = winning is not None  # If we found answer, we likely had definition
-        # Charade clues often have no explicit indicator - accept charade methods as implicit indicators
         has_indicator = len(hits) > 0 or (winning and winning.method in ("charade2", "charade3"))
         has_fodder = winning is not None and any(
             s.op in ("fodder_tokens", "fodder_concat", "unit", "recipe_fodder", "recipe_base", "recipe_part", "recipe_outer", "recipe_inner")
@@ -2221,8 +2704,26 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         )
         has_answer = found
 
+        log("battle_card", f"Validation:")
+        log("battle_card", f"  Definition: {'YES' if has_definition else 'NO'}")
+        log("battle_card", f"  Indicator:  {'YES' if has_indicator else 'NO'}")
+        log("battle_card", f"  Fodder:     {'YES' if has_fodder else 'NO'}")
+        log("battle_card", f"  Answer:     {'YES' if has_answer else 'NO'}")
+
         # Full solve requires ALL elements: definition, indicator, fodder, answer
         full_solve = has_definition and has_indicator and has_fodder and has_answer
+
+        # === SUMMARY: Final result ===
+        if winning:
+            summary("WINNING_TRACE", f"{ka} via {winning.method}")
+            step_items = []
+            for s in winning.steps:
+                src_str = ", ".join(str(x) for x in s.src) if s.src else ""
+                note_str = f" ({s.note})" if s.note else ""
+                step_items.append(f"{s.out} <- {src_str} [{s.op}]{note_str}")
+            summary("STEPS", items=step_items, indent=1)
+        else:
+            summary("WINNING_TRACE", f"✗ '{ka}' NOT FOUND in {len(uniq)} candidates")
 
         # Only count as passed if full solve (all battle card elements checked)
         if full_solve:
@@ -2287,6 +2788,7 @@ def main():
     ap_solve.add_argument("--known-answer", default=None)
     ap_solve.add_argument("--training-json", default=None)
     ap_solve.add_argument("--pretty", action="store_true")
+    ap_solve.add_argument("--summary", action="store_true", help="Print human-readable summary to stderr")
 
     ap_trace = sub.add_parser("trace", help="Only show tokenization + indicator hits")
     ap_trace.add_argument("--clue", required=True)
@@ -2320,6 +2822,8 @@ def main():
         return
 
     if args.cmd == "solve":
+        global SUMMARY_ENABLED
+        SUMMARY_ENABLED = args.summary
         out = solve(args.clue, args.length, max_candidates=args.max, known_answer=args.known_answer, training_json=args.training_json)
         if args.pretty:
             print(json.dumps(out, indent=2))
