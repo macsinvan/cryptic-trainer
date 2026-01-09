@@ -395,6 +395,9 @@ SYNONYMS: Dict[str, List[str]] = {
     "upper-class people": ["TOFFS"],
     "upper class people": ["TOFFS"],
     "kills": ["OFFS"],  # American slang
+    "narrative poem": ["LAY"],
+    "poem": ["LAY", "ODE", "VERSE"],
+    "attack": ["FLAY", "HIT", "RAID"],
 }
 
 PHRASES: Dict[str, List[str]] = {
@@ -426,6 +429,8 @@ MODIFIERS_2 = {
     ("ultimately", "lost"): "__tailless__",
     ("scratching", "head"): "__headless__",
     ("leader", "abandoning"): "__headless__",  # Added from Times 29434
+    ("losing", "head"): "__headless__",
+    ("losing", "tail"): "__tailless__",
 }
 MODIFIERS_1 = {
     "initially": "__initial__",
