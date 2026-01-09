@@ -6,18 +6,158 @@ Parses crossword blog posts and extracts structured clue data including:
 - Puzzle metadata (number, setter, date)
 - All clues with definitions (from underline markup), answers, and wordplay explanations
 
+Rate limited: 10 minute cooldown between scrapes to avoid getting blocked.
+Output: Saves to <Publication>/<Publication>_<puzzle_number>.json
+
 Usage:
     python puzzle_scraper.py https://timesforthetimes.co.uk/times-29431-just-right
-    python puzzle_scraper.py https://timesforthetimes.co.uk/times-29431-just-right --output puzzle.json
+    python puzzle_scraper.py https://timesforthetimes.co.uk/times-29431-just-right --force
 """
 
 import argparse
 import json
+import os
 import re
 import sys
+import time
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from urllib.request import urlopen, Request
 from html.parser import HTMLParser
+
+# Rate limiting config
+RATE_LIMIT_SECONDS = 600  # 10 minutes
+RATE_LIMIT_FILE = Path(__file__).parent / ".scraper_last_fetch"
+
+
+def check_rate_limit() -> Optional[int]:
+    """Check if we're within the rate limit cooldown.
+
+    Returns None if OK to proceed, or seconds remaining if in cooldown.
+    """
+    if not RATE_LIMIT_FILE.exists():
+        return None
+
+    try:
+        last_fetch = float(RATE_LIMIT_FILE.read_text().strip())
+        elapsed = time.time() - last_fetch
+        remaining = RATE_LIMIT_SECONDS - elapsed
+
+        if remaining > 0:
+            return int(remaining)
+        return None
+    except (ValueError, OSError):
+        return None
+
+
+def record_fetch():
+    """Record the current time as the last fetch time."""
+    try:
+        RATE_LIMIT_FILE.write_text(str(time.time()))
+    except OSError as e:
+        print(f"Warning: Could not save rate limit timestamp: {e}", file=sys.stderr)
+
+
+def get_output_path(publication: str, puzzle_number: int) -> Path:
+    """Generate output path: <Publication>/<Publication>_<puzzle_number>.json"""
+    pub_dir = Path(__file__).parent / publication.upper()
+    pub_dir.mkdir(exist_ok=True)
+    return pub_dir / f"{publication.upper()}_{puzzle_number}.json"
+
+
+def puzzle_exists(publication: str, puzzle_number: int) -> bool:
+    """Check if a puzzle file already exists locally."""
+    path = get_output_path(publication, puzzle_number)
+    return path.exists()
+
+
+def extract_puzzle_links_from_index(html: str) -> List[Dict[str, Any]]:
+    """Extract puzzle links from an index page.
+
+    Returns list of dicts with 'url', 'publication', 'puzzle_number'.
+    """
+    seen = set()  # Track (publication, puzzle_number) to avoid duplicates
+    puzzles = []
+    base_url = "https://timesforthetimes.co.uk"
+
+    # Find all links that look like puzzle posts
+    # Patterns: times-29431, times-cryptic-29433, quick-cryptic-3193, etc.
+    link_pattern = re.compile(r'href="([^"]*)"')
+
+    for match in link_pattern.finditer(html):
+        href = match.group(1)
+
+        # Skip fragments (e.g., #comments)
+        if '#' in href:
+            href = href.split('#')[0]
+
+        # Make absolute URL if relative
+        if href.startswith('/'):
+            url = base_url + href
+        elif not href.startswith('http'):
+            url = base_url + '/' + href
+        else:
+            url = href
+
+        # Skip non-puzzle pages
+        if '/page/' in url or url.endswith('.co.uk') or url.endswith('.co.uk/'):
+            continue
+
+        # Try to extract puzzle info (order matters - more specific patterns first)
+        puzzle_info = None
+
+        # Sunday Times: sunday-times-5196 (must check BEFORE generic times pattern)
+        st_match = re.search(r'sunday-times-(\d{4})', url)
+        if st_match:
+            puzzle_info = {
+                'url': url,
+                'publication': 'sunday_times',
+                'puzzle_number': int(st_match.group(1))
+            }
+
+        # Quick Cryptic: quick-cryptic-3193, qc-3191, times-quick-cryptic
+        qc_match = re.search(r'(?:times-)?(?:quick-cryptic|qc)-(?:no-)?(\d{4})', url)
+        if qc_match and not puzzle_info:
+            puzzle_info = {
+                'url': url,
+                'publication': 'times_quick',
+                'puzzle_number': int(qc_match.group(1))
+            }
+
+        # Mephisto: mephisto-3409
+        meph_match = re.search(r'mephisto-(\d{4})', url)
+        if meph_match and not puzzle_info:
+            puzzle_info = {
+                'url': url,
+                'publication': 'mephisto',
+                'puzzle_number': int(meph_match.group(1))
+            }
+
+        # Times Cryptic: times-29431, times-cryptic-29433 (generic - check last)
+        times_match = re.search(r'times-(?:cryptic-)?(\d{4,5})', url)
+        if times_match and not puzzle_info:
+            puzzle_info = {
+                'url': url,
+                'publication': 'times',
+                'puzzle_number': int(times_match.group(1))
+            }
+
+        # Deduplicate by (publication, puzzle_number)
+        if puzzle_info:
+            key = (puzzle_info['publication'], puzzle_info['puzzle_number'])
+            if key not in seen:
+                seen.add(key)
+                puzzles.append(puzzle_info)
+
+    return puzzles
+
+
+def scrape_index_page(page_num: int) -> List[Dict[str, Any]]:
+    """Fetch an index page and extract puzzle links."""
+    url = f"https://timesforthetimes.co.uk/page/{page_num}"
+    print(f"Fetching index page {page_num}...", file=sys.stderr)
+    html = fetch_html(url)
+    return extract_puzzle_links_from_index(html)
 
 
 class ClueTableParser(HTMLParser):
@@ -167,13 +307,13 @@ def extract_puzzle_metadata(html: str, url: str) -> Dict[str, Any]:
     }
 
     # Extract puzzle number from title or URL
-    # Pattern: "Times 29431" or "times-29431"
-    num_match = re.search(r'[Tt]imes[- ](\d+)', html)
+    # Pattern: "Times 29431", "Times Cryptic 29433", "times-29431", "times-cryptic-29433"
+    num_match = re.search(r'[Tt]imes[- ](?:[Cc]ryptic[- ])?(\d+)', html)
     if num_match:
         metadata["puzzle_number"] = int(num_match.group(1))
     else:
         # Try URL
-        url_match = re.search(r'times-(\d+)', url)
+        url_match = re.search(r'times-(?:cryptic-)?(\d+)', url)
         if url_match:
             metadata["puzzle_number"] = int(url_match.group(1))
 
@@ -261,36 +401,180 @@ def parse_puzzle(url: str) -> Dict[str, Any]:
     }
 
 
+def scrape_single_puzzle(url: str, output: Optional[str] = None, force: bool = False) -> bool:
+    """Scrape a single puzzle URL. Returns True on success."""
+    # Check rate limit
+    if not force:
+        remaining = check_rate_limit()
+        if remaining:
+            mins = remaining // 60
+            secs = remaining % 60
+            print(f"Rate limited: please wait {mins}m {secs}s before scraping again.", file=sys.stderr)
+            print(f"Use --force to bypass (not recommended).", file=sys.stderr)
+            return False
+
+    try:
+        puzzle = parse_puzzle(url)
+
+        # Record successful fetch for rate limiting
+        record_fetch()
+
+        json_output = json.dumps(puzzle, indent=2, ensure_ascii=False)
+
+        # Determine output path
+        if output:
+            output_path = Path(output)
+        else:
+            # Auto-generate: <Publication>/<Publication>_<puzzle_number>.json
+            publication = puzzle.get("metadata", {}).get("publication", "unknown")
+            puzzle_number = puzzle.get("metadata", {}).get("puzzle_number", 0)
+            if puzzle_number:
+                output_path = get_output_path(publication, puzzle_number)
+            else:
+                # Fallback to stdout if no puzzle number
+                print(json_output)
+                return True
+
+        # Save to file
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(json_output)
+        print(f"Saved to {output_path}", file=sys.stderr)
+        return True
+
+    except Exception as e:
+        print(f"Error scraping {url}: {e}", file=sys.stderr)
+        return False
+
+
+def scrape_from_index_page(page_num: int, publication_filter: Optional[str] = None):
+    """Scrape all missing puzzles from an index page with rate limiting."""
+    # Fetch index page (doesn't count toward rate limit)
+    puzzles = scrape_index_page(page_num)
+
+    if not puzzles:
+        print(f"No puzzles found on page {page_num}", file=sys.stderr)
+        return
+
+    # Filter by publication if specified
+    if publication_filter:
+        puzzles = [p for p in puzzles if p['publication'] == publication_filter.lower()]
+
+    # Check which ones we already have
+    missing = []
+    for p in puzzles:
+        if puzzle_exists(p['publication'], p['puzzle_number']):
+            print(f"  [EXISTS] {p['publication'].upper()}_{p['puzzle_number']}", file=sys.stderr)
+        else:
+            missing.append(p)
+            print(f"  [MISSING] {p['publication'].upper()}_{p['puzzle_number']} - {p['url']}", file=sys.stderr)
+
+    if not missing:
+        print(f"\nAll {len(puzzles)} puzzles from page {page_num} already downloaded.", file=sys.stderr)
+        return
+
+    print(f"\nFound {len(missing)} missing puzzles. Will download with 10-minute delays.", file=sys.stderr)
+
+    # Download missing puzzles with rate limiting
+    for i, p in enumerate(missing):
+        print(f"\n[{i+1}/{len(missing)}] Downloading {p['publication'].upper()}_{p['puzzle_number']}...", file=sys.stderr)
+
+        # Wait for rate limit if needed
+        remaining = check_rate_limit()
+        if remaining:
+            mins = remaining // 60
+            secs = remaining % 60
+            print(f"  Waiting {mins}m {secs}s for rate limit...", file=sys.stderr)
+            time.sleep(remaining + 1)  # Add 1 second buffer
+
+        success = scrape_single_puzzle(p['url'], force=False)
+
+        if success:
+            print(f"  Downloaded successfully.", file=sys.stderr)
+        else:
+            print(f"  Failed to download.", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Parse Times for the Times crossword blog posts"
     )
-    parser.add_argument("url", help="URL of the blog post to parse")
+    parser.add_argument("url", nargs='?', help="URL of the blog post to parse")
     parser.add_argument(
         "--output", "-o",
-        help="Output file (default: stdout)",
+        help="Output file (default: auto-generate from publication/puzzle number)",
         default=None
+    )
+    parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Bypass rate limit (use sparingly!)"
     )
     parser.add_argument(
         "--pretty", "-p",
         action="store_true",
         help="Pretty-print JSON output"
     )
+    parser.add_argument(
+        "--list-page",
+        type=int,
+        metavar="N",
+        help="Scrape all missing puzzles from index page N (e.g., --list-page 1)"
+    )
+    parser.add_argument(
+        "--publication",
+        help="Filter by publication when using --list-page (times, times_quick, sunday_times, mephisto)"
+    )
 
     args = parser.parse_args()
+
+    # Mode: List page scraping
+    if args.list_page is not None:
+        scrape_from_index_page(args.list_page, args.publication)
+        return
+
+    # Mode: Single URL scraping
+    if not args.url:
+        parser.error("URL is required (or use --list-page N)")
+
+    # Check rate limit
+    if not args.force:
+        remaining = check_rate_limit()
+        if remaining:
+            mins = remaining // 60
+            secs = remaining % 60
+            print(f"Rate limited: please wait {mins}m {secs}s before scraping again.", file=sys.stderr)
+            print(f"Use --force to bypass (not recommended).", file=sys.stderr)
+            sys.exit(1)
 
     try:
         puzzle = parse_puzzle(args.url)
 
+        # Record successful fetch for rate limiting
+        record_fetch()
+
         indent = 2 if args.pretty else None
         json_output = json.dumps(puzzle, indent=indent, ensure_ascii=False)
 
+        # Determine output path
         if args.output:
-            with open(args.output, "w", encoding="utf-8") as f:
-                f.write(json_output)
-            print(f"Saved to {args.output}", file=sys.stderr)
+            output_path = Path(args.output)
         else:
-            print(json_output)
+            # Auto-generate: <Publication>/<Publication>_<puzzle_number>.json
+            publication = puzzle.get("metadata", {}).get("publication", "unknown")
+            puzzle_number = puzzle.get("metadata", {}).get("puzzle_number", 0)
+            if puzzle_number:
+                output_path = get_output_path(publication, puzzle_number)
+            else:
+                # Fallback to stdout if no puzzle number
+                print(json_output)
+                return
+
+        # Save to file
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(json_output)
+        print(f"Saved to {output_path}", file=sys.stderr)
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
