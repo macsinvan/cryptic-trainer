@@ -648,8 +648,8 @@ def main():
         # Record successful fetch for rate limiting
         record_fetch()
 
-        indent = 2 if args.pretty else None
-        json_output = json.dumps(battlecards, indent=indent, ensure_ascii=False)
+        # Always pretty-print for file output
+        json_output = json.dumps(battlecards, indent=2, ensure_ascii=False)
 
         # Determine output path
         if args.output:
