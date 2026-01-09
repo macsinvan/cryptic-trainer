@@ -389,6 +389,12 @@ SYNONYMS: Dict[str, List[str]] = {
     "long": ["ITCH"],
     "drop": ["DITCH"],
     "fuel": ["COAL"],
+    # Added from Times 29434
+    "rubbish": ["CHAFF", "TRASH", "JUNK", "ROT"],
+    "dog": ["COCKER", "PUG", "LAB", "MUTT", "CUR", "SETTER", "POINTER"],
+    "upper-class people": ["TOFFS"],
+    "upper class people": ["TOFFS"],
+    "kills": ["OFFS"],  # American slang
 }
 
 PHRASES: Dict[str, List[str]] = {
@@ -419,6 +425,7 @@ MODIFIERS_2 = {
     ("beginning", "of"): "__initial__",     # "content to X" -> inner letters of X
     ("ultimately", "lost"): "__tailless__",
     ("scratching", "head"): "__headless__",
+    ("leader", "abandoning"): "__headless__",  # Added from Times 29434
 }
 MODIFIERS_1 = {
     "initially": "__initial__",
@@ -430,6 +437,7 @@ MODIFIERS_1 = {
     "lastly": "__tailless__",
     "ultimately": "__tailless__",
     "finally": "__tailless__",
+    "endlessly": "__tailless__",  # Added from Times 29434
     "extremely": "__extremes__",
 }
 
@@ -441,7 +449,7 @@ CONTAINER_2 = {
 CONTAINER_1 = {
     "in", "inside", "within", "around", "about", "cuddling", "wearing",
     "entertaining", "hiding", "house", "interrupts", "covers", "conceals",
-    "capturing", "covered",
+    "capturing", "covered", "infesting", "fed",  # Added from Times 29434
 }
 
 REVERSAL_1 = {"return", "returned", "back", "backing", "backwards", "reversed", "up", "about"}  # 'up' for downs, 'about' = turning
@@ -525,7 +533,7 @@ def apply_modifier(mod: str, s: str) -> str:
     if mod == "__initial__":
         return s[:1] if s else ""
     if mod == "__tailless__":
-        return s[-1:] if s else ""
+        return s[:-1] if s else ""  # Fixed: was s[-1:] (last char only)
     if mod == "__headless__":
         return s[1:] if len(s) >= 1 else ""
     if mod == "__inner__":
@@ -895,19 +903,25 @@ def build_indicator_fodder_pairs(tokens: List[str], indicators: List[IndicatorHi
         words_claimed = set(range(ind_start, ind_end))
 
         if ind.kind == "modifier":
-            # Modifier acts on adjacent word - prefer PRECEDING word
+            # Modifier acts on adjacent content - can be single word OR multi-word phrase
+            # Try PRECEDING word first
             if ind_start > 0:
                 fodder_span = (ind_start - 1, ind_start)
                 fodder_word = tokens[fodder_span[0]]
-                words_claimed.add(ind_start - 1)
-                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed))
-                log("build_pairs", f"  '{ind_words}' (modifier) acts on '{fodder_word}'")
-            elif ind_end < n:
-                fodder_span = (ind_end, ind_end + 1)
-                fodder_word = tokens[fodder_span[0]]
-                words_claimed.add(ind_end)
-                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed))
-                log("build_pairs", f"  '{ind_words}' (modifier) acts on '{fodder_word}'")
+                words_claimed_copy = words_claimed.copy()
+                words_claimed_copy.add(ind_start - 1)
+                pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed_copy))
+                log("build_pairs", f"  '{ind_words}' (modifier) acts on '{fodder_word}' (before)")
+            # Also try FOLLOWING content - single word and phrases up to 3 words
+            if ind_end < n:
+                for phrase_len in range(1, min(4, n - ind_end + 1)):
+                    fodder_span = (ind_end, ind_end + phrase_len)
+                    fodder_phrase = ' '.join(tokens[fodder_span[0]:fodder_span[1]])
+                    words_claimed_copy = words_claimed.copy()
+                    for k in range(fodder_span[0], fodder_span[1]):
+                        words_claimed_copy.add(k)
+                    pairs.append(IndicatorFodderPair(ind, fodder_span, words_claimed_copy))
+                    log("build_pairs", f"  '{ind_words}' (modifier) acts on '{fodder_phrase}' (after, len={phrase_len})")
 
         elif ind.kind in ("anagram", "reversal"):
             # Acts on adjacent fodder - check both sides
@@ -1093,30 +1107,36 @@ def units_from_resolved_pairs(tokens: List[str], resolved_pairs: List[IndicatorF
         ind_words = ' '.join(tokens[pair.indicator.span[0]:pair.indicator.span[1]])
 
         if indicator_kind == "modifier":
-            # Apply modifier to fodder
-            if indicator_value == "__initial__":
-                result = fodder_text[0] if fodder_text else ""
-                mod_name = "first letter"
-            elif indicator_value == "__final__":
-                result = fodder_text[-1] if fodder_text else ""
-                mod_name = "last letter"
-            elif indicator_value == "__inner__":
-                result = fodder_text[1:-1] if len(fodder_text) > 2 else ""
-                mod_name = "inner letters"
-            elif indicator_value == "__extremes__":
-                result = (fodder_text[0] + fodder_text[-1]) if len(fodder_text) >= 2 else fodder_text
-                mod_name = "extremes"
-            elif indicator_value == "__tailless__":
-                result = fodder_text[:-1] if fodder_text else ""
-                mod_name = "tailless"
-            else:
-                result = fodder_text
-                mod_name = "literal"
+            # Apply modifier to fodder - first get all expansions (synonyms + literal)
+            fodder_expansions = []
+            if fodder_span in exmap:
+                fodder_expansions.extend(exmap[fodder_span])
+            # Always include literal as fallback
+            fodder_expansions.append((fodder_text, "lit"))
 
-            if result:
-                prov = f"lit|mod:{indicator_value.strip('_')}" if indicator_value.startswith("__") else "lit"
-                units.append((fodder_span, result, prov))
-                log("units_from_pairs", f"  '{ind_words}' on '{fodder_word}' -> {mod_name} -> '{result}'")
+            mod_name = indicator_value.strip('_') if indicator_value.startswith("__") else "literal"
+
+            for base_text, base_prov in fodder_expansions:
+                # Apply the modifier to this expansion
+                if indicator_value == "__initial__":
+                    result = base_text[0] if base_text else ""
+                elif indicator_value == "__final__":
+                    result = base_text[-1] if base_text else ""
+                elif indicator_value == "__inner__":
+                    result = base_text[1:-1] if len(base_text) > 2 else ""
+                elif indicator_value == "__extremes__":
+                    result = (base_text[0] + base_text[-1]) if len(base_text) >= 2 else base_text
+                elif indicator_value == "__tailless__":
+                    result = base_text[:-1] if base_text else ""
+                elif indicator_value == "__headless__":
+                    result = base_text[1:] if base_text else ""
+                else:
+                    result = base_text
+
+                if result:
+                    prov = f"{base_prov}|mod:{mod_name}"
+                    units.append((fodder_span, result, prov))
+                    log("units_from_pairs", f"  '{ind_words}' on '{base_text}' ({base_prov}) -> {mod_name} -> '{result}'")
 
         elif indicator_kind == "container":
             # For container, get expansions of the outer fodder (e.g., "fuel" -> COAL)
@@ -1280,6 +1300,31 @@ def anagram_candidates(units, length: int) -> List[Tuple[str, List[Step]]]:
     return outs
 
 
+def direct_candidates(units, length: int) -> List[Tuple[str, List[Step]]]:
+    """
+    Direct candidates: units that already match the target length.
+    Used for deletion clues where modifier produces the answer directly.
+    E.g., "leader abandoning upper-class people" -> TOFFS - T = OFFS
+    """
+    log("direct_candidates", "═" * 50)
+    log("direct_candidates", f"Target length: {length}")
+    outs = []
+    pool = units[:50]
+    for u in pool:
+        if len(u[1]) != length:
+            continue
+        # Only include if there's evidence of wordplay (not just literal)
+        prov = u[2]
+        if "|mod:" in prov or "syn" in prov or "phrase" in prov:
+            steps = [
+                Step(op="unit", src=[f"{u[0]}"], out=u[1], note=prov),
+            ]
+            outs.append((u[1], steps))
+            log("direct_candidates", f"  Direct match: {u[1]} ({prov})")
+    log("direct_candidates", f"Generated {len(outs)} direct candidates")
+    return outs
+
+
 # ---------------------------------
 # Training recipe pipeline executor
 # ---------------------------------
@@ -1398,7 +1443,7 @@ def score_candidate(ans: str, steps: List[Step], method: str, tokens: List[str])
     score -= 0.35 * overlap_penalty(spans)
 
     # method priors
-    pri = {"charade2": 0.8, "charade3": 0.6, "charade_rev": 0.85, "container": 0.7, "reversal": 0.5, "anagram": 0.4}
+    pri = {"direct": 0.9, "charade2": 0.8, "charade3": 0.6, "charade_rev": 0.85, "container": 0.7, "reversal": 0.5, "anagram": 0.4}
     score += pri.get(method, 0.0)
 
     # Boost charade_rev if reversal indicator present in tokens
@@ -2379,6 +2424,7 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
         # Generate candidates with this definition excluded
         log("candidate_generation", "═" * 50)
         gen = []
+        gen.extend([("direct", direct_candidates(units, length))])  # Direct deletion/modifier results
         gen.extend([("charade2", charade_candidates(units, length, 2))])
         gen.extend([("charade3", charade_candidates(units, length, 3))])
         gen.extend([("charade_rev", charade_with_reversal_candidates(units, length))])
@@ -2631,6 +2677,7 @@ def solve(clue: str, length: int, max_candidates: int = 50, known_answer: Option
 
 # Generate basic methods (we don't require indicator presence, but we note it)
     gen = []
+    gen.extend([("direct", direct_candidates(units, length))])  # Direct deletion/modifier results
     gen.extend([("charade2", charade_candidates(units, length, 2))])
     gen.extend([("charade3", charade_candidates(units, length, 3))])
     gen.extend([("charade_rev", charade_with_reversal_candidates(units, length))])
