@@ -740,27 +740,34 @@ def apply_local_modifiers(tokens: List[str], exmap: Dict[Tuple[int,int], List[Tu
                             new.append((ms, f"{prov}|mod:{phrase_name}"))
                     exmap[target_span].extend(new)
 
-    # Handle 1-word modifiers
+    # Handle 1-word modifiers - apply to BOTH preceding AND following words
     for i, tok in enumerate(tokens):
         if tok in MODIFIERS_1:
             mod = MODIFIERS_1[tok]
-            # Special case: "X's first" means first letter of X
+            target_spans = []
+
+            # Special case: "X's first" means first letter of X (preceding only)
             if tok == "first" and i > 0 and tokens[i-1].endswith("'s"):
-                target_span = (i-1, i)
-            elif i < len(tokens) - 1:
-                target_span = (i+1, i+2)
+                target_spans.append((i-1, i))
             else:
-                continue
-            if target_span in exmap:
-                new = []
-                for s, prov in exmap[target_span]:
-                    try:
-                        ms = apply_modifier(mod, s)
-                    except Exception:
-                        continue
-                    if ms:
-                        new.append((ms, f"{prov}|mod:{tok}"))
-                exmap[target_span].extend(new)
+                # Apply to preceding word (e.g., "rubbish endlessly")
+                if i > 0:
+                    target_spans.append((i-1, i))
+                # Apply to following word (e.g., "endlessly fed")
+                if i < len(tokens) - 1:
+                    target_spans.append((i+1, i+2))
+
+            for target_span in target_spans:
+                if target_span in exmap:
+                    new = []
+                    for s, prov in exmap[target_span]:
+                        try:
+                            ms = apply_modifier(mod, s)
+                        except Exception:
+                            continue
+                        if ms:
+                            new.append((ms, f"{prov}|mod:{tok}"))
+                    exmap[target_span].extend(new)
     # de-dup each span
     for k, v in list(exmap.items()):
         exmap[k] = uniq_preserve(v)
