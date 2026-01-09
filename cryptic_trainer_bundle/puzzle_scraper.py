@@ -367,38 +367,126 @@ def calculate_length(enumeration: str) -> int:
     return sum(int(n) for n in numbers)
 
 
-def parse_puzzle(url: str) -> Dict[str, Any]:
-    """Main function to parse a puzzle from URL."""
+def infer_step_type(wordplay: str) -> str:
+    """Infer the wordplay step type from the explanation text."""
+    lower = wordplay.lower()
+    if '*(' in wordplay or 'anagram' in lower:
+        return 'anagram'
+    if 'hidden' in lower or 'concealed' in lower:
+        return 'hidden'
+    if 'reversal' in lower or 'reversed' in lower or 'back' in lower:
+        return 'reversal'
+    if 'container' in lower or 'inside' in lower or 'around' in lower:
+        return 'container'
+    if 'deletion' in lower or 'without' in lower or 'losing' in lower:
+        return 'deletion'
+    if 'homophone' in lower or 'sounds like' in lower:
+        return 'homophone'
+    if 'abbreviation' in lower or 'abbrev' in lower:
+        return 'abbreviation'
+    if 'double definition' in lower:
+        return 'double_definition'
+    if '+' in wordplay:
+        return 'charade'
+    return 'unknown'
+
+
+def extract_indicator_from_wordplay(wordplay: str) -> str:
+    """Try to extract the indicator word from wordplay explanation."""
+    # Common patterns in wordplay explanations
+    # e.g., "*(CHAT + MARK + ME)" - the * indicates anagram
+    if '*(' in wordplay:
+        return '*'  # Anagram indicator
+    # Look for quoted words that might be indicators
+    quoted = re.findall(r'"([^"]+)"', wordplay)
+    if quoted:
+        return quoted[0]
+    return ''
+
+
+def clue_to_battlecard(clue: Dict[str, Any], metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert a raw clue to battle card format."""
+    publication = metadata.get("publication", "unknown")
+    puzzle_number = metadata.get("puzzle_number", 0)
+    setter = metadata.get("setter", "Unknown")
+
+    clue_num = clue.get("number", 0)
+    direction = clue.get("direction", "across")
+    direction_suffix = "a" if direction == "across" else "d"
+
+    clue_text = clue.get("clue_text", "")
+    answer = clue.get("answer", "")
+    definition = clue.get("definition", "")
+    definition_position = clue.get("definition_position", "unknown")
+    wordplay = clue.get("wordplay", "")
+
+    # Generate ID
+    clue_id = f"{publication}-{puzzle_number}-{clue_num}{direction_suffix}"
+
+    # Infer pattern type
+    step_type = infer_step_type(wordplay)
+    pattern_id = step_type.upper() if step_type != 'unknown' else 'UNKNOWN'
+
+    # Build wordplay step
+    wordplay_step = {
+        "indicator": extract_indicator_from_wordplay(wordplay),
+        "fodder": "",  # Would need more parsing to extract
+        "result": answer,
+        "synonym": "",
+        "hint": wordplay,
+        "complexity": 1,
+        "isAssembly": False,
+        "stepType": step_type,
+        "explanation": wordplay
+    }
+
+    # Build parsing summary
+    parsing_summary = f"{answer} = {wordplay}" if wordplay else answer
+
+    return {
+        "id": clue_id,
+        "patternId": pattern_id,
+        "clueText": clue_text,
+        "answer": answer,
+        "publication": publication,
+        "puzzleNumber": puzzle_number,
+        "setter": setter,
+        "clueNumber": str(clue_num),
+        "clueDirection": direction,
+        "variables": {},
+        "definitionText": definition,
+        "definitionPosition": definition_position,
+        "parsingSummary": parsing_summary,
+        "wordplaySteps": [wordplay_step] if wordplay else [],
+        "isComplete": bool(answer and definition)
+    }
+
+
+def parse_puzzle(url: str) -> List[Dict[str, Any]]:
+    """Main function to parse a puzzle from URL. Returns list of battle cards."""
     html = fetch_html(url)
 
     metadata = extract_puzzle_metadata(html, url)
     raw_clues = extract_clues(html)
 
-    # Enrich clues with enumeration and length
-    clues = []
+    # Convert each clue to battle card format
+    battlecards = []
     for clue in raw_clues:
+        # Enrich with enumeration
         enumeration = extract_enumeration(clue.get("clue_text", ""))
         clue["enumeration"] = enumeration
         clue["length"] = calculate_length(enumeration) if enumeration else None
 
         # Clean up wordplay explanation
         wordplay = clue.get("wordplay", "")
-        # Remove leading dash/hyphen
         wordplay = re.sub(r'^[\s\-–—]+', '', wordplay).strip()
         clue["wordplay"] = wordplay
 
-        clues.append(clue)
+        # Convert to battle card
+        battlecard = clue_to_battlecard(clue, metadata)
+        battlecards.append(battlecard)
 
-    # Separate across and down
-    across = [c for c in clues if c.get("direction") == "across"]
-    down = [c for c in clues if c.get("direction") == "down"]
-
-    return {
-        "metadata": metadata,
-        "across": across,
-        "down": down,
-        "clue_count": len(clues)
-    }
+    return battlecards
 
 
 def scrape_single_puzzle(url: str, output: Optional[str] = None, force: bool = False) -> bool:
@@ -414,20 +502,26 @@ def scrape_single_puzzle(url: str, output: Optional[str] = None, force: bool = F
             return False
 
     try:
-        puzzle = parse_puzzle(url)
+        battlecards = parse_puzzle(url)
 
         # Record successful fetch for rate limiting
         record_fetch()
 
-        json_output = json.dumps(puzzle, indent=2, ensure_ascii=False)
+        json_output = json.dumps(battlecards, indent=2, ensure_ascii=False)
 
         # Determine output path
         if output:
             output_path = Path(output)
         else:
             # Auto-generate: <Publication>/<Publication>_<puzzle_number>.json
-            publication = puzzle.get("metadata", {}).get("publication", "unknown")
-            puzzle_number = puzzle.get("metadata", {}).get("puzzle_number", 0)
+            # Get publication/puzzle_number from first battlecard
+            if battlecards:
+                publication = battlecards[0].get("publication", "unknown")
+                puzzle_number = battlecards[0].get("puzzleNumber", 0)
+            else:
+                publication = "unknown"
+                puzzle_number = 0
+
             if puzzle_number:
                 output_path = get_output_path(publication, puzzle_number)
             else:
@@ -440,6 +534,7 @@ def scrape_single_puzzle(url: str, output: Optional[str] = None, force: bool = F
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(json_output)
         print(f"Saved to {output_path}", file=sys.stderr)
+        print(f"  {len(battlecards)} clues in battle card format", file=sys.stderr)
         return True
 
     except Exception as e:
@@ -548,21 +643,27 @@ def main():
             sys.exit(1)
 
     try:
-        puzzle = parse_puzzle(args.url)
+        battlecards = parse_puzzle(args.url)
 
         # Record successful fetch for rate limiting
         record_fetch()
 
         indent = 2 if args.pretty else None
-        json_output = json.dumps(puzzle, indent=indent, ensure_ascii=False)
+        json_output = json.dumps(battlecards, indent=indent, ensure_ascii=False)
 
         # Determine output path
         if args.output:
             output_path = Path(args.output)
         else:
             # Auto-generate: <Publication>/<Publication>_<puzzle_number>.json
-            publication = puzzle.get("metadata", {}).get("publication", "unknown")
-            puzzle_number = puzzle.get("metadata", {}).get("puzzle_number", 0)
+            # Get publication/puzzle_number from first battlecard
+            if battlecards:
+                publication = battlecards[0].get("publication", "unknown")
+                puzzle_number = battlecards[0].get("puzzleNumber", 0)
+            else:
+                publication = "unknown"
+                puzzle_number = 0
+
             if puzzle_number:
                 output_path = get_output_path(publication, puzzle_number)
             else:
@@ -575,6 +676,7 @@ def main():
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(json_output)
         print(f"Saved to {output_path}", file=sys.stderr)
+        print(f"  {len(battlecards)} clues in battle card format", file=sys.stderr)
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
