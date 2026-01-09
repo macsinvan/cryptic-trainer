@@ -348,6 +348,10 @@ ABBREVS: Dict[str, List[str]] = {
     "part": ["PT"],
     "nine": ["IX"],
     "500": ["D"],
+    # Added from Times 29434
+    "second": ["S"],
+    "one": ["I", "A"],
+    "first": ["I"],  # Roman numeral 1
 }
 
 SYNONYMS: Dict[str, List[str]] = {
@@ -398,6 +402,7 @@ SYNONYMS: Dict[str, List[str]] = {
     "narrative poem": ["LAY"],
     "poem": ["LAY", "ODE", "VERSE"],
     "attack": ["FLAY", "HIT", "RAID"],
+    "incidental": ["SIDELIGHT"],  # incidental illustration/comment
 }
 
 PHRASES: Dict[str, List[str]] = {
@@ -417,6 +422,7 @@ PHRASES: Dict[str, List[str]] = {
     "marriage promise": ["IDO", "I DO"],
     "at some other time": ["LATER"],
     "some other time": ["LATER"],
+    "please greatly": ["DELIGHT"],
 }
 
 # ---------------------------------
