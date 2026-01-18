@@ -7,7 +7,7 @@ A training app for learning to solve Times-style cryptic crosswords.
 The system has two components:
 
 1. **Python Solver** (`cryptic_trainer_bundle/`) - Constraint-first solver with traceable proofs
-2. **React UI** (`relaxed-lamarr/`) - Training interface that displays solver output
+2. **React UI** (root directory) - Training interface that displays solver output
 
 **Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
 
@@ -18,8 +18,7 @@ The system has two components:
 cd cryptic_trainer_bundle
 python3 server.py
 
-# Terminal 2: Start React UI
-cd relaxed-lamarr
+# Terminal 2: Start React UI (from project root)
 npm install
 npm run dev
 ```
@@ -44,8 +43,7 @@ python3 cryptic_trainer.py solve --clue "Cross about Scottish inventor being gue
 # Test against scraped puzzles
 python3 puzzle_tester.py puzzle.json --stop-on-fail
 
-# Build React UI
-cd relaxed-lamarr
+# Build React UI (from project root)
 npm run build
 ```
 

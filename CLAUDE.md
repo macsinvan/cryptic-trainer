@@ -65,7 +65,7 @@ The system has two components:
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | Python Solver | `cryptic_trainer_bundle/` | Constraint-first solver with traceable proofs |
-| React UI | `relaxed-lamarr/` | Training interface that displays solver output |
+| React UI | Root directory | Training interface that displays solver output |
 
 **Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
 

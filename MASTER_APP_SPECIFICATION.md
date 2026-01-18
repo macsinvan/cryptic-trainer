@@ -11,7 +11,7 @@ The system has two components:
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | **Python Solver** | `cryptic_trainer_bundle/` | Constraint-first solver with traceable proofs |
-| **React UI** | `relaxed-lamarr/` | Training interface that displays solver output |
+| **React UI** | Root directory | Training interface that displays solver output |
 
 **Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
 
@@ -29,7 +29,7 @@ The system has two components:
                               ↓ HTTP POST /solve
 ┌─────────────────────────────────────────────────────────────┐
 │  REACT UI (localhost:3000)                                  │
-│  relaxed-lamarr/                                            │
+│  Root directory                                             │
 ├─────────────────────────────────────────────────────────────┤
 │  • ManualEntryMode: Import clues, display solver results    │
 │  • ClueSolver: Step-by-step training interface              │
@@ -136,8 +136,7 @@ See `cryptic_trainer_bundle/DESIGN_SPEC.md` for full details.
 cd cryptic_trainer_bundle
 python3 server.py
 
-# Terminal 2: Start React UI
-cd relaxed-lamarr
+# Terminal 2: Start React UI (from project root)
 npm install
 npm run dev
 ```
