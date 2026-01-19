@@ -897,10 +897,8 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
              idx++;
          }
 
-         // Fallback to evaluation.learnings if no pattern data
-         const learnings: { text: string; hint?: string }[] = derivedLearnings.length > 0
-             ? derivedLearnings
-             : (evaluation.learnings || []).map(l => ({ text: l }));
+         // Use derived learnings from pattern data (no legacy fallback)
+         const learnings: { text: string; hint?: string }[] = derivedLearnings;
 
          // Build detailed parsing summary from pattern variables
          let parsingSummary = '';

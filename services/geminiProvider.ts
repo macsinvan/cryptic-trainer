@@ -74,18 +74,9 @@ export class GeminiProvider implements AIProvider {
                                 required: ['type', 'indicator', 'fodder', 'thinkingHint']
                             }
                         },
-                        structure: { type: Type.STRING },
-                        // Legacy fields for compatibility
-                        card: {
-                            type: Type.ARRAY,
-                            items: { type: Type.OBJECT, properties: { label: {type:Type.STRING}, value: {type:Type.STRING}, hint: {type:Type.STRING} } }
-                        },
-                        parsing: { type: Type.STRING },
-                        learnings: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        reasoning: { type: Type.STRING },
-                        hints: { type: Type.ARRAY, items: { type: Type.STRING } }
+                        structure: { type: Type.STRING }
                     },
-                    required: ['id', 'clue', 'answer', 'type', 'difficulty', 'definition', 'wordplay', 'structure', 'card', 'parsing', 'learnings']
+                    required: ['id', 'clue', 'answer', 'type', 'difficulty', 'definition', 'wordplay', 'structure']
                 }
             }
         });

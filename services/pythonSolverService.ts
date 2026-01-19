@@ -82,12 +82,7 @@ export async function solveCluePython(
                 position: (patternData.definitionPosition?.toUpperCase() as 'START' | 'END' | 'ENTIRE') || 'END'
             },
             wordplay: [],
-            structure: patternData.parsingSummary || '',
-            card: [],
-            learnings: patternData.solveSteps || [],
-            reasoning: '',
-            parsing: patternData.parsingSummary || '',
-            hints: []
+            structure: patternData.parsingSummary || ''
         };
     }
 

@@ -91,16 +91,7 @@ Return ONLY valid JSON matching this exact structure:
             "thinkingHint": ["hint 1", "hint 2"]
         }
     ],
-    "structure": "PART1 + PART2 = ANSWER",
-    "card": [
-        {"label": "DEFINITION", "value": "...", "hint": "..."},
-        {"label": "INDICATOR", "value": "...", "hint": "..."},
-        {"label": "FODDER", "value": "...", "hint": "..."}
-    ],
-    "parsing": "Brief parsing explanation",
-    "learnings": ["Learning point 1", "Learning point 2"],
-    "reasoning": "Full reasoning explanation",
-    "hints": ["Progressive hint 1", "Progressive hint 2"]
+    "structure": "PART1 + PART2 = ANSWER"
 }`
             }]
         });

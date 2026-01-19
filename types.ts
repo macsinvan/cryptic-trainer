@@ -1,45 +1,21 @@
-
-export interface BattlecardField {
-  label: string;
-  value: string;
-  hint?: string;
-}
-
-export interface WordplayModule {
-  type: string; // e.g., "Anagram", "Charade", "Deletion"
-  indicator: {
-    text: string; // The text in the clue, e.g., "snubbed"
-    description: string; // e.g., "remove the last letter"
-  };
-  fodder: {
-    text: string; // The text in the clue, e.g., "close to"
-    description: string; // e.g., "words to be manipulated"
-  };
-  synonym?: string; // The result, e.g., "NEAR"
-  thinkingHint: string[]; // Coaching tips for the decode phase
-}
-
 export interface ClueEvaluation {
   id: string;
   clue: string;
   answer: string;
   type: string; // Overall type
   difficulty: 'Easy' | 'Medium' | 'Hard' | 'Extreme';
-  
-  // New Workflow Data
   definition: {
     text: string;
     position: 'START' | 'END' | 'ENTIRE';
   };
-  wordplay: WordplayModule[];
+  wordplay: Array<{
+    type: string;
+    indicator: { text: string; description: string };
+    fodder: { text: string; description: string };
+    synonym?: string;
+    thinkingHint: string[];
+  }>;
   structure: string; // Final equation: NEAR + T = NEAT
-
-  // Legacy/Fallback for other components
-  card: BattlecardField[]; 
-  learnings: string[];
-  reasoning: string;
-  parsing: string;
-  hints: string[];
 }
 
 // --- NEW DETERMINISTIC ENGINE TYPES ---
@@ -127,6 +103,10 @@ export interface PatternInstance {
 
     // Human-readable solver comments (from new puzzle schema)
     solverComments?: string[];       // Natural language explanations from the solver
+
+    // Clue metadata for display
+    clueNumber?: string;             // e.g., "1A", "12D"
+    enumeration?: string;            // e.g., "7", "9,6"
 
     // Answer metadata
     thesaurusRequired?: boolean;     // True if answer is uncommon (e.g., GRUB KICK) - UI can show "Thesaurus may help"

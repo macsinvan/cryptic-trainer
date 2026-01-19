@@ -249,11 +249,15 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
   // Accept and save to library
   const acceptAndSave = async () => {
-    if (!fullAnalysis || !activePatternData || !parseResult?.clueText) return;
+    if (!fullAnalysis || !activePatternData) return;
+
+    // Get clue text from fullAnalysis (works for both puzzle mode and freeform mode)
+    const clueText = fullAnalysis.clue;
+    if (!clueText) return;
 
     await saveClue(
-      parseResult.publication || publicationId,
-      parseResult.clueText,
+      parseResult?.publication || publicationId,
+      clueText,
       fullAnalysis,
       activePatternData
     );
@@ -261,6 +265,11 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     setIsAccepted(true);
     setRawPuzzleData(null); // Clear raw data after save
     setTotalClueCount(getClueCount(publicationId));
+
+    // Update imported count if in puzzle mode
+    if (isPuzzleMode) {
+      setAlreadyImportedCount(prev => prev + 1);
+    }
   };
 
   const detectClueType = (patternId: string, parsing: string): string => {

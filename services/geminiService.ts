@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { ClueEvaluation, ScannedCrossword, BattlecardField } from "../types";
+import { ClueEvaluation, ScannedCrossword } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -71,18 +71,9 @@ export async function evaluateClue(clue: string, context: string = ""): Promise<
                             required: ['type', 'indicator', 'fodder', 'thinkingHint']
                         }
                     },
-                    structure: { type: Type.STRING },
-                    // Legacy fields for compatibility
-                    card: { 
-                        type: Type.ARRAY, 
-                        items: { type: Type.OBJECT, properties: { label: {type:Type.STRING}, value: {type:Type.STRING}, hint: {type:Type.STRING} } } 
-                    },
-                    parsing: { type: Type.STRING },
-                    learnings: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    reasoning: { type: Type.STRING },
-                    hints: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    structure: { type: Type.STRING }
                 },
-                required: ['id', 'clue', 'answer', 'type', 'difficulty', 'definition', 'wordplay', 'structure', 'card', 'parsing', 'learnings']
+                required: ['id', 'clue', 'answer', 'type', 'difficulty', 'definition', 'wordplay', 'structure']
             }
         }
     });
