@@ -229,6 +229,42 @@ function generateSolveExplanation(
 // ============================================
 
 /**
+ * Build variables object for engine validation
+ * The engine expects: def_text, indicator_N_text, fodder_N_text
+ */
+function buildEngineVariables(clue: PuzzleClue): Record<string, string> {
+  const vars: Record<string, string> = {
+    def_text: clue.definition.text,
+  };
+
+  // Add indicator and fodder from each step
+  clue.steps.forEach((step, idx) => {
+    const stepNum = idx + 1;
+
+    // Add indicator if present
+    if (step.indicator) {
+      vars[`indicator_${stepNum}_text`] = step.indicator;
+    }
+
+    // Add fodder (may be string or array)
+    const fodderText = Array.isArray(step.fodder)
+      ? step.fodder.join(' ')
+      : step.fodder;
+    if (fodderText) {
+      vars[`fodder_${stepNum}_text`] = fodderText;
+    }
+
+    // Add result for decode steps
+    if (step.result) {
+      vars[`result_${stepNum}`] = step.result;
+      vars[`synonym_${stepNum}`] = step.result;
+    }
+  });
+
+  return vars;
+}
+
+/**
  * Convert a single PuzzleClue to PatternInstance
  */
 export function convertClueToPatternInstance(
@@ -245,6 +281,9 @@ export function convertClueToPatternInstance(
   // Generate parsing summary
   const parsingSummary = generateParsingSummary(clue.steps, clue.clue.answer);
 
+  // Build variables for engine validation
+  const variables = buildEngineVariables(clue);
+
   return {
     id: `puzzle-${clueNumber}-${Date.now()}`,
     patternId,
@@ -252,7 +291,7 @@ export function convertClueToPatternInstance(
     answer: clue.clue.answer,
     clueNumber: clue.clue.number,
     enumeration: clue.clue.enumeration,
-    variables: {}, // Could populate with step results if needed
+    variables,
 
     // Word-by-word highlighting
     wordHighlights: convertWordAccounting(clue.word_accounting.usage),

@@ -460,7 +460,11 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
       
       {/* 1. CLUE DISPLAY */}
       <div className="bg-white p-8 md:p-10 rounded-2xl shadow-sm border border-slate-200 text-center relative">
-         <div className="text-2xl md:text-3xl font-serif text-slate-900 leading-relaxed flex flex-wrap justify-center gap-x-2 gap-y-2">
+         <div className="text-2xl md:text-3xl font-serif text-slate-900 leading-relaxed flex flex-wrap justify-center items-baseline gap-x-2 gap-y-2">
+            {/* Clue number prefix */}
+            {patternData?.clueNumber && (
+               <span className="text-indigo-600 font-bold">{patternData.clueNumber}</span>
+            )}
             {words.map((word, idx) => (
                <span
                   key={idx}
@@ -475,6 +479,10 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                   {word.display}
                </span>
             ))}
+            {/* Enumeration suffix */}
+            {patternData?.enumeration && (
+               <span className="text-slate-400 font-normal text-xl">({patternData.enumeration})</span>
+            )}
          </div>
          {/* Partial match hint - always present to prevent layout jump */}
          <div className={`mt-4 text-base font-bold transition-opacity duration-200 ${isPartialMatch && selectedIndices.length > 0 ? 'text-indigo-600 animate-pulse opacity-100' : 'opacity-0'}`}>

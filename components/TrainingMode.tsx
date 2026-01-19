@@ -125,14 +125,30 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
         </div>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-             <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{pubName} Session</span>
-                <button 
-                    onClick={skipClue}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider"
-                >
-                    Skip <ChevronRight size={14} />
-                </button>
+             {/* Clue Metadata Header */}
+             <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
+               <div className="flex justify-between items-center">
+                 <div className="flex items-center gap-4">
+                   <span className="text-xs font-bold text-slate-600">{pubName}</span>
+                   {currentItem.setterName && currentItem.setterName !== 'Community' && (
+                     <span className="text-xs text-slate-400">by {currentItem.setterName}</span>
+                   )}
+                   {currentItem.patternData?.clueNumber && (
+                     <span className="text-xs font-mono bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">
+                       {currentItem.patternData.clueNumber}
+                     </span>
+                   )}
+                 </div>
+                 <button
+                     onClick={skipClue}
+                     className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider"
+                 >
+                     Skip <ChevronRight size={14} />
+                 </button>
+               </div>
+               <div className="text-xs text-slate-400 mt-2">
+                 Clue {currentIndex + 1} of {queue.length}
+               </div>
              </div>
 
             <ClueSolver
