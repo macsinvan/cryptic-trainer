@@ -151,6 +151,9 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
                </div>
              </div>
 
+            {/* Debug: log patternData variables */}
+            {console.log('[TrainingMode] patternData:', currentItem.patternData)}
+            {console.log('[TrainingMode] patternData.variables:', currentItem.patternData?.variables)}
             <ClueSolver
                 evaluation={currentItem.evaluation}
                 patternData={currentItem.patternData} // Pass the new engine data

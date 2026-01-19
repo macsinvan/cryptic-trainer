@@ -141,6 +141,10 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
 
         dynamicSteps.push('STEP_SOLVE');
 
+        // Debug: log what variables we're receiving
+        console.log('[ClueSolver] Setting runtimePattern with variables:', patternData.variables);
+        console.log('[ClueSolver] def_text:', patternData.variables['def_text']);
+
         setRuntimePattern({
             steps: patternData.stepOverrides || dynamicSteps,
             variables: patternData.variables,

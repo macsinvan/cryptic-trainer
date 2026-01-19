@@ -2,6 +2,7 @@
 import { PUBLICATIONS, STANDARD_CLUE_TYPES } from '../data';
 import { ClueEvaluation, TrainingItem, ClueType, TrainingStats, PatternInstance } from '../types';
 import { RAW_PRESOLVED_CLUES } from '../data/seedClues';
+import { populateLegacyVariables } from './puzzleConverter';
 
 const runtimeClues = new Map<string, TrainingItem>();
 const DB_NAME = 'CrypticTrainerDB_V2';
@@ -162,7 +163,13 @@ export const initializeClues = async (): Promise<void> => {
   }
 
   const dbItems = await dbGetAll();
-  dbItems.forEach(item => mergedClues.set(normalize(item.clue), item));
+  dbItems.forEach(item => {
+    // Ensure patternData.variables is populated for legacy items
+    if (item.patternData) {
+      item.patternData = populateLegacyVariables(item.patternData);
+    }
+    mergedClues.set(normalize(item.clue), item);
+  });
 
   runtimeClues.clear();
   mergedClues.forEach((item, key) => runtimeClues.set(key, item));

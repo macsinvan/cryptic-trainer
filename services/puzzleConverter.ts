@@ -231,17 +231,32 @@ function generateSolveExplanation(
 /**
  * Build variables object for engine validation
  * The engine expects: def_text, indicator_N_text, fodder_N_text
+ *
+ * We extract from two sources:
+ * 1. steps[] - has fodder, result, and sometimes indicator
+ * 2. word_accounting.usage - has word roles including indicators
  */
 function buildEngineVariables(clue: PuzzleClue): Record<string, string> {
   const vars: Record<string, string> = {
     def_text: clue.definition.text,
   };
 
-  // Add indicator and fodder from each step
+  // Extract indicator words from word_accounting (joined by space)
+  const indicatorWords = clue.word_accounting.usage
+    .filter(u => u.role === 'indicator')
+    .sort((a, b) => a.position - b.position)
+    .map(u => u.word);
+
+  if (indicatorWords.length > 0) {
+    // For now, put all indicators in indicator_1_text (most clues have one indicator)
+    vars['indicator_1_text'] = indicatorWords.join(' ');
+  }
+
+  // Add fodder and result from each step
   clue.steps.forEach((step, idx) => {
     const stepNum = idx + 1;
 
-    // Add indicator if present
+    // Check if step has an explicit indicator (overrides word_accounting)
     if (step.indicator) {
       vars[`indicator_${stepNum}_text`] = step.indicator;
     }
@@ -335,8 +350,9 @@ export function convertPuzzleFile(puzzle: PuzzleFile): PatternInstance[] {
 /**
  * Populate variables for a legacy PatternInstance that has empty variables
  * This enables training mode to work with older exported puzzle files
+ * Exported for use in clueManager when loading from IndexedDB
  */
-function populateLegacyVariables(instance: PatternInstance): PatternInstance {
+export function populateLegacyVariables(instance: PatternInstance): PatternInstance {
   // If variables are already populated, return as-is
   if (instance.variables && Object.keys(instance.variables).length > 0) {
     return instance;
@@ -350,12 +366,23 @@ function populateLegacyVariables(instance: PatternInstance): PatternInstance {
     vars['def_text'] = instance.definitionText;
   }
 
+  // Extract indicator from wordHighlights (from word_accounting.usage)
+  if (instance.wordHighlights && instance.wordHighlights.length > 0) {
+    const indicatorWords = instance.wordHighlights
+      .filter(w => w.role === 'indicator')
+      .map(w => w.word);
+
+    if (indicatorWords.length > 0) {
+      vars['indicator_1_text'] = indicatorWords.join(' ');
+    }
+  }
+
   // Extract indicator and fodder from wordplaySteps
   if (instance.wordplaySteps && instance.wordplaySteps.length > 0) {
     instance.wordplaySteps.forEach((step, idx) => {
       const stepNum = idx + 1;
 
-      // Add indicator if present
+      // Add indicator if present (overrides wordHighlights extraction)
       if (step.indicator) {
         vars[`indicator_${stepNum}_text`] = step.indicator;
       }
@@ -397,11 +424,16 @@ export function loadPuzzleFromJson(jsonContent: string): {
     // Legacy format: direct array of PatternInstance objects
     const clues = parsed.map((instance: PatternInstance) => populateLegacyVariables(instance));
 
+    // Debug: log first clue's variables
+    if (clues[0]) {
+      console.log('[puzzleConverter] Loaded legacy format, first clue variables:', clues[0].variables);
+    }
+
     // Extract metadata from first clue if available
     const firstClue = clues[0];
     const metadata: PuzzleFile['metadata'] = {
       publisher: firstClue?.publication || 'Times',
-      puzzle_number: firstClue?.puzzleNumber || 0,
+      puzzle_number: String(firstClue?.puzzleNumber || 0),
       setter: firstClue?.setter || 'Unknown',
       publication_date: '',
       source_url: '',
@@ -416,10 +448,16 @@ export function loadPuzzleFromJson(jsonContent: string): {
 
   // New PuzzleFile format with metadata and clues object
   const puzzle: PuzzleFile = parsed;
+  const clues = convertPuzzleFile(puzzle);
+
+  // Debug: log first clue's variables
+  if (clues[0]) {
+    console.log('[puzzleConverter] Loaded new PuzzleFile format, first clue variables:', clues[0].variables);
+  }
 
   return {
     metadata: puzzle.metadata,
-    clues: convertPuzzleFile(puzzle),
+    clues,
     rawData: puzzle,
   };
 }
