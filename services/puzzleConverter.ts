@@ -522,23 +522,9 @@ export function migratePatternInstance(instance: PatternInstance): PatternInstan
     patternId = techniquesUsed[0];
   }
 
-  // Fix isAssembly flag for Charade steps in legacy data
-  // A Charade step is an assembly if its result equals the final answer
-  const fixedWordplaySteps = instance.wordplaySteps?.map(step => {
-    if (step.stepType === 'Charade' && !step.isAssembly) {
-      // Check if this Charade step produces the final answer
-      const stepResult = step.result?.toUpperCase();
-      const answer = instance.answer?.toUpperCase();
-      if (stepResult && answer && stepResult === answer) {
-        return { ...step, isAssembly: true };
-      }
-    }
-    return step;
-  });
-
   // Re-sort wordplaySteps by position in clue (assembly steps last)
-  const sortedWordplaySteps = fixedWordplaySteps
-    ? sortWordplayStepsByCluePosition(fixedWordplaySteps, instance.clueText)
+  const sortedWordplaySteps = instance.wordplaySteps
+    ? sortWordplayStepsByCluePosition(instance.wordplaySteps, instance.clueText)
     : undefined;
 
   // Rebuild solveExplanation blocks (uses sorted steps)
