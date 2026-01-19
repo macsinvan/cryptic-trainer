@@ -108,6 +108,11 @@ export interface PatternInstance {
     clueNumber?: string;             // e.g., "1A", "12D"
     enumeration?: string;            // e.g., "7", "9,6"
 
+    // Publication metadata (from legacy format)
+    publication?: string;            // e.g., "times"
+    puzzleNumber?: number;           // e.g., 29435
+    setter?: string;                 // e.g., "Unknown"
+
     // Answer metadata
     thesaurusRequired?: boolean;     // True if answer is uncommon (e.g., GRUB KICK) - UI can show "Thesaurus may help"
 }
