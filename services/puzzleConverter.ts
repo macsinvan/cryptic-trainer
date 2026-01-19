@@ -201,13 +201,6 @@ function generateSolveExplanation(
     });
   }
 
-  // 2. Parsing summary block
-  blocks.push({
-    type: 'parsing',
-    label: 'Parsing',
-    content: parsingSummary,
-  });
-
   // 4. Definition (always first)
   blocks.push({
     type: 'explanation',

@@ -352,34 +352,56 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           {/* Clue Display */}
           <div className="p-8 border-b border-slate-100">
             <p className="text-2xl font-serif text-slate-900 leading-relaxed text-center">
+              {activePatternData?.clueNumber && (
+                <span className="text-indigo-600 font-bold mr-2">{activePatternData.clueNumber}</span>
+              )}
               {fullAnalysis.clue}
+              {activePatternData?.enumeration && (
+                <span className="text-slate-400 font-normal ml-2">({activePatternData.enumeration})</span>
+              )}
             </p>
           </div>
 
           {/* Answer Grid - show letters if answer exists, or blank boxes for target length */}
           <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-center">
             {answer ? (
-              <div className="flex gap-2">
-                {answer.replace(/[^A-Z]/gi, '').split('').map((char, i) => (
-                  <div
-                    key={i}
-                    className="w-12 h-12 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center text-xl font-bold text-green-700"
-                  >
-                    {char.toUpperCase()}
+              (() => {
+                const letters = answer.replace(/[^A-Z]/gi, '');
+                const len = letters.length;
+                // Dynamic sizing: smaller boxes for longer answers
+                const boxClass = len > 12 ? 'w-8 h-8 text-sm' : len > 9 ? 'w-10 h-10 text-lg' : 'w-12 h-12 text-xl';
+                const gapClass = len > 12 ? 'gap-1' : 'gap-2';
+                return (
+                  <div className={`flex flex-wrap justify-center ${gapClass}`}>
+                    {letters.split('').map((char, i) => (
+                      <div
+                        key={i}
+                        className={`${boxClass} bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center font-bold text-green-700`}
+                      >
+                        {char.toUpperCase()}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()
             ) : activePatternData?.analysis?.targetLength ? (
-              <div className="flex gap-2">
-                {Array.from({ length: activePatternData.analysis.targetLength as number }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-12 h-12 bg-amber-100 border-2 border-amber-300 rounded-lg flex items-center justify-center text-xl font-bold text-amber-400"
-                  >
-                    ?
+              (() => {
+                const len = activePatternData.analysis.targetLength as number;
+                const boxClass = len > 12 ? 'w-8 h-8 text-sm' : len > 9 ? 'w-10 h-10 text-lg' : 'w-12 h-12 text-xl';
+                const gapClass = len > 12 ? 'gap-1' : 'gap-2';
+                return (
+                  <div className={`flex flex-wrap justify-center ${gapClass}`}>
+                    {Array.from({ length: len }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`${boxClass} bg-amber-100 border-2 border-amber-300 rounded-lg flex items-center justify-center font-bold text-amber-400`}
+                      >
+                        ?
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()
             ) : (
               <div className="text-slate-400 text-sm italic">No answer provided</div>
             )}
@@ -649,25 +671,31 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           }
 
           if (isAccepted) {
-            // Already saved
+            // Already saved - in puzzle mode, go to next clue; otherwise allow importing another
             return (
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    setIsTutorMode(false);
-                    setFreeformText('');
-                    setParseResult(null);
-                    setIsAccepted(false);
-                  }}
+                  onClick={onExit}
                   className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
-                  <Sparkles size={18} /> Import Another
+                  Back to Dojo
                 </button>
                 <button
-                  onClick={onExit}
+                  onClick={() => {
+                    if (isPuzzleMode) {
+                      // Go to next clue in puzzle
+                      goToPuzzleClue('next');
+                    } else {
+                      // Reset for freeform import
+                      setIsTutorMode(false);
+                      setFreeformText('');
+                      setParseResult(null);
+                      setIsAccepted(false);
+                    }
+                  }}
                   className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
                 >
-                  Back to Dojo
+                  <ChevronRight size={18} /> {isPuzzleMode ? 'Next Clue' : 'Import Another'}
                 </button>
               </div>
             );
