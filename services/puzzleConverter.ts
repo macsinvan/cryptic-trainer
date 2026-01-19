@@ -494,6 +494,183 @@ export function populateLegacyVariables(instance: PatternInstance): PatternInsta
 }
 
 /**
+ * Migrate a PatternInstance to apply latest converter logic
+ * This re-derives display fields (patternId, techniquesUsed, solveExplanation)
+ * from the existing data without losing the raw information.
+ *
+ * Used by clueManager.migrateAllClues() to update existing clues in IndexedDB.
+ */
+export function migratePatternInstance(instance: PatternInstance): PatternInstance {
+  // First, populate variables if needed
+  const withVariables = populateLegacyVariables(instance);
+
+  // Detect special clue types from existing data
+  const isDoubleDefinition =
+    withVariables.patternId === 'Double Definition' ||
+    withVariables.techniquesUsed?.includes('Double Definition') ||
+    (withVariables.definitionPosition === 'entire' &&
+     withVariables.wordplaySteps?.length === 0 &&
+     withVariables.parsingSummary?.includes('Double'));
+
+  const isCrypticDefinition =
+    withVariables.patternId === 'Cryptic Definition' ||
+    withVariables.techniquesUsed?.includes('Cryptic Definition') ||
+    (withVariables.definitionPosition === 'entire' &&
+     (!withVariables.wordplaySteps || withVariables.wordplaySteps.length === 0));
+
+  // Rebuild techniquesUsed from wordplaySteps
+  let techniquesUsed: string[] = [];
+  if (withVariables.wordplaySteps && withVariables.wordplaySteps.length > 0) {
+    const stepTypes = new Set<string>();
+    withVariables.wordplaySteps.forEach(step => {
+      if (step.stepType && step.stepType !== 'unknown') {
+        // Convert stepType to technique name
+        const technique = stepTypeToTechnique(step.stepType);
+        if (technique) stepTypes.add(technique);
+      }
+    });
+    techniquesUsed = Array.from(stepTypes);
+  }
+
+  // Ensure special clue types are in techniques
+  if (isCrypticDefinition && !techniquesUsed.includes('Cryptic Definition')) {
+    techniquesUsed = ['Cryptic Definition', ...techniquesUsed];
+  } else if (isDoubleDefinition && !techniquesUsed.includes('Double Definition')) {
+    techniquesUsed = ['Double Definition', ...techniquesUsed];
+  }
+
+  // Determine patternId
+  let patternId = withVariables.patternId || 'Unknown';
+  if (isCrypticDefinition) {
+    patternId = 'Cryptic Definition';
+  } else if (isDoubleDefinition) {
+    patternId = 'Double Definition';
+  } else if (techniquesUsed.length > 0) {
+    patternId = techniquesUsed[0];
+  }
+
+  // Rebuild solveExplanation blocks
+  const solveExplanation = rebuildSolveExplanation(withVariables, techniquesUsed, isDoubleDefinition, isCrypticDefinition);
+
+  return {
+    ...withVariables,
+    patternId,
+    techniquesUsed,
+    solveExplanation,
+  };
+}
+
+/**
+ * Convert stepType to human-readable technique name
+ */
+function stepTypeToTechnique(stepType: WordplayStep['stepType']): string | null {
+  const mapping: Record<string, string> = {
+    synonym: 'Synonym',
+    anagram: 'Anagram',
+    assembly: 'Charade',
+    container: 'Container',
+    reversal: 'Reversal',
+    deletion: 'Deletion',
+    hidden: 'Hidden Word',
+    homophone: 'Homophone',
+    abbreviation: 'Abbreviation',
+    letter_movement: 'Letter Movement',
+  };
+  return mapping[stepType] || null;
+}
+
+/**
+ * Rebuild solveExplanation DisplayBlock array from PatternInstance data
+ */
+function rebuildSolveExplanation(
+  instance: PatternInstance,
+  techniquesUsed: string[],
+  isDoubleDefinition: boolean,
+  isCrypticDefinition: boolean
+): DisplayBlock[] {
+  const blocks: DisplayBlock[] = [];
+
+  // 1. Setter hint block
+  if (techniquesUsed.length > 0 || isDoubleDefinition || isCrypticDefinition) {
+    let content: string;
+    if (isCrypticDefinition) {
+      content = `This is a **Cryptic Definition** clue. The entire clue is a playful or misleading definition of the answer — there is no separate wordplay. Look for puns, double meanings, or clever misdirection.`;
+    } else if (isDoubleDefinition) {
+      content = `This is a **Double Definition** clue. Two different definitions lead to the same answer.`;
+    } else {
+      const techniqueList = techniquesUsed.join(', ');
+      const defPos = instance.definitionPosition || 'start';
+      content = `This clue uses **${techniqueList}**. The definition "${instance.definitionText || ''}" appears at the ${defPos} of the clue.`;
+    }
+    blocks.push({
+      type: 'setter-hint',
+      content,
+      techniques: isCrypticDefinition ? ['Cryptic Definition'] : isDoubleDefinition ? ['Double Definition'] : techniquesUsed,
+    });
+  }
+
+  // 2. Definition block(s)
+  if (isCrypticDefinition) {
+    blocks.push({
+      type: 'explanation',
+      label: 'Cryptic Definition',
+      content: `The entire clue "${instance.clueText}" is a cryptic way of defining ${instance.answer}`,
+    });
+  } else if (isDoubleDefinition) {
+    // For double definitions, we may not have both definitions stored separately
+    // Show what we have
+    blocks.push({
+      type: 'explanation',
+      label: 'Double Definition',
+      content: `Both parts of the clue define ${instance.answer}`,
+    });
+  } else if (instance.definitionText) {
+    blocks.push({
+      type: 'explanation',
+      label: 'Definition',
+      content: `"${instance.definitionText}" at ${instance.definitionPosition || 'start'} of clue`,
+    });
+  }
+
+  // 3. Wordplay steps
+  if (instance.wordplaySteps && instance.wordplaySteps.length > 0) {
+    instance.wordplaySteps.forEach((step, i) => {
+      const technique = stepTypeToTechnique(step.stepType) || 'Wordplay';
+
+      // Special handling for assembly/charade steps
+      if (step.isAssembly || step.stepType === 'assembly') {
+        blocks.push({
+          type: 'explanation',
+          label: `Wordplay ${i + 1}: Charade`,
+          content: step.explanation || `${step.fodder} → ${step.result}`,
+        });
+        return;
+      }
+
+      // For other operations, show indicator and fodder
+      let content: string;
+      if (step.indicator && step.fodder) {
+        content = `Indicator: ${step.indicator} | Fodder: ${step.fodder} → ${step.result}`;
+      } else if (step.fodder) {
+        content = `${step.fodder} → ${step.result}`;
+      } else if (step.explanation) {
+        content = step.explanation;
+      } else {
+        content = `→ ${step.result}`;
+      }
+
+      blocks.push({
+        type: 'explanation',
+        label: `Wordplay ${i + 1}: ${technique}`,
+        content,
+      });
+    });
+  }
+
+  return blocks;
+}
+
+/**
  * Load and convert a puzzle file from JSON
  * Supports both:
  * 1. New PuzzleFile format with metadata and clues object

@@ -1,8 +1,8 @@
 
 import { PUBLICATIONS, STANDARD_CLUE_TYPES } from '../data';
-import { ClueEvaluation, TrainingItem, ClueType, TrainingStats, PatternInstance } from '../types';
+import { ClueEvaluation, TrainingItem, ClueType, TrainingStats, PatternInstance, DisplayBlock } from '../types';
 import { RAW_PRESOLVED_CLUES } from '../data/seedClues';
-import { populateLegacyVariables } from './puzzleConverter';
+import { populateLegacyVariables, migratePatternInstance } from './puzzleConverter';
 
 const runtimeClues = new Map<string, TrainingItem>();
 const DB_NAME = 'CrypticTrainerDB_V2';
@@ -287,4 +287,42 @@ export const mapToValidClueType = (s: string, p?: string) => (STANDARD_CLUE_TYPE
  */
 export const clueExists = (text: string): boolean => {
     return runtimeClues.has(normalize(text));
+};
+
+/**
+ * Migrate all clues in IndexedDB to apply latest converter logic
+ * This re-processes patternData to update solveExplanation, patternId, techniquesUsed, etc.
+ * Returns the number of clues migrated
+ */
+export const migrateAllClues = async (): Promise<{ migrated: number; errors: number }> => {
+    const dbItems = await dbGetAll();
+    let migrated = 0;
+    let errors = 0;
+
+    console.log(`[migration] Starting migration of ${dbItems.length} clues...`);
+
+    for (const item of dbItems) {
+        try {
+            if (item.patternData) {
+                // Apply migration to update display fields
+                const migratedPatternData = migratePatternInstance(item.patternData);
+                item.patternData = migratedPatternData;
+
+                // Save back to IndexedDB
+                await dbPut(item);
+
+                // Update runtime cache
+                runtimeClues.set(normalize(item.clue), item);
+
+                migrated++;
+                console.log(`[migration] Migrated: ${item.clue.substring(0, 40)}... → ${migratedPatternData.patternId}`);
+            }
+        } catch (err) {
+            errors++;
+            console.error(`[migration] Error migrating clue "${item.clue}":`, err);
+        }
+    }
+
+    console.log(`[migration] Complete: ${migrated} migrated, ${errors} errors`);
+    return { migrated, errors };
 };
