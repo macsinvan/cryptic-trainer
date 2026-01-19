@@ -522,13 +522,20 @@ export function migratePatternInstance(instance: PatternInstance): PatternInstan
     patternId = techniquesUsed[0];
   }
 
-  // Rebuild solveExplanation blocks
-  const solveExplanation = rebuildSolveExplanation(instance, techniquesUsed, isDoubleDefinition, isCrypticDefinition);
+  // Re-sort wordplaySteps by position in clue (assembly steps last)
+  const sortedWordplaySteps = instance.wordplaySteps
+    ? sortWordplayStepsByCluePosition(instance.wordplaySteps, instance.clueText)
+    : undefined;
+
+  // Rebuild solveExplanation blocks (uses sorted steps)
+  const instanceWithSortedSteps = { ...instance, wordplaySteps: sortedWordplaySteps };
+  const solveExplanation = rebuildSolveExplanation(instanceWithSortedSteps, techniquesUsed, isDoubleDefinition, isCrypticDefinition);
 
   return {
     ...instance,
     patternId,
     techniquesUsed,
+    wordplaySteps: sortedWordplaySteps,
     solveExplanation,
   };
 }
@@ -550,6 +557,68 @@ function stepTypeToTechnique(stepType: WordplayStep['stepType']): string | null 
     letter_movement: 'Letter Movement',
   };
   return mapping[stepType] || null;
+}
+
+/**
+ * Find the position of a word/phrase in the clue text
+ * Returns the character index or a large number if not found
+ */
+function findPositionInClue(clueText: string, searchText: string): number {
+  if (!searchText || !clueText) return 9999;
+
+  const clueLower = clueText.toLowerCase();
+  const searchLower = searchText.toLowerCase();
+
+  // Direct match
+  const directPos = clueLower.indexOf(searchLower);
+  if (directPos >= 0) return directPos;
+
+  // Try matching individual words from the search text
+  const words = searchLower.split(/\s+/).filter(w => w.length > 0);
+  if (words.length > 0) {
+    // Find the earliest word that appears in the clue
+    let minPos = 9999;
+    for (const word of words) {
+      // Skip very short words that could match anywhere (a, I, etc.)
+      if (word.length < 2) continue;
+      const pos = clueLower.indexOf(word);
+      if (pos >= 0 && pos < minPos) {
+        minPos = pos;
+      }
+    }
+    if (minPos < 9999) return minPos;
+  }
+
+  return 9999;
+}
+
+/**
+ * Sort wordplay steps by their position in the clue text
+ * Assembly/charade steps are always sorted to the end
+ */
+function sortWordplayStepsByCluePosition(
+  steps: WordplayStep[],
+  clueText: string
+): WordplayStep[] {
+  return [...steps].sort((a, b) => {
+    // Assembly steps always come last
+    const aIsAssembly = a.isAssembly || a.stepType === 'assembly';
+    const bIsAssembly = b.isAssembly || b.stepType === 'assembly';
+
+    if (aIsAssembly && !bIsAssembly) return 1;
+    if (!aIsAssembly && bIsAssembly) return -1;
+    if (aIsAssembly && bIsAssembly) return 0;
+
+    // For non-assembly steps, sort by position in clue
+    // Use hint (clue_fragment) or fodder to find position
+    const aText = a.hint || a.fodder || '';
+    const bText = b.hint || b.fodder || '';
+
+    const aPos = findPositionInClue(clueText, aText);
+    const bPos = findPositionInClue(clueText, bText);
+
+    return aPos - bPos;
+  });
 }
 
 /**
@@ -605,9 +674,10 @@ function rebuildSolveExplanation(
     });
   }
 
-  // 3. Wordplay steps
+  // 3. Wordplay steps - sorted by position in clue, assembly last
   if (instance.wordplaySteps && instance.wordplaySteps.length > 0) {
-    instance.wordplaySteps.forEach((step, i) => {
+    const sortedSteps = sortWordplayStepsByCluePosition(instance.wordplaySteps, instance.clueText);
+    sortedSteps.forEach((step, i) => {
       const technique = stepTypeToTechnique(step.stepType) || 'Wordplay';
 
       // Special handling for assembly/charade steps
