@@ -2,6 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { migrateAllClues } from './services/clueManager';
+
+// Expose migration function for one-time use
+(window as any).migrateAllClues = migrateAllClues;
 
 // DESIGN LOCKED: No further visual changes authorized.
 const rootElement = document.getElementById('root');
