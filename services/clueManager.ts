@@ -2,7 +2,7 @@
 import { PUBLICATIONS, STANDARD_CLUE_TYPES } from '../data';
 import { ClueEvaluation, TrainingItem, ClueType, TrainingStats, PatternInstance, DisplayBlock } from '../types';
 import { RAW_PRESOLVED_CLUES } from '../data/seedClues';
-import { populateLegacyVariables, migratePatternInstance } from './puzzleConverter';
+import { migratePatternInstance } from './puzzleConverter';
 
 const runtimeClues = new Map<string, TrainingItem>();
 const DB_NAME = 'CrypticTrainerDB_V2';
@@ -164,10 +164,6 @@ export const initializeClues = async (): Promise<void> => {
 
   const dbItems = await dbGetAll();
   dbItems.forEach(item => {
-    // Ensure patternData.variables is populated for legacy items
-    if (item.patternData) {
-      item.patternData = populateLegacyVariables(item.patternData);
-    }
     mergedClues.set(normalize(item.clue), item);
   });
 
@@ -326,3 +322,47 @@ export const migrateAllClues = async (): Promise<{ migrated: number; errors: num
     console.log(`[migration] Complete: ${migrated} migrated, ${errors} errors`);
     return { migrated, errors };
 };
+
+/**
+ * Clear all clues from specific puzzle numbers
+ * Used to remove clues imported from legacy/bad puzzle files
+ * Returns the number of clues deleted
+ */
+export const clearCluesByPuzzleNumber = async (puzzleNumbers: number[]): Promise<number> => {
+    const dbItems = await dbGetAll();
+    let deleted = 0;
+
+    console.log(`[cleanup] Clearing clues from puzzles: ${puzzleNumbers.join(', ')}`);
+
+    const db = await openDB();
+
+    for (const item of dbItems) {
+        // Check if this clue belongs to one of the target puzzles
+        const puzzleNum = item.patternData?.puzzleNumber;
+        if (puzzleNum && puzzleNumbers.includes(puzzleNum)) {
+            await new Promise<void>((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.delete(item.id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+
+            runtimeClues.delete(normalize(item.clue));
+            deleted++;
+            console.log(`[cleanup] Deleted: ${item.clue.substring(0, 40)}... (puzzle ${puzzleNum})`);
+        }
+    }
+
+    console.log(`[cleanup] Complete: ${deleted} clues deleted`);
+    return deleted;
+};
+
+// Expose cleanup function globally for one-time use via browser console
+if (typeof window !== 'undefined') {
+    (window as any).clearBadImports = async () => {
+        const count = await clearCluesByPuzzleNumber([29434, 29435]);
+        console.log(`Cleared ${count} clues from puzzles 29434 and 29435`);
+        return count;
+    };
+}

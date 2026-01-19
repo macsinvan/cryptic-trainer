@@ -470,65 +470,6 @@ export function convertPuzzleFile(puzzle: PuzzleFile): PatternInstance[] {
 }
 
 /**
- * Populate variables for a legacy PatternInstance that has empty variables
- * This enables training mode to work with older exported puzzle files
- * Exported for use in clueManager when loading from IndexedDB
- */
-export function populateLegacyVariables(instance: PatternInstance): PatternInstance {
-  // If variables are already populated, return as-is
-  if (instance.variables && Object.keys(instance.variables).length > 0) {
-    return instance;
-  }
-
-  // Build variables from existing PatternInstance data
-  const vars: Record<string, string> = {};
-
-  // Add definition
-  if (instance.definitionText) {
-    vars['def_text'] = instance.definitionText;
-  }
-
-  // Extract indicator from wordHighlights (from word_accounting.usage)
-  if (instance.wordHighlights && instance.wordHighlights.length > 0) {
-    const indicatorWords = instance.wordHighlights
-      .filter(w => w.role === 'indicator')
-      .map(w => w.word);
-
-    if (indicatorWords.length > 0) {
-      vars['indicator_1_text'] = indicatorWords.join(' ');
-    }
-  }
-
-  // Extract indicator and fodder from wordplaySteps
-  if (instance.wordplaySteps && instance.wordplaySteps.length > 0) {
-    instance.wordplaySteps.forEach((step, idx) => {
-      const stepNum = idx + 1;
-
-      // Add indicator if present (overrides wordHighlights extraction)
-      if (step.indicator) {
-        vars[`indicator_${stepNum}_text`] = step.indicator;
-      }
-
-      // Add fodder if present
-      if (step.fodder) {
-        vars[`fodder_${stepNum}_text`] = step.fodder;
-      }
-
-      // Add result/synonym
-      if (step.result) {
-        vars[`result_${stepNum}`] = step.result;
-        vars[`synonym_${stepNum}`] = step.result;
-      }
-    });
-  }
-
-  return {
-    ...instance,
-    variables: vars,
-  };
-}
-
-/**
  * Migrate a PatternInstance to apply latest converter logic
  * This re-derives display fields (patternId, techniquesUsed, solveExplanation)
  * from the existing data without losing the raw information.
@@ -536,28 +477,25 @@ export function populateLegacyVariables(instance: PatternInstance): PatternInsta
  * Used by clueManager.migrateAllClues() to update existing clues in IndexedDB.
  */
 export function migratePatternInstance(instance: PatternInstance): PatternInstance {
-  // First, populate variables if needed
-  const withVariables = populateLegacyVariables(instance);
-
   // Detect special clue types from existing data
   const isDoubleDefinition =
-    withVariables.patternId === 'Double Definition' ||
-    withVariables.techniquesUsed?.includes('Double Definition') ||
-    (withVariables.definitionPosition === 'entire' &&
-     withVariables.wordplaySteps?.length === 0 &&
-     withVariables.parsingSummary?.includes('Double'));
+    instance.patternId === 'Double Definition' ||
+    instance.techniquesUsed?.includes('Double Definition') ||
+    (instance.definitionPosition === 'entire' &&
+     instance.wordplaySteps?.length === 0 &&
+     instance.parsingSummary?.includes('Double'));
 
   const isCrypticDefinition =
-    withVariables.patternId === 'Cryptic Definition' ||
-    withVariables.techniquesUsed?.includes('Cryptic Definition') ||
-    (withVariables.definitionPosition === 'entire' &&
-     (!withVariables.wordplaySteps || withVariables.wordplaySteps.length === 0));
+    instance.patternId === 'Cryptic Definition' ||
+    instance.techniquesUsed?.includes('Cryptic Definition') ||
+    (instance.definitionPosition === 'entire' &&
+     (!instance.wordplaySteps || instance.wordplaySteps.length === 0));
 
   // Rebuild techniquesUsed from wordplaySteps
   let techniquesUsed: string[] = [];
-  if (withVariables.wordplaySteps && withVariables.wordplaySteps.length > 0) {
+  if (instance.wordplaySteps && instance.wordplaySteps.length > 0) {
     const stepTypes = new Set<string>();
-    withVariables.wordplaySteps.forEach(step => {
+    instance.wordplaySteps.forEach(step => {
       if (step.stepType && step.stepType !== 'unknown') {
         // Convert stepType to technique name
         const technique = stepTypeToTechnique(step.stepType);
@@ -575,7 +513,7 @@ export function migratePatternInstance(instance: PatternInstance): PatternInstan
   }
 
   // Determine patternId
-  let patternId = withVariables.patternId || 'Unknown';
+  let patternId = instance.patternId || 'Unknown';
   if (isCrypticDefinition) {
     patternId = 'Cryptic Definition';
   } else if (isDoubleDefinition) {
@@ -585,10 +523,10 @@ export function migratePatternInstance(instance: PatternInstance): PatternInstan
   }
 
   // Rebuild solveExplanation blocks
-  const solveExplanation = rebuildSolveExplanation(withVariables, techniquesUsed, isDoubleDefinition, isCrypticDefinition);
+  const solveExplanation = rebuildSolveExplanation(instance, techniquesUsed, isDoubleDefinition, isCrypticDefinition);
 
   return {
-    ...withVariables,
+    ...instance,
     patternId,
     techniquesUsed,
     solveExplanation,
@@ -707,52 +645,15 @@ function rebuildSolveExplanation(
 
 /**
  * Load and convert a puzzle file from JSON
- * Supports both:
- * 1. New PuzzleFile format with metadata and clues object
- * 2. Legacy format: direct array of PatternInstance objects
+ * Only supports PuzzleFile format with metadata and clues object
  */
 export function loadPuzzleFromJson(jsonContent: string): {
   metadata: PuzzleFile['metadata'];
   clues: PatternInstance[];
-  rawData: PuzzleFile | null;
+  rawData: PuzzleFile;
 } {
-  const parsed = JSON.parse(jsonContent);
-
-  // Check if this is the legacy array format (array of PatternInstance)
-  if (Array.isArray(parsed)) {
-    // Legacy format: direct array of PatternInstance objects
-    const clues = parsed.map((instance: PatternInstance) => populateLegacyVariables(instance));
-
-    // Debug: log first clue's variables
-    if (clues[0]) {
-      console.log('[puzzleConverter] Loaded legacy format, first clue variables:', clues[0].variables);
-    }
-
-    // Extract metadata from first clue if available
-    const firstClue = clues[0];
-    const metadata: PuzzleFile['metadata'] = {
-      publisher: firstClue?.publication || 'Times',
-      puzzle_number: String(firstClue?.puzzleNumber || 0),
-      setter: firstClue?.setter || 'Unknown',
-      publication_date: '',
-      source_url: '',
-    };
-
-    return {
-      metadata,
-      clues,
-      rawData: null, // No raw PuzzleFile for legacy format
-    };
-  }
-
-  // New PuzzleFile format with metadata and clues object
-  const puzzle: PuzzleFile = parsed;
+  const puzzle: PuzzleFile = JSON.parse(jsonContent);
   const clues = convertPuzzleFile(puzzle);
-
-  // Debug: log first clue's variables
-  if (clues[0]) {
-    console.log('[puzzleConverter] Loaded new PuzzleFile format, first clue variables:', clues[0].variables);
-  }
 
   return {
     metadata: puzzle.metadata,
