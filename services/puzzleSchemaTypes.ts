@@ -63,7 +63,8 @@ export type OperationType =
   | 'deletion'
   | 'hidden'
   | 'homophone'
-  | 'double_definition';
+  | 'double_definition'
+  | 'cryptic_definition';
 
 export type WordRole = 'definition' | 'indicator' | 'fodder' | 'connector';
 

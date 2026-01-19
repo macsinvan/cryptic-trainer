@@ -43,6 +43,7 @@ const OPERATION_TO_STEP_TYPE: Record<OperationType, StepType> = {
   hidden: 'hidden',
   homophone: 'homophone',
   double_definition: 'synonym',
+  cryptic_definition: 'synonym',
 };
 
 // ============================================
@@ -177,6 +178,7 @@ function operationToTechnique(op: OperationType): string {
     hidden: 'Hidden Word',
     homophone: 'Homophone',
     double_definition: 'Double Definition',
+    cryptic_definition: 'Cryptic Definition',
   };
   return mapping[op] || op;
 }
@@ -191,14 +193,18 @@ function generateSolveExplanation(
 ): DisplayBlock[] {
   const blocks: DisplayBlock[] = [];
 
-  // Check for double definition
+  // Check for special clue types
   const isDoubleDefinition = clue.assembly.method === 'double_definition';
+  const isCrypticDefinition = clue.assembly.method === 'cryptic_definition' ||
+    (clue.definition.position === 'entire' && clue.steps.length === 0);
   const allDefinitions = clue.clue.definition || [];
 
   // 1. Setter hint block with techniques
-  if (techniquesUsed.length > 0 || isDoubleDefinition) {
+  if (techniquesUsed.length > 0 || isDoubleDefinition || isCrypticDefinition) {
     let content: string;
-    if (isDoubleDefinition && allDefinitions.length >= 2) {
+    if (isCrypticDefinition) {
+      content = `This is a **Cryptic Definition** clue. The entire clue is a playful or misleading definition of the answer — there is no separate wordplay. Look for puns, double meanings, or clever misdirection.`;
+    } else if (isDoubleDefinition && allDefinitions.length >= 2) {
       const defTexts = allDefinitions.map(d => `"${d.text}"`).join(' and ');
       content = `This is a **Double Definition** clue. Both ${defTexts} lead to the same answer.`;
     } else {
@@ -208,12 +214,19 @@ function generateSolveExplanation(
     blocks.push({
       type: 'setter-hint',
       content,
-      techniques: isDoubleDefinition ? ['Double Definition'] : techniquesUsed,
+      techniques: isCrypticDefinition ? ['Cryptic Definition'] : isDoubleDefinition ? ['Double Definition'] : techniquesUsed,
     });
   }
 
   // 2. Definition(s)
-  if (isDoubleDefinition && allDefinitions.length >= 2) {
+  if (isCrypticDefinition) {
+    // Cryptic definition: entire clue is the definition
+    blocks.push({
+      type: 'explanation',
+      label: 'Cryptic Definition',
+      content: `The entire clue "${clue.clue.text}" is a cryptic way of defining ${clue.clue.answer}`,
+    });
+  } else if (isDoubleDefinition && allDefinitions.length >= 2) {
     // Show both definitions for double definition clues
     allDefinitions.forEach((def, i) => {
       blocks.push({
@@ -341,14 +354,18 @@ export function convertClueToPatternInstance(
   clue: PuzzleClue,
   clueNumber: string
 ): PatternInstance {
-  // Check for double definition first (assembly.method indicates this)
+  // Check for special clue types (assembly.method indicates this)
   const isDoubleDefinition = clue.assembly.method === 'double_definition';
+  const isCrypticDefinition = clue.assembly.method === 'cryptic_definition' ||
+    (clue.definition.position === 'entire' && clue.steps.length === 0);
 
   const operations = getOperationTypes(clue.steps);
   let techniquesUsed = operations.map(operationToTechnique);
 
-  // For double definitions, ensure the technique is listed
-  if (isDoubleDefinition && !techniquesUsed.includes('Double Definition')) {
+  // For special clue types, ensure the technique is listed
+  if (isCrypticDefinition && !techniquesUsed.includes('Cryptic Definition')) {
+    techniquesUsed = ['Cryptic Definition', ...techniquesUsed];
+  } else if (isDoubleDefinition && !techniquesUsed.includes('Double Definition')) {
     techniquesUsed = ['Double Definition', ...techniquesUsed];
   }
 
@@ -356,8 +373,10 @@ export function convertClueToPatternInstance(
   const primaryOp = operations[0];
   let patternId = primaryOp ? operationToTechnique(primaryOp) : 'Unknown';
 
-  // Double definition takes precedence as the pattern type
-  if (isDoubleDefinition) {
+  // Special clue types take precedence as the pattern type
+  if (isCrypticDefinition) {
+    patternId = 'Cryptic Definition';
+  } else if (isDoubleDefinition) {
     patternId = 'Double Definition';
   }
 
