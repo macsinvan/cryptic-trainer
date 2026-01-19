@@ -191,33 +191,80 @@ function generateSolveExplanation(
 ): DisplayBlock[] {
   const blocks: DisplayBlock[] = [];
 
+  // Check for double definition
+  const isDoubleDefinition = clue.assembly.method === 'double_definition';
+  const allDefinitions = clue.clue.definition || [];
+
   // 1. Setter hint block with techniques
-  if (techniquesUsed.length > 0) {
-    const techniqueList = techniquesUsed.join(', ');
+  if (techniquesUsed.length > 0 || isDoubleDefinition) {
+    let content: string;
+    if (isDoubleDefinition && allDefinitions.length >= 2) {
+      const defTexts = allDefinitions.map(d => `"${d.text}"`).join(' and ');
+      content = `This is a **Double Definition** clue. Both ${defTexts} lead to the same answer.`;
+    } else {
+      const techniqueList = techniquesUsed.join(', ');
+      content = `This clue uses **${techniqueList}**. The definition "${clue.definition.text}" appears at the ${clue.definition.position} of the clue.`;
+    }
     blocks.push({
       type: 'setter-hint',
-      content: `This clue uses **${techniqueList}**. The definition "${clue.definition.text}" appears at the ${clue.definition.position} of the clue.`,
-      techniques: techniquesUsed,
+      content,
+      techniques: isDoubleDefinition ? ['Double Definition'] : techniquesUsed,
     });
   }
 
-  // 4. Definition (always first)
-  blocks.push({
-    type: 'explanation',
-    label: 'Definition',
-    content: `"${clue.definition.text}" at ${clue.definition.position} of clue`,
-  });
+  // 2. Definition(s)
+  if (isDoubleDefinition && allDefinitions.length >= 2) {
+    // Show both definitions for double definition clues
+    allDefinitions.forEach((def, i) => {
+      blocks.push({
+        type: 'explanation',
+        label: `Definition ${i + 1}`,
+        content: `"${def.text}" at ${def.position} of clue → ${clue.clue.answer}`,
+      });
+    });
+  } else {
+    // Single definition
+    blocks.push({
+      type: 'explanation',
+      label: 'Definition',
+      content: `"${clue.definition.text}" at ${clue.definition.position} of clue`,
+    });
+  }
 
   // 5. Wordplay steps (remaining steps)
   clue.steps.forEach((step, i) => {
     const type = operationToTechnique(step.operation);
-    const indicator = step.indicator || '—';
-    const fodderText = Array.isArray(step.fodder) ? step.fodder.join(' + ') : step.fodder;
+
+    // Special handling for charade steps - show assembly equation
+    if (step.operation === 'charade' && step.components && step.components.length > 0) {
+      const equation = `${step.components.join(' + ')} = ${step.result}`;
+      blocks.push({
+        type: 'explanation',
+        label: `Wordplay ${i + 1}: ${type}`,
+        content: equation,
+      });
+      return;
+    }
+
+    // For other operations, show indicator and fodder if present
+    const fodderText = Array.isArray(step.fodder) ? step.fodder.join(' + ') : (step.fodder || '');
+
+    // Build content based on what data we have
+    let content: string;
+    if (step.indicator && fodderText) {
+      content = `Indicator: ${step.indicator} | Fodder: ${fodderText} → ${step.result}`;
+    } else if (fodderText) {
+      // No indicator (common for synonyms/abbreviations)
+      content = `${fodderText} → ${step.result}`;
+    } else {
+      // Fallback
+      content = `→ ${step.result}`;
+    }
 
     blocks.push({
       type: 'explanation',
       label: `Wordplay ${i + 1}: ${type}`,
-      content: `Indicator: ${indicator} | Fodder: ${fodderText} → ${step.result}`,
+      content,
     });
   });
 
@@ -240,6 +287,14 @@ function buildEngineVariables(clue: PuzzleClue): Record<string, string> {
   const vars: Record<string, string> = {
     def_text: clue.definition.text,
   };
+
+  // For double definitions, add both definition texts
+  const allDefinitions = clue.clue.definition || [];
+  if (clue.assembly.method === 'double_definition' && allDefinitions.length >= 2) {
+    allDefinitions.forEach((def, i) => {
+      vars[`def_${i + 1}_text`] = def.text;
+    });
+  }
 
   // Extract indicator words from word_accounting (joined by space)
   const indicatorWords = clue.word_accounting.usage
@@ -286,12 +341,25 @@ export function convertClueToPatternInstance(
   clue: PuzzleClue,
   clueNumber: string
 ): PatternInstance {
+  // Check for double definition first (assembly.method indicates this)
+  const isDoubleDefinition = clue.assembly.method === 'double_definition';
+
   const operations = getOperationTypes(clue.steps);
-  const techniquesUsed = operations.map(operationToTechnique);
+  let techniquesUsed = operations.map(operationToTechnique);
+
+  // For double definitions, ensure the technique is listed
+  if (isDoubleDefinition && !techniquesUsed.includes('Double Definition')) {
+    techniquesUsed = ['Double Definition', ...techniquesUsed];
+  }
 
   // Determine primary pattern type
   const primaryOp = operations[0];
-  const patternId = primaryOp ? operationToTechnique(primaryOp) : 'Unknown';
+  let patternId = primaryOp ? operationToTechnique(primaryOp) : 'Unknown';
+
+  // Double definition takes precedence as the pattern type
+  if (isDoubleDefinition) {
+    patternId = 'Double Definition';
+  }
 
   // Generate parsing summary
   const parsingSummary = generateParsingSummary(clue.steps, clue.clue.answer);

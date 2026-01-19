@@ -85,11 +85,12 @@ export interface SolveStep {
   operation: OperationType;
   clue_fragment: string;
   indicator: string | null;
-  fodder: string | string[];
-  synonyms_considered: string[];
+  fodder: string | string[] | null;
+  synonyms_considered?: string[];
   result: string;
   result_letters: string[];
   check: StepCheck;
+  components?: string[];  // For charade steps: the parts being combined
 }
 
 export interface WordUsage {
