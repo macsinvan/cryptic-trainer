@@ -63,6 +63,40 @@ function convertWordAccounting(usage: WordUsage[]): WordHighlight[] {
 }
 
 /**
+ * Get the minimum word position for a step based on word_accounting.usage
+ * This is used to sort steps in left-to-right clue order
+ */
+function getStepMinPosition(step: SolveStep, usage: WordUsage[]): number {
+  // Find words in usage that belong to this step
+  const stepWords = usage.filter(u => u.step === step.step);
+
+  if (stepWords.length > 0) {
+    // Return the minimum position of words in this step
+    return Math.min(...stepWords.map(w => w.position));
+  }
+
+  // Fallback: use step number as position (assembly steps come last)
+  // Charade/assembly steps typically reference previous results, so put them after
+  if (step.operation === 'charade') {
+    return 1000 + step.step; // Push assembly steps to the end
+  }
+
+  return step.step;
+}
+
+/**
+ * Sort steps by their position in the clue (left-to-right order)
+ * Uses word_accounting.usage to determine word positions
+ */
+function sortStepsByCluePosition(steps: SolveStep[], usage: WordUsage[]): SolveStep[] {
+  return [...steps].sort((a, b) => {
+    const posA = getStepMinPosition(a, usage);
+    const posB = getStepMinPosition(b, usage);
+    return posA - posB;
+  });
+}
+
+/**
  * Convert solve steps to WordplayStep array
  */
 function convertSteps(steps: SolveStep[]): WordplayStep[] {
@@ -244,8 +278,9 @@ function generateSolveExplanation(
     });
   }
 
-  // 5. Wordplay steps (remaining steps)
-  clue.steps.forEach((step, i) => {
+  // 5. Wordplay steps - SORTED by position in clue (left-to-right order)
+  const sortedSteps = sortStepsByCluePosition(clue.steps, clue.word_accounting.usage);
+  sortedSteps.forEach((step, i) => {
     const type = operationToTechnique(step.operation);
 
     // Special handling for charade steps - show assembly equation
@@ -398,8 +433,8 @@ export function convertClueToPatternInstance(
     // Word-by-word highlighting
     wordHighlights: convertWordAccounting(clue.word_accounting.usage),
 
-    // Wordplay steps
-    wordplaySteps: convertSteps(clue.steps),
+    // Wordplay steps - SORTED by position in clue (left-to-right order)
+    wordplaySteps: convertSteps(sortStepsByCluePosition(clue.steps, clue.word_accounting.usage)),
 
     // Definition
     definitionText: clue.definition.text,
