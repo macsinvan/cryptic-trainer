@@ -5,12 +5,22 @@ import { RAW_PRESOLVED_CLUES } from '../data/seedClues';
 import { migratePatternInstance } from './puzzleConverter';
 
 const runtimeClues = new Map<string, TrainingItem>();
-const DB_NAME = 'CrypticTrainerDB_V2';
-const STORE_NAME = 'training_items';
-const PARSER_ISSUES_STORE = 'parser_issues';
-const DB_VERSION = 73; // Added parser_issues store
 
 const normalize = (text: string) => (text || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+// --- HTTP API Helpers ---
+const API_BASE = '/api';
+
+async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+    const response = await fetch(`${API_BASE}${url}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+    });
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+    return response.json();
+}
 
 // --- Parser Issue Type ---
 export interface ParserIssue {
@@ -28,19 +38,42 @@ export interface ParserIssue {
     patternVariables?: Record<string, string>;
 }
 
-// --- Storage Helpers ---
-const openDB = (): Promise<IDBDatabase> => {
+// --- Parser Issues Functions (now use HTTP) ---
+export const saveParserIssue = async (issue: ParserIssue): Promise<void> => {
+    await fetchJson('/parser-issues', {
+        method: 'POST',
+        body: JSON.stringify(issue)
+    });
+};
+
+export const getParserIssues = async (): Promise<ParserIssue[]> => {
+    try {
+        const data = await fetchJson<{ items: ParserIssue[] }>('/parser-issues');
+        return data.items;
+    } catch { return []; }
+};
+
+export const getParserIssueCount = async (): Promise<number> => {
+    const issues = await getParserIssues();
+    return issues.length;
+};
+
+// --- Legacy IndexedDB functions (kept for migration only) ---
+const DB_NAME = 'CrypticTrainerDB_V2';
+const STORE_NAME = 'training_items';
+const PARSER_ISSUES_STORE = 'parser_issues';
+const DB_VERSION = 73;
+
+const openLegacyDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result);
         request.onupgradeneeded = (event) => {
             const db = (event.target as IDBOpenDBRequest).result;
-            // Training items store
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: 'id' });
             }
-            // Parser issues store
             if (!db.objectStoreNames.contains(PARSER_ISSUES_STORE)) {
                 db.createObjectStore(PARSER_ISSUES_STORE, { keyPath: 'id' });
             }
@@ -48,9 +81,9 @@ const openDB = (): Promise<IDBDatabase> => {
     });
 };
 
-const dbGetAll = async (): Promise<TrainingItem[]> => {
+export const getLegacyClues = async (): Promise<TrainingItem[]> => {
     try {
-        const db = await openDB();
+        const db = await openLegacyDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readonly');
             const store = transaction.objectStore(STORE_NAME);
@@ -61,45 +94,19 @@ const dbGetAll = async (): Promise<TrainingItem[]> => {
     } catch { return []; }
 };
 
-const dbPut = async (item: TrainingItem): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.put(item);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-    });
-};
-
-// --- Parser Issues Functions ---
-export const saveParserIssue = async (issue: ParserIssue): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(PARSER_ISSUES_STORE, 'readwrite');
-        const store = transaction.objectStore(PARSER_ISSUES_STORE);
-        const request = store.put(issue);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-    });
-};
-
-export const getParserIssues = async (): Promise<ParserIssue[]> => {
+export const clearLegacyDB = async (): Promise<void> => {
     try {
-        const db = await openDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(PARSER_ISSUES_STORE, 'readonly');
-            const store = transaction.objectStore(PARSER_ISSUES_STORE);
-            const request = store.getAll();
-            request.onsuccess = () => resolve(request.result);
+        const db = await openLegacyDB();
+        await new Promise<void>((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.clear();
+            request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
-    } catch { return []; }
-};
-
-export const getParserIssueCount = async (): Promise<number> => {
-    const issues = await getParserIssues();
-    return issues.length;
+    } catch (e) {
+        console.warn('[migration] Could not clear legacy DB:', e);
+    }
 };
 
 export const initializeClues = async (): Promise<void> => {
@@ -120,15 +127,15 @@ export const initializeClues = async (): Promise<void> => {
       };
   };
 
+  // Load seed clues first
   for (const raw of RAW_PRESOLVED_CLUES) {
       const defaultType = getStdType(raw.typeId);
-      
-      // Use pre-calculated evaluation if it exists
+
       const evaluation: ClueEvaluation = raw.evaluation || {
             id: `seed-${normalize(raw.clue).substring(0, 5)}`,
             clue: raw.clue,
-            card: raw.card || [], 
-            learnings: raw.learnings || [], 
+            card: raw.card || [],
+            learnings: raw.learnings || [],
             type: defaultType.name,
             difficulty: (raw.example.level.charAt(0).toUpperCase() + raw.example.level.slice(1)) as any,
             reasoning: raw.example.parsing,
@@ -139,7 +146,7 @@ export const initializeClues = async (): Promise<void> => {
                 position: 'START'
             },
             hints: raw.example.hints || [],
-            wordplay: raw.wordplay || [], // Ensure wordplay is passed through
+            wordplay: raw.wordplay || [],
             structure: raw.example.parsing || ''
       };
 
@@ -157,15 +164,20 @@ export const initializeClues = async (): Promise<void> => {
           stats: { attempts: 0, successes: 0, hintsUsed: 0 },
           example: raw.example,
           evaluation: evaluation,
-          patternData: raw.patternData // Pass through the new Engine Data
+          patternData: raw.patternData
       };
       mergedClues.set(normalize(seedItem.clue), seedItem);
   }
 
-  const dbItems = await dbGetAll();
-  dbItems.forEach(item => {
-    mergedClues.set(normalize(item.clue), item);
-  });
+  // Load from server
+  try {
+      const data = await fetchJson<{ items: TrainingItem[] }>('/clues');
+      data.items.forEach(item => {
+          mergedClues.set(normalize(item.clue), item);
+      });
+  } catch (e) {
+      console.warn('[clueManager] Could not load clues from server:', e);
+  }
 
   runtimeClues.clear();
   mergedClues.forEach((item, key) => runtimeClues.set(key, item));
@@ -188,7 +200,10 @@ export const updateTutorProgress = async (text: string, progress: { stageIndex: 
   const item = runtimeClues.get(normalize(text));
   if (item) {
     item.tutorProgress = progress;
-    await dbPut(item);
+    await fetchJson('/clues', {
+        method: 'POST',
+        body: JSON.stringify(item)
+    });
   }
 };
 
@@ -211,7 +226,7 @@ export const saveClue = async (pubId: string, text: string, evaluation: ClueEval
         publicationId: pubId,
         clueType: (STANDARD_CLUE_TYPES.find(t => t.label === evaluation.type) || STANDARD_CLUE_TYPES[0]) as any,
         evaluation,
-        patternData: patternData || existing?.patternData, // Preserve existing patternData if not provided
+        patternData: patternData || existing?.patternData,
         stats: existing?.stats || { attempts: 0, successes: 0, hintsUsed: 0 },
         timestamp: Date.now(),
         example: {
@@ -225,7 +240,12 @@ export const saveClue = async (pubId: string, text: string, evaluation: ClueEval
         tutorProgress: existing?.tutorProgress
     };
     runtimeClues.set(norm, newItem);
-    await dbPut(newItem);
+
+    await fetchJson('/clues', {
+        method: 'POST',
+        body: JSON.stringify(newItem)
+    });
+
     return !existing;
 };
 
@@ -236,19 +256,10 @@ export const subscribeToClues = (cb: () => void) => {
 export const getCloudConnectionStatus = () => ({ status: 'connected' as any });
 export const refreshConnection = async () => {};
 export const getCustomClueCount = () => 0;
+
 export const clearUserData = async () => {
-    // Clear IndexedDB
-    const db = await openDB();
-    return new Promise<void>((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.clear();
-        request.onsuccess = () => {
-            runtimeClues.clear();
-            resolve();
-        };
-        request.onerror = () => reject(request.error);
-    });
+    await fetchJson('/clues/clear', { method: 'POST' });
+    runtimeClues.clear();
 };
 
 export const deleteClue = async (clueText: string): Promise<boolean> => {
@@ -256,23 +267,38 @@ export const deleteClue = async (clueText: string): Promise<boolean> => {
     const item = runtimeClues.get(norm);
     if (!item) return false;
 
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.delete(item.id);
-        request.onsuccess = () => {
-            runtimeClues.delete(norm);
-            resolve(true);
-        };
-        request.onerror = () => reject(request.error);
-    });
+    await fetchJson(`/clues/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+    runtimeClues.delete(norm);
+    return true;
 };
-export const exportUserData = async () => "";
-export const importUserData = async (s: string) => ({ success: true, message: "" });
+
+export const exportUserData = async (): Promise<string> => {
+    const items = Array.from(runtimeClues.values()).filter(item => item.id.startsWith('user-'));
+    return JSON.stringify({ version: 1, items }, null, 2);
+};
+
+export const importUserData = async (jsonString: string): Promise<{ success: boolean; message: string }> => {
+    try {
+        const data = JSON.parse(jsonString);
+        const items = data.items || [];
+
+        const result = await fetchJson<{ imported: number; errors: number }>('/clues/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ items })
+        });
+
+        // Reload clues from server
+        await initializeClues();
+
+        return { success: true, message: `Imported ${result.imported} clues` };
+    } catch (e) {
+        return { success: false, message: String(e) };
+    }
+};
+
 export const searchClues = (q: string) => {
     const query = normalize(q);
-    return Array.from(runtimeClues.values()).filter(item => 
+    return Array.from(runtimeClues.values()).filter(item =>
         normalize(item.clue).includes(query)
     ).slice(0, 5);
 };
@@ -286,30 +312,27 @@ export const clueExists = (text: string): boolean => {
 };
 
 /**
- * Migrate all clues in IndexedDB to apply latest converter logic
- * This re-processes patternData to update solveExplanation, patternId, techniquesUsed, etc.
- * Returns the number of clues migrated
+ * Migrate all clues to apply latest converter logic
  */
 export const migrateAllClues = async (): Promise<{ migrated: number; errors: number }> => {
-    const dbItems = await dbGetAll();
     let migrated = 0;
     let errors = 0;
 
-    console.log(`[migration] Starting migration of ${dbItems.length} clues...`);
+    const items = Array.from(runtimeClues.values());
+    console.log(`[migration] Starting migration of ${items.length} clues...`);
 
-    for (const item of dbItems) {
+    for (const item of items) {
         try {
             if (item.patternData) {
-                // Apply migration to update display fields
                 const migratedPatternData = migratePatternInstance(item.patternData);
                 item.patternData = migratedPatternData;
 
-                // Save back to IndexedDB
-                await dbPut(item);
+                await fetchJson('/clues', {
+                    method: 'POST',
+                    body: JSON.stringify(item)
+                });
 
-                // Update runtime cache
                 runtimeClues.set(normalize(item.clue), item);
-
                 migrated++;
                 console.log(`[migration] Migrated: ${item.clue.substring(0, 40)}... → ${migratedPatternData.patternId}`);
             }
@@ -325,32 +348,23 @@ export const migrateAllClues = async (): Promise<{ migrated: number; errors: num
 
 /**
  * Clear all clues from specific puzzle numbers
- * Used to remove clues imported from legacy/bad puzzle files
- * Returns the number of clues deleted
  */
 export const clearCluesByPuzzleNumber = async (puzzleNumbers: number[]): Promise<number> => {
-    const dbItems = await dbGetAll();
     let deleted = 0;
 
     console.log(`[cleanup] Clearing clues from puzzles: ${puzzleNumbers.join(', ')}`);
 
-    const db = await openDB();
-
-    for (const item of dbItems) {
-        // Check if this clue belongs to one of the target puzzles
+    for (const [norm, item] of runtimeClues.entries()) {
         const puzzleNum = item.patternData?.puzzleNumber;
         if (puzzleNum && puzzleNumbers.includes(puzzleNum)) {
-            await new Promise<void>((resolve, reject) => {
-                const transaction = db.transaction(STORE_NAME, 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.delete(item.id);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
-
-            runtimeClues.delete(normalize(item.clue));
-            deleted++;
-            console.log(`[cleanup] Deleted: ${item.clue.substring(0, 40)}... (puzzle ${puzzleNum})`);
+            try {
+                await fetchJson(`/clues/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+                runtimeClues.delete(norm);
+                deleted++;
+                console.log(`[cleanup] Deleted: ${item.clue.substring(0, 40)}... (puzzle ${puzzleNum})`);
+            } catch (e) {
+                console.error(`[cleanup] Failed to delete:`, e);
+            }
         }
     }
 
@@ -358,8 +372,46 @@ export const clearCluesByPuzzleNumber = async (puzzleNumbers: number[]): Promise
     return deleted;
 };
 
-// Expose cleanup function globally for one-time use via browser console
+/**
+ * Migrate clues from browser IndexedDB to server
+ * Call this once to move existing data to the new server-based storage
+ */
+export const migrateFromBrowser = async (): Promise<{ migrated: number; errors: number }> => {
+    console.log('[migration] Starting migration from browser IndexedDB to server...');
+
+    const legacyItems = await getLegacyClues();
+    if (legacyItems.length === 0) {
+        console.log('[migration] No legacy clues found in browser');
+        return { migrated: 0, errors: 0 };
+    }
+
+    console.log(`[migration] Found ${legacyItems.length} clues in browser IndexedDB`);
+
+    try {
+        const result = await fetchJson<{ imported: number; errors: number }>('/clues/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ items: legacyItems })
+        });
+
+        console.log(`[migration] Server imported ${result.imported} clues`);
+
+        // Clear legacy DB after successful migration
+        await clearLegacyDB();
+        console.log('[migration] Cleared browser IndexedDB');
+
+        // Reload from server
+        await initializeClues();
+
+        return { migrated: result.imported, errors: result.errors };
+    } catch (e) {
+        console.error('[migration] Migration failed:', e);
+        return { migrated: 0, errors: legacyItems.length };
+    }
+};
+
+// Expose migration function globally for one-time use via browser console
 if (typeof window !== 'undefined') {
+    (window as any).migrateFromBrowser = migrateFromBrowser;
     (window as any).clearBadImports = async () => {
         const count = await clearCluesByPuzzleNumber([29434, 29435]);
         console.log(`Cleared ${count} clues from puzzles 29434 and 29435`);

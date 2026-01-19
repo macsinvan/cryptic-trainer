@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 // Added ChevronRight to the imports from lucide-react to fix the 'Cannot find name' error.
 import { Download, Upload, Trash2, Database, X, Check, AlertTriangle, Package, Loader2, Zap, Cloud, CloudOff, FileJson, Users, RefreshCw, Activity, ShieldCheck, Terminal, ChevronRight, FileCode } from 'lucide-react';
-import { exportUserData, importUserData, clearUserData, getCustomClueCount, saveClue, getCloudConnectionStatus, subscribeToClues, refreshConnection, getParserIssues, ParserIssue } from '../services/clueManager';
+import { exportUserData, importUserData, clearUserData, getCustomClueCount, saveClue, getCloudConnectionStatus, subscribeToClues, refreshConnection, getParserIssues, ParserIssue, migrateFromBrowser, getLegacyClues } from '../services/clueManager';
 import { evaluateClue } from '../services/aiService';
 import { ScannedClue } from '../types';
 import { PRESET_PUZZLES } from '../data/puzzlePacks';
@@ -28,12 +28,19 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose }) => {
     const [parserIssues, setParserIssues] = useState<ParserIssue[]>([]);
     const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
 
+    // Migration State
+    const [legacyCount, setLegacyCount] = useState(0);
+    const [isMigrating, setIsMigrating] = useState(false);
+
     useEffect(() => {
         setCount(getCustomClueCount());
         setCloudInfo(getCloudConnectionStatus());
 
         // Load parser issues
         getParserIssues().then(setParserIssues);
+
+        // Check for legacy browser data
+        getLegacyClues().then(items => setLegacyCount(items.length));
 
         const unsubscribe = subscribeToClues(() => {
             setCloudInfo(getCloudConnectionStatus());
@@ -151,6 +158,27 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose }) => {
             indexedDB.deleteDatabase('CrypticTrainerDB_V2');
             setStatus({ type: 'info', message: 'Database reset. Reloading...' });
             setTimeout(() => location.reload(), 500);
+        }
+    };
+
+    const handleMigrateFromBrowser = async () => {
+        if (legacyCount === 0) {
+            setStatus({ type: 'info', message: 'No browser data to migrate.' });
+            return;
+        }
+
+        setIsMigrating(true);
+        try {
+            const result = await migrateFromBrowser();
+            setLegacyCount(0);
+            setStatus({
+                type: 'success',
+                message: `Migrated ${result.migrated} clues to server. Browser storage cleared.`
+            });
+        } catch (e) {
+            setStatus({ type: 'error', message: `Migration failed: ${e}` });
+        } finally {
+            setIsMigrating(false);
         }
     };
 
@@ -372,6 +400,37 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose }) => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Migration from Browser */}
+                                {legacyCount > 0 && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-center justify-between">
+                                        <div>
+                                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest block mb-1">
+                                                <AlertTriangle size={10} className="inline mr-1" />
+                                                Browser Data Found
+                                            </span>
+                                            <span className="text-amber-900 font-bold text-lg">{legacyCount} clues in IndexedDB</span>
+                                            <p className="text-xs text-amber-700 mt-1">Migrate to server for persistent storage</p>
+                                        </div>
+                                        <button
+                                            onClick={handleMigrateFromBrowser}
+                                            disabled={isMigrating}
+                                            className="px-4 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {isMigrating ? (
+                                                <>
+                                                    <Loader2 size={14} className="animate-spin" />
+                                                    Migrating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload size={14} />
+                                                    Migrate to Server
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-6">

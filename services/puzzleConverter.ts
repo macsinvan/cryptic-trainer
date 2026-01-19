@@ -278,9 +278,8 @@ function generateSolveExplanation(
     });
   }
 
-  // 5. Wordplay steps - SORTED by position in clue (left-to-right order)
-  const sortedSteps = sortStepsByCluePosition(clue.steps, clue.word_accounting.usage);
-  sortedSteps.forEach((step, i) => {
+  // 5. Wordplay steps - preserve original step order from metadata
+  clue.steps.forEach((step, i) => {
     const type = operationToTechnique(step.operation);
 
     // Special handling for charade steps - show assembly equation
@@ -433,8 +432,8 @@ export function convertClueToPatternInstance(
     // Word-by-word highlighting
     wordHighlights: convertWordAccounting(clue.word_accounting.usage),
 
-    // Wordplay steps - SORTED by position in clue (left-to-right order)
-    wordplaySteps: convertSteps(sortStepsByCluePosition(clue.steps, clue.word_accounting.usage)),
+    // Wordplay steps - preserve original order from metadata
+    wordplaySteps: convertSteps(clue.steps),
 
     // Definition
     definitionText: clue.definition.text,
@@ -522,20 +521,17 @@ export function migratePatternInstance(instance: PatternInstance): PatternInstan
     patternId = techniquesUsed[0];
   }
 
-  // Re-sort wordplaySteps by position in clue (assembly steps last)
-  const sortedWordplaySteps = instance.wordplaySteps
-    ? sortWordplayStepsByCluePosition(instance.wordplaySteps, instance.clueText)
-    : undefined;
+  // Preserve original wordplaySteps order from metadata
+  const wordplaySteps = instance.wordplaySteps;
 
-  // Rebuild solveExplanation blocks (uses sorted steps)
-  const instanceWithSortedSteps = { ...instance, wordplaySteps: sortedWordplaySteps };
-  const solveExplanation = rebuildSolveExplanation(instanceWithSortedSteps, techniquesUsed, isDoubleDefinition, isCrypticDefinition);
+  // Rebuild solveExplanation blocks (preserves original order)
+  const solveExplanation = rebuildSolveExplanation(instance, techniquesUsed, isDoubleDefinition, isCrypticDefinition);
 
   return {
     ...instance,
     patternId,
     techniquesUsed,
-    wordplaySteps: sortedWordplaySteps,
+    wordplaySteps,
     solveExplanation,
   };
 }
@@ -674,10 +670,9 @@ function rebuildSolveExplanation(
     });
   }
 
-  // 3. Wordplay steps - sorted by position in clue, assembly last
+  // 3. Wordplay steps - preserve original order from metadata
   if (instance.wordplaySteps && instance.wordplaySteps.length > 0) {
-    const sortedSteps = sortWordplayStepsByCluePosition(instance.wordplaySteps, instance.clueText);
-    sortedSteps.forEach((step, i) => {
+    instance.wordplaySteps.forEach((step, i) => {
       const technique = stepTypeToTechnique(step.stepType) || 'Wordplay';
 
       // Special handling for assembly/charade steps

@@ -13,6 +13,16 @@ export default defineConfig(({ mode }) => {
             target: 'http://localhost:5001',
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/api\/solve/, '/solve')
+          },
+          '/api/clues': {
+            target: 'http://localhost:5001',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api/, '')
+          },
+          '/api/parser-issues': {
+            target: 'http://localhost:5001',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api/, '')
           }
         }
       },
