@@ -214,10 +214,10 @@ export const saveClue = async (pubId: string, text: string, evaluation: ClueEval
         example: {
             clue: text,
             answer: evaluation.answer,
-            parsing: evaluation.parsing,
+            parsing: evaluation.structure,
             level: level,
             definition: evaluation.definition.text,
-            hints: evaluation.hints
+            hints: []
         },
         tutorProgress: existing?.tutorProgress
     };
@@ -274,3 +274,10 @@ export const searchClues = (q: string) => {
     ).slice(0, 5);
 };
 export const mapToValidClueType = (s: string, p?: string) => (STANDARD_CLUE_TYPES[0] as any);
+
+/**
+ * Check if a clue already exists in the library (by normalized text)
+ */
+export const clueExists = (text: string): boolean => {
+    return runtimeClues.has(normalize(text));
+};

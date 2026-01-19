@@ -201,15 +201,7 @@ function generateSolveExplanation(
     });
   }
 
-  // 2. Clue type block
-  const primaryTechnique = techniquesUsed[0] || 'Unknown';
-  blocks.push({
-    type: 'clue-type',
-    label: 'Clue Type',
-    content: primaryTechnique,
-  });
-
-  // 3. Parsing summary block
+  // 2. Parsing summary block
   blocks.push({
     type: 'parsing',
     label: 'Parsing',
@@ -265,6 +257,8 @@ export function convertClueToPatternInstance(
     patternId,
     clueText: clue.clue.text,
     answer: clue.clue.answer,
+    clueNumber: clue.clue.number,
+    enumeration: clue.clue.enumeration,
     variables: {}, // Could populate with step results if needed
 
     // Word-by-word highlighting
@@ -312,11 +306,13 @@ export function convertPuzzleFile(puzzle: PuzzleFile): PatternInstance[] {
 export function loadPuzzleFromJson(jsonContent: string): {
   metadata: PuzzleFile['metadata'];
   clues: PatternInstance[];
+  rawData: PuzzleFile;
 } {
   const puzzle: PuzzleFile = JSON.parse(jsonContent);
 
   return {
     metadata: puzzle.metadata,
     clues: convertPuzzleFile(puzzle),
+    rawData: puzzle, // Retained for debugging until save
   };
 }

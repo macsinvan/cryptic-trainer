@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Brain, Sparkles, Check, AlertCircle, Loader2, Send, Upload, ChevronLeft, ChevronRight, FileJson } from 'lucide-react';
-import { getClueCount, saveClue, saveParserIssue, ParserIssue } from '../services/clueManager';
+import { getClueCount, saveClue, saveParserIssue, ParserIssue, clueExists } from '../services/clueManager';
 import { parseFreeformInput, FreeformParseResult } from '../services/freeformParser';
 import { SolvedClue } from '../services/aiService';
 import { solveCluePython } from '../services/pythonSolverService';
 import { ClueEvaluation, PatternInstance, DisplayBlock } from '../types';
 import { ClueSolver } from './ClueSolver';
 import { loadPuzzleFromJson } from '../services/puzzleConverter';
-import { PuzzleMetadata } from '../services/puzzleSchemaTypes';
+import { PuzzleMetadata, PuzzleFile } from '../services/puzzleSchemaTypes';
 
 interface ManualEntryModeProps {
   onExit: () => void;
@@ -32,6 +32,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
   const [puzzleClues, setPuzzleClues] = useState<PatternInstance[]>([]);
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
   const [isPuzzleMode, setIsPuzzleMode] = useState(false);
+  const [rawPuzzleData, setRawPuzzleData] = useState<PuzzleFile | null>(null); // Retained for debugging until save
+  const [alreadyImportedCount, setAlreadyImportedCount] = useState(0); // Track how many clues were already imported
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -85,16 +87,32 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
     try {
       const content = await file.text();
-      const { metadata, clues } = loadPuzzleFromJson(content);
+      const { metadata, clues, rawData } = loadPuzzleFromJson(content);
 
       setPuzzleMetadata(metadata);
       setPuzzleClues(clues);
-      setCurrentPuzzleIndex(0);
+      setRawPuzzleData(rawData); // Store raw data for debugging
+
+      // Count already-imported clues and find first non-imported
+      let importedCount = 0;
+      let firstNewIndex = -1;
+      for (let i = 0; i < clues.length; i++) {
+        if (clueExists(clues[i].clueText)) {
+          importedCount++;
+        } else if (firstNewIndex === -1) {
+          firstNewIndex = i;
+        }
+      }
+      setAlreadyImportedCount(importedCount);
+
+      // Start at first non-imported clue, or first clue if all imported
+      const startIndex = firstNewIndex >= 0 ? firstNewIndex : 0;
+      setCurrentPuzzleIndex(startIndex);
       setIsPuzzleMode(true);
 
-      // Load first clue into the viewer
+      // Load the starting clue into the viewer
       if (clues.length > 0) {
-        loadPuzzleClue(clues[0]);
+        loadPuzzleClue(clues[startIndex]);
       }
     } catch (err) {
       setSolveError(`Failed to load puzzle file: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -122,12 +140,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
         position: (clue.definitionPosition?.toUpperCase() as 'START' | 'END' | 'ENTIRE') || 'START'
       },
       wordplay: [],
-      structure: clue.parsingSummary || '',
-      card: [],
-      learnings: clue.solveSteps || [],
-      parsing: clue.parsingSummary || '',
-      hints: [],
-      reasoning: ''
+      structure: clue.parsingSummary || ''
     };
 
     setFullAnalysis(evaluation);
@@ -135,14 +148,40 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     setIsTutorMode(true);
   };
 
-  // Navigate puzzle clues
+  // Navigate puzzle clues (skipping already-imported)
   const goToPuzzleClue = (direction: 'prev' | 'next') => {
-    const newIndex = direction === 'prev'
-      ? Math.max(0, currentPuzzleIndex - 1)
-      : Math.min(puzzleClues.length - 1, currentPuzzleIndex + 1);
+    let newIndex = currentPuzzleIndex;
 
-    setCurrentPuzzleIndex(newIndex);
-    loadPuzzleClue(puzzleClues[newIndex]);
+    if (direction === 'next') {
+      // Find next non-imported clue
+      for (let i = currentPuzzleIndex + 1; i < puzzleClues.length; i++) {
+        if (!clueExists(puzzleClues[i].clueText)) {
+          newIndex = i;
+          break;
+        }
+      }
+      // If no non-imported found, stay at current or go to last
+      if (newIndex === currentPuzzleIndex && currentPuzzleIndex < puzzleClues.length - 1) {
+        newIndex = puzzleClues.length - 1; // Allow viewing already-imported if no new ones remain
+      }
+    } else {
+      // Find previous non-imported clue
+      for (let i = currentPuzzleIndex - 1; i >= 0; i--) {
+        if (!clueExists(puzzleClues[i].clueText)) {
+          newIndex = i;
+          break;
+        }
+      }
+      // If no non-imported found, stay at current or go to first
+      if (newIndex === currentPuzzleIndex && currentPuzzleIndex > 0) {
+        newIndex = 0; // Allow viewing already-imported if no new ones before
+      }
+    }
+
+    if (newIndex !== currentPuzzleIndex) {
+      setCurrentPuzzleIndex(newIndex);
+      loadPuzzleClue(puzzleClues[newIndex]);
+    }
   };
 
   // Exit puzzle mode
@@ -150,6 +189,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     setIsPuzzleMode(false);
     setPuzzleMetadata(null);
     setPuzzleClues([]);
+    setRawPuzzleData(null); // Clear raw data on exit
+    setAlreadyImportedCount(0);
     setCurrentPuzzleIndex(0);
     setIsTutorMode(false);
     setFullAnalysis(null);
@@ -190,12 +231,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
             position: (result.patternData.definitionPosition?.toUpperCase() as 'START' | 'END' | 'ENTIRE') || 'START'
           },
           wordplay: [],
-          structure: result.patternData.parsingSummary || '',
-          card: [],
-          learnings: result.patternData.solveSteps || [],
-          parsing: result.patternData.parsingSummary || '',
-          hints: [],
-          reasoning: ''
+          structure: result.patternData.parsingSummary || ''
         };
 
         setFullAnalysis(evaluation);
@@ -223,6 +259,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     );
 
     setIsAccepted(true);
+    setRawPuzzleData(null); // Clear raw data after save
     setTotalClueCount(getClueCount(publicationId));
   };
 
@@ -722,6 +759,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     if (!isPuzzleMode || !puzzleMetadata) return null;
 
     const currentClue = puzzleClues[currentPuzzleIndex];
+    const isCurrentClueImported = currentClue ? clueExists(currentClue.clueText) : false;
+    const newCluesRemaining = puzzleClues.length - alreadyImportedCount;
 
     return (
       <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4 mb-6">
@@ -743,6 +782,21 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           </button>
         </div>
 
+        {/* Import progress indicator */}
+        {alreadyImportedCount > 0 && (
+          <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Check size={14} className="text-green-600" />
+              <span className="text-xs text-green-700 font-medium">
+                {alreadyImportedCount} of {puzzleClues.length} clues already imported
+              </span>
+            </div>
+            <span className="text-xs text-green-600">
+              {newCluesRemaining} new
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <button
             onClick={() => goToPuzzleClue('prev')}
@@ -755,6 +809,9 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           <div className="flex-1 mx-4 text-center">
             <span className="text-xs text-indigo-600 font-medium">
               Clue {currentPuzzleIndex + 1} of {puzzleClues.length}
+              {isCurrentClueImported && (
+                <span className="ml-2 text-green-600">(already imported)</span>
+              )}
             </span>
             {currentClue && (
               <div className="text-xs text-indigo-500 mt-1">
@@ -772,10 +829,16 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           </button>
         </div>
 
-        {/* Word highlights preview */}
+        {/* Word highlights preview with clue number and enumeration */}
         {currentClue?.wordHighlights && currentClue.wordHighlights.length > 0 && (
           <div className="mt-4 p-3 bg-white rounded-lg border border-indigo-100">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {/* Clue number */}
+              {currentClue.clueNumber && (
+                <span className="px-2 py-0.5 text-xs font-bold text-slate-700">
+                  {currentClue.clueNumber}
+                </span>
+              )}
               {currentClue.wordHighlights.map((highlight, i) => {
                 const bgColor = {
                   GREEN: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -794,6 +857,12 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                   </span>
                 );
               })}
+              {/* Enumeration */}
+              {currentClue.enumeration && (
+                <span className="px-2 py-0.5 text-xs font-bold text-slate-700">
+                  ({currentClue.enumeration})
+                </span>
+              )}
             </div>
           </div>
         )}
