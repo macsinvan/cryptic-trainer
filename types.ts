@@ -79,6 +79,14 @@ export interface WordplayStep {
     explanation: string; // Pre-computed plain English explanation for UI
 }
 
+/** Word-by-word highlighting data for UI rendering */
+export interface WordHighlight {
+    word: string;
+    role: 'definition' | 'indicator' | 'fodder' | 'connector';
+    stepNumber: number | null;
+    colorType: 'GREEN' | 'ORANGE' | 'BLUE' | 'SLATE';
+}
+
 // Data-driven display block for UI rendering
 export interface DisplayBlock {
     type: 'setter-hint' | 'clue-type' | 'parsing' | 'explanation';
@@ -100,6 +108,9 @@ export interface PatternInstance {
     // DATA-DRIVEN UI: Parser returns ordered blocks, UI just renders them
     solveExplanation?: DisplayBlock[];  // Ordered list of display blocks for UI
 
+    // Word-by-word highlighting (from new puzzle schema)
+    wordHighlights?: WordHighlight[];  // Pre-computed role/color for each word in clue
+
     // Pre-computed fields for UI (all logic in backend)
     wordplaySteps?: WordplayStep[];  // Ordered by complexity (easy first), Assembly last
     isComplete?: boolean;            // True if definition + all wordplay resolved
@@ -113,6 +124,9 @@ export interface PatternInstance {
     // Teaching fields - help student learn setter techniques
     techniquesUsed?: string[];       // e.g., ['abbreviation', 'container'] - cryptic vocabulary terms
     setterHint?: string;             // e.g., "The setter has used **abbreviations** and a **container** here. Can you spot the insertion indicator?"
+
+    // Human-readable solver comments (from new puzzle schema)
+    solverComments?: string[];       // Natural language explanations from the solver
 
     // Answer metadata
     thesaurusRequired?: boolean;     // True if answer is uncommon (e.g., GRUB KICK) - UI can show "Thesaurus may help"

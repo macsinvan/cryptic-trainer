@@ -1,12 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Brain, Sparkles, Check, AlertCircle, Loader2, Send } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Brain, Sparkles, Check, AlertCircle, Loader2, Send, Upload, ChevronLeft, ChevronRight, FileJson } from 'lucide-react';
 import { getClueCount, saveClue, saveParserIssue, ParserIssue } from '../services/clueManager';
 import { parseFreeformInput, FreeformParseResult } from '../services/freeformParser';
 import { SolvedClue } from '../services/aiService';
 import { solveCluePython } from '../services/pythonSolverService';
 import { ClueEvaluation, PatternInstance, DisplayBlock } from '../types';
 import { ClueSolver } from './ClueSolver';
+import { loadPuzzleFromJson } from '../services/puzzleConverter';
+import { PuzzleMetadata } from '../services/puzzleSchemaTypes';
 
 interface ManualEntryModeProps {
   onExit: () => void;
@@ -24,6 +26,13 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
   const [isSolving, setIsSolving] = useState(false);
   const [solvedClue, setSolvedClue] = useState<SolvedClue | null>(null);
   const [solveError, setSolveError] = useState<string | null>(null);
+
+  // Puzzle file import state
+  const [puzzleMetadata, setPuzzleMetadata] = useState<PuzzleMetadata | null>(null);
+  const [puzzleClues, setPuzzleClues] = useState<PatternInstance[]>([]);
+  const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
+  const [isPuzzleMode, setIsPuzzleMode] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setTotalClueCount(getClueCount(publicationId));
@@ -67,6 +76,84 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
     await saveParserIssue(issue);
     setIssueSent(true);
+  };
+
+  // Handle puzzle file upload
+  const handlePuzzleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      const { metadata, clues } = loadPuzzleFromJson(content);
+
+      setPuzzleMetadata(metadata);
+      setPuzzleClues(clues);
+      setCurrentPuzzleIndex(0);
+      setIsPuzzleMode(true);
+
+      // Load first clue into the viewer
+      if (clues.length > 0) {
+        loadPuzzleClue(clues[0]);
+      }
+    } catch (err) {
+      setSolveError(`Failed to load puzzle file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Load a puzzle clue into the review mode
+  const loadPuzzleClue = (clue: PatternInstance) => {
+    setActivePatternData(clue);
+
+    // Build evaluation from puzzle data
+    const evaluation: ClueEvaluation = {
+      id: clue.id,
+      clue: clue.clueText,
+      answer: clue.answer,
+      type: clue.patternId || 'unknown',
+      difficulty: 'Medium',
+      definition: {
+        text: clue.definitionText || '',
+        position: (clue.definitionPosition?.toUpperCase() as 'START' | 'END' | 'ENTIRE') || 'START'
+      },
+      wordplay: [],
+      structure: clue.parsingSummary || '',
+      card: [],
+      learnings: clue.solveSteps || [],
+      parsing: clue.parsingSummary || '',
+      hints: [],
+      reasoning: ''
+    };
+
+    setFullAnalysis(evaluation);
+    setIsAccepted(false);
+    setIsTutorMode(true);
+  };
+
+  // Navigate puzzle clues
+  const goToPuzzleClue = (direction: 'prev' | 'next') => {
+    const newIndex = direction === 'prev'
+      ? Math.max(0, currentPuzzleIndex - 1)
+      : Math.min(puzzleClues.length - 1, currentPuzzleIndex + 1);
+
+    setCurrentPuzzleIndex(newIndex);
+    loadPuzzleClue(puzzleClues[newIndex]);
+  };
+
+  // Exit puzzle mode
+  const exitPuzzleMode = () => {
+    setIsPuzzleMode(false);
+    setPuzzleMetadata(null);
+    setPuzzleClues([]);
+    setCurrentPuzzleIndex(0);
+    setIsTutorMode(false);
+    setFullAnalysis(null);
+    setActivePatternData(null);
   };
 
   // Preview the battlecard using Python solver
@@ -184,20 +271,27 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
     return (
       <div className="space-y-6">
+        {/* Puzzle Navigation (when in puzzle mode) */}
+        {renderPuzzleNavigation()}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => {
-              setIsTutorMode(false);
-              if (isAccepted) {
-                setFreeformText('');
-                setParseResult(null);
-                setIsAccepted(false);
+              if (isPuzzleMode) {
+                exitPuzzleMode();
+              } else {
+                setIsTutorMode(false);
+                if (isAccepted) {
+                  setFreeformText('');
+                  setParseResult(null);
+                  setIsAccepted(false);
+                }
               }
             }}
             className="flex items-center text-slate-500 hover:text-slate-900 font-bold transition-colors"
           >
-            <ArrowLeft size={18} className="mr-2" /> {isAccepted ? 'Done' : 'Edit'}
+            <ArrowLeft size={18} className="mr-2" /> {isPuzzleMode ? 'Exit Puzzle' : isAccepted ? 'Done' : 'Edit'}
           </button>
           {isAccepted && (
             <span className="text-xs font-black text-green-600 uppercase tracking-widest flex items-center gap-2">
@@ -623,6 +717,90 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     );
   };
 
+  // Render puzzle navigation header when in puzzle mode
+  const renderPuzzleNavigation = () => {
+    if (!isPuzzleMode || !puzzleMetadata) return null;
+
+    const currentClue = puzzleClues[currentPuzzleIndex];
+
+    return (
+      <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <FileJson size={18} className="text-indigo-600" />
+            <span className="text-sm font-bold text-indigo-900">
+              {puzzleMetadata.publisher} #{puzzleMetadata.puzzle_number}
+            </span>
+            {puzzleMetadata.setter && (
+              <span className="text-xs text-indigo-600">by {puzzleMetadata.setter}</span>
+            )}
+          </div>
+          <button
+            onClick={exitPuzzleMode}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            Exit Puzzle
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => goToPuzzleClue('prev')}
+            disabled={currentPuzzleIndex === 0}
+            className="p-2 bg-white rounded-lg border border-indigo-200 hover:bg-indigo-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={18} className="text-indigo-600" />
+          </button>
+
+          <div className="flex-1 mx-4 text-center">
+            <span className="text-xs text-indigo-600 font-medium">
+              Clue {currentPuzzleIndex + 1} of {puzzleClues.length}
+            </span>
+            {currentClue && (
+              <div className="text-xs text-indigo-500 mt-1">
+                {currentClue.patternId} • {currentClue.answer} ({currentClue.answer.length})
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => goToPuzzleClue('next')}
+            disabled={currentPuzzleIndex === puzzleClues.length - 1}
+            className="p-2 bg-white rounded-lg border border-indigo-200 hover:bg-indigo-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight size={18} className="text-indigo-600" />
+          </button>
+        </div>
+
+        {/* Word highlights preview */}
+        {currentClue?.wordHighlights && currentClue.wordHighlights.length > 0 && (
+          <div className="mt-4 p-3 bg-white rounded-lg border border-indigo-100">
+            <div className="flex flex-wrap gap-1.5">
+              {currentClue.wordHighlights.map((highlight, i) => {
+                const bgColor = {
+                  GREEN: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                  ORANGE: 'bg-amber-100 text-amber-800 border-amber-200',
+                  BLUE: 'bg-sky-100 text-sky-800 border-sky-200',
+                  SLATE: 'bg-slate-100 text-slate-600 border-slate-200',
+                }[highlight.colorType];
+
+                return (
+                  <span
+                    key={i}
+                    className={`px-2 py-0.5 rounded text-xs font-medium border ${bgColor}`}
+                    title={`${highlight.role}${highlight.stepNumber ? ` (step ${highlight.stepNumber})` : ''}`}
+                  >
+                    {highlight.word}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderParsePreview = () => {
     if (!parseResult) return null;
 
@@ -813,6 +991,32 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
             </div>
 
             <div className="p-10 space-y-6 bg-slate-50/30">
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handlePuzzleFileUpload}
+                accept=".json"
+                className="hidden"
+              />
+
+              {/* Load from puzzle file button */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 py-4 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold rounded-xl transition-colors flex items-center justify-center gap-3 border-2 border-indigo-200"
+                >
+                  <Upload size={18} />
+                  <span className="text-xs uppercase tracking-widest">Load Puzzle File</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-px bg-slate-200"></div>
+                <span className="text-xs text-slate-400 font-medium">or paste manually</span>
+                <div className="flex-1 h-px bg-slate-200"></div>
+              </div>
+
               <div className="space-y-3">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block ml-2">
                   Paste Clue with Answer & Coaching Notes

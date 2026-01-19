@@ -45,6 +45,8 @@ Before editing ANY file, you MUST:
 - Do not assume approval from previous session
 - Do not skip the summary step
 - **NO HALLUCINATION** - If you lack evidence, say "I don't know"
+- **NO REWORKING/REFACTORING** - Only change what user explicitly tells you. Do not rework, do not refactor unless explicitly asked.
+- **DO NOT COMPENSATE FOR BAD METADATA** - If issues are due to bad metadata in puzzle files, point this out instead of working around it.
 
 ---
 

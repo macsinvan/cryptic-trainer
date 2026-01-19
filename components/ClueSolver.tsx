@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronRight, Check, ArrowRight, MousePointer2, Lightbulb, Zap, Eye, EyeOff, Unlock } from 'lucide-react';
-import { ClueEvaluation, PatternInstance, StepTemplate } from '../types';
+import { ClueEvaluation, PatternInstance, StepTemplate, WordHighlight } from '../types';
 import { WORKFLOW_COLORS } from '../data/designTemplates';
 import { PATTERNS, getStepTemplate, AI_TEMPLATES } from '../data/patterns';
 
@@ -418,6 +418,13 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
   };
 
   const getWordStyle = (wordIndex: number) => {
+    // NEW: Use wordHighlights from new puzzle schema if available (for completed view)
+    if (isCompleted && patternData?.wordHighlights && patternData.wordHighlights[wordIndex]) {
+        const highlight = patternData.wordHighlights[wordIndex];
+        const theme = highlight.colorType === 'SLATE' ? null : WORKFLOW_COLORS[highlight.colorType];
+        return theme ? `${theme.bg} ${theme.text} ${theme.border} font-bold` : 'bg-slate-200 text-slate-600';
+    }
+
     for (const part of discoveredParts) {
         if (part.indices.includes(wordIndex)) {
             const theme = part.colorType === 'SLATE' ? null : WORKFLOW_COLORS[part.colorType];
@@ -926,6 +933,10 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                  parsingSummary = parts.join(' + ') + ' = ' + evaluation.answer;
              }
          }
+         // Use patternData.parsingSummary if available (from new puzzle schema)
+         if (!parsingSummary && patternData?.parsingSummary) {
+             parsingSummary = patternData.parsingSummary;
+         }
          // Fallback to evaluation.structure
          if (!parsingSummary) {
              parsingSummary = evaluation.structure || '';
@@ -967,6 +978,18 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
                      {parsingSummary}
                  </div>
              ) : null}
+
+             {/* Solver Comments - human-readable explanations from new puzzle schema */}
+             {patternData?.solverComments && patternData.solverComments.length > 0 && (
+                 <div className="bg-white/70 border border-indigo-200 rounded-lg p-4 mb-4">
+                     <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest block mb-3">Explanation</span>
+                     <div className="space-y-2">
+                         {patternData.solverComments.map((comment, i) => (
+                             <p key={i} className="text-sm text-slate-700 leading-relaxed">{comment}</p>
+                         ))}
+                     </div>
+                 </div>
+             )}
 
              {/* Learnings with collapsible hints */}
              <ul className="space-y-3 mb-6">
