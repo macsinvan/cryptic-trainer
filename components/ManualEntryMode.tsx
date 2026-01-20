@@ -380,8 +380,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           )}
 
           {/* Clue Display */}
-          <div className="p-8 border-b border-slate-100">
-            <p className="text-2xl font-serif text-slate-900 leading-relaxed text-center">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <p className="text-lg font-serif text-slate-900 text-center whitespace-nowrap">
               {activePatternData?.clueNumber && (
                 <span className="text-indigo-600 font-bold mr-2">{activePatternData.clueNumber}</span>
               )}
@@ -481,11 +481,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                       case 'setter-hint':
                         return (
                           <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                            <p className="text-sm text-amber-800" dangerouslySetInnerHTML={{
-                              __html: block.content.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-amber-900">$1</strong>')
-                            }} />
                             {block.techniques && block.techniques.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mt-3">
+                              <div className="flex flex-wrap gap-2">
                                 {block.techniques.map((tech, ti) => (
                                   <span key={ti} className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-medium">
                                     {tech}
@@ -516,9 +513,9 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                         return (
                           <div key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
                             {block.label && (
-                              <span className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest block mb-1">{block.label}</span>
+                              <span className="text-indigo-900 text-sm font-bold uppercase tracking-wide block mb-1">{block.label}</span>
                             )}
-                            <div className="flex gap-3 text-sm text-indigo-900 leading-relaxed">
+                            <div className="flex gap-3 text-sm text-indigo-700 leading-relaxed">
                               <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
                               <div className="flex-1">
                                 <p>{block.content}</p>

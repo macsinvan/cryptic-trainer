@@ -257,8 +257,8 @@ function generateSolveExplanation(
     // Cryptic definition: entire clue is the definition
     blocks.push({
       type: 'explanation',
-      label: 'Cryptic Definition',
-      content: `The entire clue "${clue.clue.text}" is a cryptic way of defining ${clue.clue.answer}`,
+      label: 'Definition',
+      content: `The entire clue is a cryptic definition of ${clue.clue.answer}`,
     });
   } else if (isDoubleDefinition && allDefinitions.length >= 2) {
     // Show both definitions for double definition clues
@@ -266,51 +266,55 @@ function generateSolveExplanation(
       blocks.push({
         type: 'explanation',
         label: `Definition ${i + 1}`,
-        content: `"${def.text}" at ${def.position} of clue → ${clue.clue.answer}`,
+        content: `"${def.text}" → ${clue.clue.answer}`,
       });
     });
   } else {
     // Single definition
     blocks.push({
       type: 'explanation',
-      label: 'Definition',
-      content: `"${clue.definition.text}" at ${clue.definition.position} of clue`,
+      label: `Definition: Found at the ${clue.definition.position} of the clue`,
+      content: clue.definition.text,
     });
   }
 
   // 5. Wordplay steps - preserve original step order from metadata
-  clue.steps.forEach((step, i) => {
+  clue.steps.forEach((step) => {
     const type = operationToTechnique(step.operation);
 
     // Special handling for charade steps - show assembly equation
     if (step.operation === 'charade' && step.components && step.components.length > 0) {
-      const equation = `${step.components.join(' + ')} = ${step.result}`;
+      const equation = `${step.components.join(' + ')} → ${step.result}`;
       blocks.push({
         type: 'explanation',
-        label: `Wordplay ${i + 1}: ${type}`,
+        label: 'Assembly',
         content: equation,
       });
       return;
     }
 
-    // For other operations, show indicator and fodder if present
-    const fodderText = Array.isArray(step.fodder) ? step.fodder.join(' + ') : (step.fodder || '');
+    // For other operations, show indicator signaling the technique
+    const fodderText = Array.isArray(step.fodder) ? step.fodder.join(' ') : (step.fodder || '');
 
-    // Build content based on what data we have
+    // Build label: "indicator" indicating Technique
+    let label: string;
+    if (step.indicator) {
+      label = `"${step.indicator}" indicating ${type}`;
+    } else {
+      label = type;
+    }
+
+    // Build content: fodder → RESULT
     let content: string;
-    if (step.indicator && fodderText) {
-      content = `Indicator: ${step.indicator} | Fodder: ${fodderText} → ${step.result}`;
-    } else if (fodderText) {
-      // No indicator (common for synonyms/abbreviations)
+    if (fodderText) {
       content = `${fodderText} → ${step.result}`;
     } else {
-      // Fallback
       content = `→ ${step.result}`;
     }
 
     blocks.push({
       type: 'explanation',
-      label: `Wordplay ${i + 1}: ${type}`,
+      label,
       content,
     });
   });
