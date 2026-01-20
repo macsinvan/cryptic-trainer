@@ -7,6 +7,7 @@ import { TrainingMode } from './components/TrainingMode';
 import { SolverMode } from './components/SolverMode';
 import { ManualEntryMode } from './components/ManualEntryMode';
 import { DataManager } from './components/DataManager';
+import { ClueTrainer } from './components/ClueTrainer';
 import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus } from './services/clueManager';
 
 const EXTERNAL_BLOGGERS = [
@@ -48,12 +49,18 @@ export default function App() {
   const [viewState, setViewState] = useState<ViewState>({ type: 'HOME' });
   const [showDataManager, setShowDataManager] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
-  const [dataVersion, setDataVersion] = useState(0); 
+  const [dataVersion, setDataVersion] = useState(0);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passInput, setPassInput] = useState('');
   const [passError, setPassError] = useState(false);
+
+  // Test mode for ClueTrainer component (access via ?test=trainer)
+  const [showTrainerTest, setShowTrainerTest] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('test') === 'trainer';
+  });
 
   useEffect(() => {
     const init = async () => {
@@ -271,6 +278,47 @@ export default function App() {
       </div>
     </div>
   );
+
+  // Test view for ClueTrainer
+  if (showTrainerTest) {
+    return (
+      <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <button
+              onClick={() => {
+                setShowTrainerTest(false);
+                window.history.replaceState({}, '', window.location.pathname);
+              }}
+              className="flex items-center text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              <ArrowLeft size={20} className="mr-2" /> Exit Test Mode
+            </button>
+            <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-bold">
+              ClueTrainer Test Mode
+            </span>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-bold text-slate-600">Test Publication</span>
+                <span className="text-xs text-slate-400">Mock Data</span>
+              </div>
+            </div>
+            <div className="text-xs text-slate-400 mt-2">
+              Testing ClueTrainer component with mock data
+            </div>
+          </div>
+
+          <ClueTrainer
+            onNext={() => alert('Next clue would load here')}
+            onCorrect={() => console.log('Correct!')}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">

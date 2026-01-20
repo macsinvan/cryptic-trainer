@@ -124,7 +124,7 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
           </div>
         </div>
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-3xl mx-auto">
              {/* Clue Metadata Header */}
              <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
                <div className="flex justify-between items-center">
