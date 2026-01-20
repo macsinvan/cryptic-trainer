@@ -16,6 +16,38 @@ This is the first thing users learn, and it applies to ~95% of clues.
 
 ---
 
+## Wordplay Solving Strategy
+
+> **Solve independent wordplay steps first, then dependent steps.**
+
+### Classification
+
+| Type | Definition | Example |
+|------|------------|---------|
+| **Independent** | Fodder comes directly from the clue text | "busy" indicator with "lymph too" fodder → anagram |
+| **Dependent** | Fodder uses results from other steps | "nurses" indicator with assembled pieces as fodder |
+
+### Why Independent First?
+
+1. **They can actually be solved** - All information is in the clue text
+2. **Builds understanding progressively** - User sees pieces form before assembly
+3. **Dependent steps make no sense otherwise** - Can't nurse something that doesn't exist yet
+4. **Mirrors expert solving** - Real solvers identify solvable pieces first
+
+### Example: PHLEBOTOMY
+
+Clue: "Busy lymph too at last to conclude job nurses blood-letting"
+
+| Order | Step | Indicator | Fodder | Result | Type |
+|-------|------|-----------|--------|--------|------|
+| 1 | Anagram | "busy" | "lymph too" | PHLOTOMY | Independent |
+| 2 | Last letters | "at last" | "concludE joB" | EB | Independent |
+| 3 | Container | "nurses" | PHLOTOMY + EB | PHLEBOTOMY | Dependent |
+
+The trainer guides users through steps 1 and 2 first (in either order), then step 3.
+
+---
+
 ## Clue Types
 
 | Type | Structure | Notes |
@@ -57,16 +89,21 @@ This forces conscious thinking about clue structure before diving in.
 - Back link to return to clue type selection if needed
 
 ### Phase 2: Wordplay
-**Goal:** User explores how the wordplay builds the answer
+**Goal:** User solves each wordplay step by identifying parts and working out the result
 
-**Prompt:** "Now let's explore the wordplay"
+**For each independent wordplay step (expanded panel):**
 
-**Hint:** "The remaining words contain instructions to build [ANSWER]"
+1. **Find indicator** - User taps word(s) → Check → Orange highlight
+2. **Find fodder** - User taps word(s) → Check → Blue highlight
+3. **Enter result** - User types what the wordplay produces (with Reveal button)
+4. **Panel collapses** - Shows summary: "busy" (anagram) + "lymph too" → PHLOTOMY
 
-**Interaction:**
-- "Show how it works" reveals step-by-step breakdown
-- Each step shows: indicator → fodder → result
-- Progressive reveal, not all at once
+**Then for dependent steps:**
+- Same flow, but fodder references results from previous steps
+
+**Panel States:**
+- **Expanded** - Active step, user working on it
+- **Collapsed** - Completed step, shows key info only
 
 ### Phase 3: Solve
 **Goal:** User enters the answer

@@ -95,8 +95,24 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [discoveredParts, setDiscoveredParts] = useState<DiscoveredPart[]>([]);
   const [grid, setGrid] = useState<string[]>([]);
   const [isDefinitionCorrect, setIsDefinitionCorrect] = useState(false);
+  const [hasCheckedDefinition, setHasCheckedDefinition] = useState(false);  // User explicitly clicked "Check"
   const [showWordplayDetail, setShowWordplayDetail] = useState(false);
   const [currentWordplayStep, setCurrentWordplayStep] = useState(0);
+
+  // Wordplay step state
+  type WordplaySubPhase = 'indicator' | 'fodder' | 'result';
+  const [wordplaySubPhase, setWordplaySubPhase] = useState<WordplaySubPhase>('indicator');
+  const [selectedIndicatorIndices, setSelectedIndicatorIndices] = useState<number[]>([]);
+  const [selectedFodderIndices, setSelectedFodderIndices] = useState<number[]>([]);
+  const [hasCheckedIndicator, setHasCheckedIndicator] = useState(false);
+  const [isIndicatorCorrect, setIsIndicatorCorrect] = useState(false);
+  const [hasCheckedFodder, setHasCheckedFodder] = useState(false);
+  const [isFodderCorrect, setIsFodderCorrect] = useState(false);
+  const [stepResultInput, setStepResultInput] = useState('');
+  const [hasCheckedResult, setHasCheckedResult] = useState(false);
+  const [isResultCorrect, setIsResultCorrect] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Collapsed steps
+  const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
 
   // For special clue types
   const [identifiedType, setIdentifiedType] = useState<ClueType | null>(null);
@@ -154,6 +170,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     return MOCK_CLUE.definition;
   }, [patternData, words]);
 
+  // Get wordplay steps that have indicators (exclude assembly steps which are informational)
+  const indicatorSteps = useMemo(() => {
+    const steps = patternData?.wordplaySteps || [];
+    return steps.filter(step => !step.isAssembly && step.indicator);
+  }, [patternData]);
+
+  // Current indicator step the user needs to find
+  const currentIndicatorTarget = indicatorSteps[currentWordplayStep];
+
   // ---------------------------------------------------------------------------
   // INITIALIZATION
   // ---------------------------------------------------------------------------
@@ -164,9 +189,22 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setSelectedIndices([]);
     setDiscoveredParts([]);
     setIsDefinitionCorrect(false);
+    setHasCheckedDefinition(false);
     setShowWordplayDetail(false);
     setCurrentWordplayStep(0);
     setIdentifiedType(null);
+    setWordplaySubPhase('indicator');
+    setSelectedIndicatorIndices([]);
+    setSelectedFodderIndices([]);
+    setHasCheckedIndicator(false);
+    setIsIndicatorCorrect(false);
+    setHasCheckedFodder(false);
+    setIsFodderCorrect(false);
+    setStepResultInput('');
+    setHasCheckedResult(false);
+    setIsResultCorrect(false);
+    setCompletedSteps([]);
+    setRevealedIndicatorSteps([]);
 
     // Initialize answer grid
     const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
@@ -178,21 +216,42 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // ---------------------------------------------------------------------------
 
   const handleWordTap = (wordIndex: number) => {
-    // Only allow tapping in definition phase
-    if (phase !== 'definition') return;
+    // Definition phase - contiguous selection
+    if (phase === 'definition') {
+      setSelectedIndices(prev => {
+        if (prev.includes(wordIndex)) {
+          return prev.filter(i => i !== wordIndex);
+        }
+        // Keep selection contiguous for definition phase
+        if (prev.length > 0) {
+          const min = Math.min(...prev, wordIndex);
+          const max = Math.max(...prev, wordIndex);
+          return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+        }
+        return [...prev, wordIndex].sort((a, b) => a - b);
+      });
+      return;
+    }
 
-    setSelectedIndices(prev => {
-      if (prev.includes(wordIndex)) {
-        return prev.filter(i => i !== wordIndex);
+    // Wordplay phase - indicator or fodder selection
+    if (phase === 'wordplay' && !showWordplayDetail) {
+      if (wordplaySubPhase === 'indicator') {
+        setSelectedIndicatorIndices(prev => {
+          if (prev.includes(wordIndex)) {
+            return prev.filter(i => i !== wordIndex);
+          }
+          return [...prev, wordIndex].sort((a, b) => a - b);
+        });
+      } else if (wordplaySubPhase === 'fodder') {
+        setSelectedFodderIndices(prev => {
+          if (prev.includes(wordIndex)) {
+            return prev.filter(i => i !== wordIndex);
+          }
+          return [...prev, wordIndex].sort((a, b) => a - b);
+        });
       }
-      // Keep selection contiguous for definition phase
-      if (prev.length > 0) {
-        const min = Math.min(...prev, wordIndex);
-        const max = Math.max(...prev, wordIndex);
-        return Array.from({ length: max - min + 1 }, (_, i) => min + i);
-      }
-      return [...prev, wordIndex].sort((a, b) => a - b);
-    });
+      return;
+    }
   };
 
   const handleChooseStandard = () => {
@@ -217,6 +276,28 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setIsDefinitionCorrect(isMatch);
   }, [selectedIndices, phase, words, expectedDefinition]);
 
+  const handleCheckDefinition = () => {
+    // User explicitly checks their selection
+    // Check correctness inline to decide if we should auto-reset
+    const selectedText = selectedIndices.map(i => words[i].text).join(' ');
+    const expectedText = expectedDefinition.wordIndices.map(i => words[i]?.text || '').join(' ');
+    const isMatch = selectedText === expectedText ||
+                    selectedIndices.length === expectedDefinition.wordIndices.length &&
+                    selectedIndices.every((idx, i) => idx === expectedDefinition.wordIndices[i]);
+
+    if (isMatch) {
+      // Correct - show success state
+      setHasCheckedDefinition(true);
+    } else {
+      // Wrong - briefly show red, then auto-clear for retry
+      setHasCheckedDefinition(true);
+      setTimeout(() => {
+        setSelectedIndices([]);
+        setHasCheckedDefinition(false);
+      }, 800); // Brief flash of red feedback
+    }
+  };
+
   const handleDefinitionConfirm = () => {
     if (!isDefinitionCorrect) return;
 
@@ -231,6 +312,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }]);
 
     setSelectedIndices([]);
+    setHasCheckedDefinition(false);
     setPhase('wordplay');
   };
 
@@ -269,6 +351,138 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         explanation: 'The entire clue reads as both a definition AND wordplay instructions'
       }]);
       setPhase('wordplay');
+    }
+  };
+
+  const handleCheckIndicator = () => {
+    if (!currentIndicatorTarget) return;
+
+    // Get the selected text
+    const selectedText = selectedIndicatorIndices.map(i => words[i].text).join(' ');
+    const targetIndicator = currentIndicatorTarget.indicator.toLowerCase().replace(/[.,;!?()'"]/g, '');
+
+    // Check if it matches (allowing for some flexibility)
+    const isMatch = selectedText === targetIndicator ||
+                    selectedText.includes(targetIndicator) ||
+                    targetIndicator.includes(selectedText);
+
+    setHasCheckedIndicator(true);
+    setIsIndicatorCorrect(isMatch);
+
+    if (isMatch) {
+      // Correct - auto-advance to fodder after brief success flash
+      setTimeout(() => {
+        setWordplaySubPhase('fodder');
+      }, 600);
+    } else {
+      // Wrong - auto-clear after brief red flash
+      setTimeout(() => {
+        setSelectedIndicatorIndices([]);
+        setHasCheckedIndicator(false);
+        setIsIndicatorCorrect(false);
+      }, 800);
+    }
+  };
+
+  const handleCheckFodder = () => {
+    if (!currentIndicatorTarget) return;
+
+    // Get the selected text
+    const selectedText = selectedFodderIndices.map(i => words[i].text).join(' ');
+    const targetFodder = currentIndicatorTarget.fodder.toLowerCase().replace(/[.,;!?()'"]/g, '');
+
+    // Check if it matches (allowing for some flexibility)
+    const isMatch = selectedText === targetFodder ||
+                    selectedText.includes(targetFodder) ||
+                    targetFodder.includes(selectedText);
+
+    setHasCheckedFodder(true);
+    setIsFodderCorrect(isMatch);
+
+    if (isMatch) {
+      // Correct - auto-advance to result after brief success flash
+      setTimeout(() => {
+        setWordplaySubPhase('result');
+      }, 600);
+    } else {
+      // Wrong - auto-clear after brief red flash
+      setTimeout(() => {
+        setSelectedFodderIndices([]);
+        setHasCheckedFodder(false);
+        setIsFodderCorrect(false);
+      }, 800);
+    }
+  };
+
+  const handleCheckResult = () => {
+    if (!currentIndicatorTarget) return;
+
+    const targetResult = currentIndicatorTarget.result.toUpperCase().replace(/[^A-Z]/g, '');
+    const userResult = stepResultInput.toUpperCase().replace(/[^A-Z]/g, '');
+
+    const isMatch = userResult === targetResult;
+
+    setHasCheckedResult(true);
+    setIsResultCorrect(isMatch);
+
+    if (!isMatch) {
+      // Wrong - reset after flash
+      setTimeout(() => {
+        setHasCheckedResult(false);
+        setIsResultCorrect(false);
+      }, 800);
+    }
+  };
+
+  const handleRevealStepResult = () => {
+    if (!currentIndicatorTarget) return;
+    setStepResultInput(currentIndicatorTarget.result);
+    setHasCheckedResult(true);
+    setIsResultCorrect(true);
+  };
+
+  const handleStepComplete = () => {
+    // Mark step as completed (collapsed)
+    setCompletedSteps(prev => [...prev, currentWordplayStep]);
+
+    const nextStep = currentWordplayStep + 1;
+
+    if (nextStep >= indicatorSteps.length) {
+      // All steps done - move to solve phase
+      setPhase('solve');
+    } else {
+      // Move to next step
+      setCurrentWordplayStep(nextStep);
+      // Reset sub-phase state
+      setWordplaySubPhase('indicator');
+      setSelectedIndicatorIndices([]);
+      setSelectedFodderIndices([]);
+      setHasCheckedIndicator(false);
+      setIsIndicatorCorrect(false);
+      setHasCheckedFodder(false);
+      setIsFodderCorrect(false);
+      setStepResultInput('');
+      setHasCheckedResult(false);
+      setIsResultCorrect(false);
+    }
+  };
+
+  const handleNextIndicator = () => {
+    // Mark current step as revealed before moving on
+    setRevealedIndicatorSteps(prev => [...prev, currentWordplayStep]);
+
+    const nextStep = currentWordplayStep + 1;
+
+    if (nextStep >= indicatorSteps.length) {
+      // All indicators found - move to solve phase
+      setShowWordplayDetail(true);
+      setCurrentWordplayStep(nextStep); // Move past last step to show summary
+    } else {
+      // Move to next indicator
+      setCurrentWordplayStep(nextStep);
+      setSelectedIndicatorIndices([]);
+      setHasCheckedIndicator(false);
+      setIsIndicatorCorrect(false);
     }
   };
 
@@ -328,17 +542,57 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       }
     }
 
-    // Check if word is selected
+    // Definition phase - selected words
     if (selectedIndices.includes(wordIndex)) {
-      if (phase === 'definition' && isDefinitionCorrect) {
+      // Only show green after user has checked AND it's correct
+      if (phase === 'definition' && hasCheckedDefinition && isDefinitionCorrect) {
         return 'bg-green-200 text-green-800 ring-2 ring-green-400 font-bold';
       }
+      // Show red after user has checked AND it's wrong
+      if (phase === 'definition' && hasCheckedDefinition && !isDefinitionCorrect) {
+        return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
+      }
+      // Normal selection (before checking)
       return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
     }
 
-    // Interactive state - only in definition phase
+    // Wordplay phase - indicator selection
+    if (selectedIndicatorIndices.includes(wordIndex)) {
+      // Correct indicator found
+      if (phase === 'wordplay' && hasCheckedIndicator && isIndicatorCorrect) {
+        return 'bg-orange-200 text-orange-800 ring-2 ring-orange-400 font-bold';
+      }
+      // Wrong selection
+      if (phase === 'wordplay' && hasCheckedIndicator && !isIndicatorCorrect) {
+        return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
+      }
+      // Normal selection (before checking)
+      return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
+    }
+
+    // Wordplay phase - fodder selection
+    if (selectedFodderIndices.includes(wordIndex)) {
+      // Correct fodder found
+      if (phase === 'wordplay' && hasCheckedFodder && isFodderCorrect) {
+        return 'bg-blue-200 text-blue-800 ring-2 ring-blue-400 font-bold';
+      }
+      // Wrong selection
+      if (phase === 'wordplay' && hasCheckedFodder && !isFodderCorrect) {
+        return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
+      }
+      // Normal selection (before checking)
+      return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
+    }
+
+    // Interactive state - definition or wordplay selection phases
     if (phase === 'definition') {
       return 'hover:bg-indigo-50 cursor-pointer';
+    }
+    if (phase === 'wordplay' && wordplaySubPhase === 'indicator') {
+      return 'hover:bg-orange-50 cursor-pointer';
+    }
+    if (phase === 'wordplay' && wordplaySubPhase === 'fodder') {
+      return 'hover:bg-blue-50 cursor-pointer';
     }
 
     return '';
@@ -350,19 +604,33 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         return "What type of clue is this?";
 
       case 'definition':
+        if (hasCheckedDefinition && isDefinitionCorrect) {
+          return "That's it! The definition is highlighted";
+        }
+        if (hasCheckedDefinition && !isDefinitionCorrect) {
+          return "Not quite — try again";
+        }
         if (selectedIndices.length === 0) {
           return "Standard clue — tap the definition words";
         }
-        if (isDefinitionCorrect) {
-          return "That's it! The definition is highlighted";
-        }
-        return "Keep selecting to find the full definition...";
+        return "Tap Check when ready";
 
       case 'wordplay':
-        if (!showWordplayDetail) {
-          return "Now let's explore the wordplay";
+        if (currentIndicatorTarget && currentWordplayStep < indicatorSteps.length) {
+          if (wordplaySubPhase === 'indicator') {
+            return `Find the ${currentIndicatorTarget.stepType.replace('_', ' ')} indicator`;
+          }
+          if (wordplaySubPhase === 'fodder') {
+            return `Now find the fodder for "${currentIndicatorTarget.indicator}"`;
+          }
+          if (wordplaySubPhase === 'result') {
+            return `Work out the result`;
+          }
         }
-        return "See how the wordplay builds the answer";
+        if (completedSteps.length === indicatorSteps.length && indicatorSteps.length > 0) {
+          return "All steps solved — enter the answer!";
+        }
+        return "Explore the wordplay";
 
       case 'solve':
         return "Type the answer to complete";
@@ -381,7 +649,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         return `Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key to solving every clue. It is usually easier to spot the definition as it is always at the START or END of the clue.`;
 
       case 'wordplay':
-        return `The remaining words contain instructions to build "${answer}"`;
+        return `The remaining words contain instructions to build the answer`;
 
       default:
         return '';
@@ -525,19 +793,40 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 {getHintText()}
               </p>
 
-              {/* Confirm button - only when selection is correct */}
-              {isDefinitionCorrect && (
+              {/* Step 1: Check button - appears when user has selected words but hasn't checked yet */}
+              {selectedIndices.length > 0 && !hasCheckedDefinition && (
                 <button
-                  onClick={handleDefinitionConfirm}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                  onClick={handleCheckDefinition}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
                 >
                   <Check size={18} />
-                  Yes, that's the definition
+                  Check
                 </button>
               )}
 
-              {/* Back to choose */}
-              {!isDefinitionCorrect && selectedIndices.length === 0 && (
+              {/* Step 2: Result after checking */}
+              {hasCheckedDefinition && isDefinitionCorrect && (
+                <div className="space-y-3">
+                  <div className="bg-green-100 border border-green-300 rounded-lg p-3 text-green-800 font-medium">
+                    ✓ Correct! That's the definition.
+                  </div>
+                  <button
+                    onClick={handleDefinitionConfirm}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                  >
+                    Continue <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+
+              {hasCheckedDefinition && !isDefinitionCorrect && (
+                <div className="bg-red-100 border border-red-300 rounded-lg p-3 text-red-800 font-medium animate-in fade-in">
+                  ✗ Not quite — try again
+                </div>
+              )}
+
+              {/* Back to choose - only when nothing selected and not checked */}
+              {selectedIndices.length === 0 && !hasCheckedDefinition && (
                 <button
                   onClick={() => setPhase('choose')}
                   className="text-slate-400 hover:text-slate-600 text-xs font-medium"
@@ -550,57 +839,260 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         </div>
       )}
 
-      {/* WORDPLAY PHASE - Progressive reveal */}
+      {/* WORDPLAY PHASE - Progressive indicator/fodder/result flow */}
       {phase === 'wordplay' && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2">
           <div className="flex items-start gap-4">
             <Lightbulb className="text-amber-500 mt-1 shrink-0" size={24} />
 
             <div className="flex-1 space-y-4">
-              <p className="text-slate-600 text-sm leading-relaxed">
-                {getHintText()}
-              </p>
+              {/* Wordplay intro box */}
+              <div className="p-4 rounded-lg border-2 border-amber-400 bg-amber-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="bg-amber-500 text-white p-1 rounded-full">
+                    <Zap size={14} />
+                  </div>
+                  <span className="font-bold text-amber-700">Wordplay</span>
+                </div>
+                <p className="text-amber-700 font-medium">
+                  {indicatorSteps.length > 1
+                    ? `This clue has ${indicatorSteps.length} wordplay operations. Solve each one to build the answer.`
+                    : 'Identify the parts of this wordplay operation'
+                  }
+                </p>
+              </div>
 
-              {/* Show wordplay button or detail */}
-              {!showWordplayDetail ? (
-                <button
-                  onClick={handleRevealWordplay}
-                  className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-                >
-                  <Zap size={18} />
-                  Show how it works
-                </button>
-              ) : (
-                <div className="bg-slate-50 rounded-lg border border-slate-200 p-4 space-y-3">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Wordplay Breakdown</p>
-
-                  {/* Mock wordplay steps - will be replaced with real data */}
-                  {MOCK_CLUE.wordplaySteps.map((step, i) => (
-                    <div key={i} className="flex items-start gap-3 text-sm">
-                      <span className="bg-amber-100 text-amber-700 w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0">
-                        {i + 1}
-                      </span>
-                      <div>
-                        <span className="text-orange-600 font-medium">"{step.indicator}"</span>
-                        {' signals '}
-                        <span className="text-blue-600 font-medium">"{step.fodder}"</span>
-                        {' → '}
-                        <span className="text-slate-800 font-bold">{step.result}</span>
-                        <p className="text-slate-500 text-xs mt-1">{step.explanation}</p>
-                      </div>
-                    </div>
+              {/* Progress indicator for multiple steps */}
+              {indicatorSteps.length > 1 && (
+                <div className="flex items-center gap-2">
+                  {indicatorSteps.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-3 h-3 rounded-full transition-colors ${
+                        completedSteps.includes(i)
+                          ? 'bg-green-500'
+                          : i === currentWordplayStep
+                          ? 'bg-amber-300 ring-2 ring-amber-400'
+                          : 'bg-slate-200'
+                      }`}
+                    />
                   ))}
+                  <span className="text-xs text-slate-500 ml-2">
+                    Step {Math.min(currentWordplayStep + 1, indicatorSteps.length)} of {indicatorSteps.length}
+                  </span>
                 </div>
               )}
 
-              {/* Continue to solve */}
-              {showWordplayDetail && (
-                <button
-                  onClick={() => setPhase('solve')}
-                  className="text-slate-500 hover:text-slate-700 text-sm font-medium flex items-center gap-1"
-                >
-                  Now enter the answer <ChevronRight size={16} />
-                </button>
+              {/* COLLAPSED PANELS - Show completed steps */}
+              {completedSteps.map((stepIdx) => {
+                const step = indicatorSteps[stepIdx];
+                if (!step) return null;
+                return (
+                  <div key={stepIdx} className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="bg-green-500 text-white p-0.5 rounded-full">
+                        <Check size={12} />
+                      </div>
+                      <span className="text-orange-600 font-medium">"{step.indicator}"</span>
+                      <span className="text-slate-400">({step.stepType.replace('_', ' ')})</span>
+                      <span className="text-slate-400">+</span>
+                      <span className="text-blue-600 font-medium">"{step.fodder}"</span>
+                      <span className="text-slate-400">→</span>
+                      <span className="text-green-700 font-bold">{step.result}</span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* EXPANDED PANEL - Current active step */}
+              {currentIndicatorTarget && currentWordplayStep < indicatorSteps.length && (
+                <div className="bg-white border-2 border-amber-300 rounded-lg p-4 space-y-4">
+                  {/* Step header */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-slate-700 font-bold">
+                      <span className="text-amber-600 capitalize">{currentIndicatorTarget.stepType.replace('_', ' ')}</span>
+                    </p>
+                    <span className="text-xs text-slate-400 uppercase tracking-wide">
+                      {wordplaySubPhase === 'indicator' ? '1. Find Indicator' :
+                       wordplaySubPhase === 'fodder' ? '2. Find Fodder' : '3. Work Out Result'}
+                    </span>
+                  </div>
+
+                  {/* Hint text */}
+                  <p className="text-slate-500 text-sm">
+                    {wordplaySubPhase === 'indicator' && (currentIndicatorTarget.hint || `Look for a word that signals a ${currentIndicatorTarget.stepType.replace('_', ' ')} operation`)}
+                    {wordplaySubPhase === 'fodder' && `Now find the word(s) that the indicator operates on`}
+                    {wordplaySubPhase === 'result' && `What does applying "${currentIndicatorTarget.indicator}" to "${currentIndicatorTarget.fodder}" give you?`}
+                  </p>
+
+                  {/* === INDICATOR SUB-PHASE === */}
+                  {wordplaySubPhase === 'indicator' && (
+                    <div className="space-y-3">
+                      {/* Check button */}
+                      {selectedIndicatorIndices.length > 0 && !hasCheckedIndicator && (
+                        <button
+                          onClick={handleCheckIndicator}
+                          className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                        >
+                          <Check size={16} />
+                          Check Indicator
+                        </button>
+                      )}
+
+                      {/* Correct indicator - auto-advances */}
+                      {hasCheckedIndicator && isIndicatorCorrect && (
+                        <div className="bg-orange-100 border border-orange-300 rounded-lg p-3 text-orange-800 font-medium text-sm">
+                          ✓ "{currentIndicatorTarget.indicator}" — correct!
+                        </div>
+                      )}
+
+                      {/* Wrong indicator */}
+                      {hasCheckedIndicator && !isIndicatorCorrect && (
+                        <div className="bg-red-100 border border-red-300 rounded-lg p-3 text-red-800 font-medium text-sm animate-in fade-in">
+                          ✗ Not quite — try again
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* === FODDER SUB-PHASE === */}
+                  {wordplaySubPhase === 'fodder' && (
+                    <div className="space-y-3">
+                      {/* Show confirmed indicator */}
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="bg-orange-500 text-white p-0.5 rounded-full">
+                          <Check size={12} />
+                        </div>
+                        <span className="text-orange-600 font-medium">Indicator: "{currentIndicatorTarget.indicator}"</span>
+                      </div>
+
+                      {/* Check button */}
+                      {selectedFodderIndices.length > 0 && !hasCheckedFodder && (
+                        <button
+                          onClick={handleCheckFodder}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                        >
+                          <Check size={16} />
+                          Check Fodder
+                        </button>
+                      )}
+
+                      {/* Correct fodder - auto-advances */}
+                      {hasCheckedFodder && isFodderCorrect && (
+                        <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 text-blue-800 font-medium text-sm">
+                          ✓ "{currentIndicatorTarget.fodder}" — correct!
+                        </div>
+                      )}
+
+                      {/* Wrong fodder */}
+                      {hasCheckedFodder && !isFodderCorrect && (
+                        <div className="bg-red-100 border border-red-300 rounded-lg p-3 text-red-800 font-medium text-sm animate-in fade-in">
+                          ✗ Not quite — try again
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* === RESULT SUB-PHASE === */}
+                  {wordplaySubPhase === 'result' && (
+                    <div className="space-y-3">
+                      {/* Show confirmed indicator and fodder */}
+                      <div className="flex items-center gap-2 text-sm flex-wrap">
+                        <div className="flex items-center gap-1">
+                          <div className="bg-orange-500 text-white p-0.5 rounded-full">
+                            <Check size={12} />
+                          </div>
+                          <span className="text-orange-600 font-medium">"{currentIndicatorTarget.indicator}"</span>
+                        </div>
+                        <span className="text-slate-400">+</span>
+                        <div className="flex items-center gap-1">
+                          <div className="bg-blue-500 text-white p-0.5 rounded-full">
+                            <Check size={12} />
+                          </div>
+                          <span className="text-blue-600 font-medium">"{currentIndicatorTarget.fodder}"</span>
+                        </div>
+                        <span className="text-slate-400">= ?</span>
+                      </div>
+
+                      {/* Result input */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={stepResultInput}
+                          onChange={(e) => setStepResultInput(e.target.value.toUpperCase())}
+                          placeholder="Type result..."
+                          className={`flex-1 px-4 py-2.5 rounded-lg border-2 font-mono text-lg uppercase tracking-wider transition-colors
+                            ${hasCheckedResult && isResultCorrect
+                              ? 'bg-green-50 border-green-400 text-green-700'
+                              : hasCheckedResult && !isResultCorrect
+                              ? 'bg-red-50 border-red-400 text-red-700'
+                              : 'bg-white border-slate-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100'
+                            }`}
+                          disabled={hasCheckedResult && isResultCorrect}
+                        />
+                        {!hasCheckedResult && stepResultInput.length > 0 && (
+                          <button
+                            onClick={handleCheckResult}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
+                          >
+                            Check
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Reveal button */}
+                      {!isResultCorrect && (
+                        <button
+                          onClick={handleRevealStepResult}
+                          className="text-slate-400 hover:text-slate-600 text-xs font-medium"
+                        >
+                          Reveal result
+                        </button>
+                      )}
+
+                      {/* Wrong result feedback */}
+                      {hasCheckedResult && !isResultCorrect && (
+                        <div className="bg-red-100 border border-red-300 rounded-lg p-2 text-red-800 font-medium text-sm animate-in fade-in">
+                          ✗ Not quite — try again
+                        </div>
+                      )}
+
+                      {/* Correct result - complete step */}
+                      {hasCheckedResult && isResultCorrect && (
+                        <div className="space-y-3">
+                          <div className="bg-green-100 border border-green-300 rounded-lg p-3 text-green-800 font-medium text-sm">
+                            ✓ Correct! {currentIndicatorTarget.explanation || `"${currentIndicatorTarget.fodder}" → ${currentIndicatorTarget.result}`}
+                          </div>
+                          <button
+                            onClick={handleStepComplete}
+                            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                          >
+                            {currentWordplayStep + 1 >= indicatorSteps.length ? (
+                              <>Enter Answer <ChevronRight size={16} /></>
+                            ) : (
+                              <>Next Step <ChevronRight size={16} /></>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Fallback if no indicator steps */}
+              {indicatorSteps.length === 0 && (
+                <div className="space-y-3">
+                  <p className="text-slate-500 text-sm italic">
+                    No wordplay indicators to identify for this clue.
+                  </p>
+                  <button
+                    onClick={() => setPhase('solve')}
+                    className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                  >
+                    Enter the answer <ChevronRight size={18} />
+                  </button>
+                </div>
               )}
             </div>
           </div>
