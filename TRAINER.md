@@ -10,7 +10,7 @@ From observing expert solvers (Cracking the Cryptic), the paramount skill is **s
 
 ## The Fundamental Rule
 
-> **Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key. The definition is always at the START or END of the clue.**
+> **Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key to solving every clue. It is usually easier to spot the definition as it is always at the START or END of the clue.**
 
 This is the first thing users learn, and it applies to ~95% of clues.
 
@@ -30,18 +30,31 @@ This is the first thing users learn, and it applies to ~95% of clues.
 
 ## Training Flow
 
-### Phase 1: Definition
+### Phase 0: Choose
+**Goal:** User identifies what type of clue this is
+
+**Prompt:** "What type of clue is this?"
+
+**Options (all visible, user must pick one):**
+- **Standard** - Definition + wordplay (highlighted as recommended)
+- **Double Definition** - Two definitions, no wordplay
+- **Cryptic Definition** - Entire clue is a cryptic hint
+- **&lit** - Definition AND wordplay combined
+
+This forces conscious thinking about clue structure before diving in.
+
+### Phase 1: Definition (Standard clues only)
 **Goal:** User identifies the definition
 
-**Prompt:** "Tap the word(s) that form the definition"
+**Visual confirmation:** Green box shows "✓ Standard" with instruction "Now tap the definition words in the clue above"
 
-**Hint:** "Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key. The definition is always at the START or END of the clue."
+**Hint:** "Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key to solving every clue. It is usually easier to spot the definition as it is always at the START or END of the clue."
 
 **Interaction:**
 - User taps words to select (contiguous selection)
 - Green highlight when correct
 - "Yes, that's the definition" button appears on correct selection
-- Subtle escape hatches for special types: "Double Definition", "Cryptic Definition", "&lit"
+- Back link to return to clue type selection if needed
 
 ### Phase 2: Wordplay
 **Goal:** User explores how the wordplay builds the answer
@@ -77,10 +90,10 @@ This is the first thing users learn, and it applies to ~95% of clues.
 
 ## UX Principles
 
-1. **Continuous reveal** - Highlights accumulate, no modal steps
-2. **Answer grid always visible** - User can attempt answer at any time
-3. **Natural prompts** - Text evolves based on state, not phase labels
-4. **Special types as escape hatch** - Subtle buttons, not quiz questions
+1. **Explicit choice upfront** - User consciously identifies clue type before proceeding
+2. **Continuous reveal** - Highlights accumulate, no modal steps
+3. **Answer grid always visible** - User can attempt answer at any time
+4. **Natural prompts** - Text evolves based on state, not phase labels
 5. **No step-based feeling** - Flow should feel like guided discovery
 
 ---

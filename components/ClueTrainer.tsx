@@ -11,6 +11,7 @@ import { WORKFLOW_COLORS } from '../data/designTemplates';
 type ClueType = 'standard' | 'double_definition' | 'triple_definition' | 'cryptic_definition' | 'and_lit';
 
 type TrainingPhase =
+  | 'choose'          // User chooses clue type approach
   | 'definition'      // User selecting definition words
   | 'wordplay'        // User exploring wordplay components
   | 'solve'           // User entering answer
@@ -89,7 +90,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // STATE
   // ---------------------------------------------------------------------------
 
-  const [phase, setPhase] = useState<TrainingPhase>('definition');
+  const [phase, setPhase] = useState<TrainingPhase>('choose');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [discoveredParts, setDiscoveredParts] = useState<DiscoveredPart[]>([]);
   const [grid, setGrid] = useState<string[]>([]);
@@ -159,7 +160,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
   useEffect(() => {
     // Reset state when clue changes
-    setPhase('definition');
+    setPhase('choose');
     setSelectedIndices([]);
     setDiscoveredParts([]);
     setIsDefinitionCorrect(false);
@@ -177,20 +178,26 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // ---------------------------------------------------------------------------
 
   const handleWordTap = (wordIndex: number) => {
-    if (phase === 'complete') return;
+    // Only allow tapping in definition phase
+    if (phase !== 'definition') return;
 
     setSelectedIndices(prev => {
       if (prev.includes(wordIndex)) {
         return prev.filter(i => i !== wordIndex);
       }
       // Keep selection contiguous for definition phase
-      if (phase === 'definition' && prev.length > 0) {
+      if (prev.length > 0) {
         const min = Math.min(...prev, wordIndex);
         const max = Math.max(...prev, wordIndex);
         return Array.from({ length: max - min + 1 }, (_, i) => min + i);
       }
       return [...prev, wordIndex].sort((a, b) => a - b);
     });
+  };
+
+  const handleChooseStandard = () => {
+    setIdentifiedType('standard');
+    setPhase('definition');
   };
 
   // Check if selected words match the expected definition
@@ -329,8 +336,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
     }
 
-    // Interactive state
-    if (phase !== 'complete') {
+    // Interactive state - only in definition phase
+    if (phase === 'definition') {
       return 'hover:bg-indigo-50 cursor-pointer';
     }
 
@@ -339,9 +346,12 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
   const getPromptText = (): string => {
     switch (phase) {
+      case 'choose':
+        return "What type of clue is this?";
+
       case 'definition':
         if (selectedIndices.length === 0) {
-          return "Tap the word(s) that form the definition";
+          return "Standard clue — tap the definition words";
         }
         if (isDefinitionCorrect) {
           return "That's it! The definition is highlighted";
@@ -368,7 +378,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const getHintText = (): string => {
     switch (phase) {
       case 'definition':
-        return `Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key. The definition is always at the START or END of the clue.`;
+        return `Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key to solving every clue. It is usually easier to spot the definition as it is always at the START or END of the clue.`;
 
       case 'wordplay':
         return `The remaining words contain instructions to build "${answer}"`;
@@ -442,12 +452,74 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       </div>
 
       {/* DEFINITION PHASE - Confirm button & special type options */}
+      {/* CHOOSE PHASE - User picks clue type */}
+      {phase === 'choose' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-start gap-4">
+            <BookOpen className="text-indigo-500 mt-1 shrink-0" size={24} />
+
+            <div className="flex-1 space-y-4">
+              {/* Main hint */}
+              <p className="text-slate-600 text-sm leading-relaxed">
+                {getHintText()}
+              </p>
+
+              {/* All clue type options */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleChooseStandard}
+                  className="text-left p-4 rounded-lg border-2 border-indigo-200 bg-indigo-50 hover:border-indigo-400 hover:bg-indigo-100 transition-all group"
+                >
+                  <span className="font-bold text-indigo-700 group-hover:text-indigo-900">Standard</span>
+                  <p className="text-xs text-indigo-600 mt-1">Definition + wordplay</p>
+                </button>
+                <button
+                  onClick={() => handleSpecialType('double_definition')}
+                  className="text-left p-4 rounded-lg border-2 border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-all group"
+                >
+                  <span className="font-bold text-slate-700 group-hover:text-amber-700">Double Definition</span>
+                  <p className="text-xs text-slate-500 group-hover:text-amber-600 mt-1">Two definitions, no wordplay</p>
+                </button>
+                <button
+                  onClick={() => handleSpecialType('cryptic_definition')}
+                  className="text-left p-4 rounded-lg border-2 border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-all group"
+                >
+                  <span className="font-bold text-slate-700 group-hover:text-purple-700">Cryptic Definition</span>
+                  <p className="text-xs text-slate-500 group-hover:text-purple-600 mt-1">Entire clue is a cryptic hint</p>
+                </button>
+                <button
+                  onClick={() => handleSpecialType('and_lit')}
+                  className="text-left p-4 rounded-lg border-2 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all group"
+                >
+                  <span className="font-bold text-slate-700 group-hover:text-emerald-700">&lit</span>
+                  <p className="text-xs text-slate-500 group-hover:text-emerald-600 mt-1">Definition AND wordplay combined</p>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DEFINITION PHASE - User taps words to select definition */}
       {phase === 'definition' && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2">
           <div className="flex items-start gap-4">
             <BookOpen className="text-indigo-500 mt-1 shrink-0" size={24} />
 
             <div className="flex-1 space-y-4">
+              {/* Selected Standard button with instruction */}
+              <div className="p-4 rounded-lg border-2 border-green-400 bg-green-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="bg-green-500 text-white p-1 rounded-full">
+                    <Check size={14} />
+                  </div>
+                  <span className="font-bold text-green-700">Standard</span>
+                </div>
+                <p className="text-green-700 font-medium">
+                  Now tap the definition words in the clue above
+                </p>
+              </div>
+
               {/* Main hint */}
               <p className="text-slate-600 text-sm leading-relaxed">
                 {getHintText()}
@@ -464,32 +536,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 </button>
               )}
 
-              {/* Special clue type options - subtle, always visible */}
-              <div className="pt-2 border-t border-slate-100">
-                <p className="text-slate-400 text-xs font-medium mb-2">
-                  Not a standard clue?
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleSpecialType('double_definition')}
-                    className="text-xs text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-full border border-slate-200 transition-colors"
-                  >
-                    Double Definition
-                  </button>
-                  <button
-                    onClick={() => handleSpecialType('cryptic_definition')}
-                    className="text-xs text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-full border border-slate-200 transition-colors"
-                  >
-                    Cryptic Definition
-                  </button>
-                  <button
-                    onClick={() => handleSpecialType('and_lit')}
-                    className="text-xs text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-full border border-slate-200 transition-colors"
-                  >
-                    &lit
-                  </button>
-                </div>
-              </div>
+              {/* Back to choose */}
+              {!isDefinitionCorrect && selectedIndices.length === 0 && (
+                <button
+                  onClick={() => setPhase('choose')}
+                  className="text-slate-400 hover:text-slate-600 text-xs font-medium"
+                >
+                  ← Back to clue type selection
+                </button>
+              )}
             </div>
           </div>
         </div>
