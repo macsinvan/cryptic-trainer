@@ -42,6 +42,7 @@ const OPERATION_TO_STEP_TYPE: Record<OperationType, StepType> = {
   deletion: 'deletion',
   hidden: 'hidden',
   homophone: 'homophone',
+  abbreviation: 'abbreviation',
   double_definition: 'synonym',
   cryptic_definition: 'synonym',
 };

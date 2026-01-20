@@ -63,6 +63,7 @@ export type OperationType =
   | 'deletion'
   | 'hidden'
   | 'homophone'
+  | 'abbreviation'
   | 'double_definition'
   | 'cryptic_definition';
 

@@ -179,6 +179,19 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // Current indicator step the user needs to find
   const currentIndicatorTarget = indicatorSteps[currentWordplayStep];
 
+  // Check if a step is "dependent" (fodder uses results from previous steps, not clue text)
+  const isStepDependent = useMemo(() => {
+    if (!currentIndicatorTarget) return false;
+    const fodder = currentIndicatorTarget.fodder.toLowerCase();
+    // If fodder contains uppercase result references or + signs, it's dependent
+    // Also check if fodder words don't exist in the clue text
+    const fodderWords = fodder.split(/\s+/).map(w => w.replace(/[^a-z]/gi, '').toLowerCase());
+    const clueWordsLower = words.map(w => w.text.toLowerCase());
+    // A step is dependent if most of its fodder words aren't in the clue
+    const wordsInClue = fodderWords.filter(fw => fw && clueWordsLower.includes(fw));
+    return wordsInClue.length < fodderWords.length / 2;
+  }, [currentIndicatorTarget, words]);
+
   // ---------------------------------------------------------------------------
   // INITIALIZATION
   // ---------------------------------------------------------------------------
@@ -370,9 +383,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setIsIndicatorCorrect(isMatch);
 
     if (isMatch) {
-      // Correct - auto-advance to fodder after brief success flash
+      // Correct - auto-advance after brief success flash
+      // For dependent steps (fodder from previous results), skip to result
+      // For independent steps, go to fodder selection
       setTimeout(() => {
-        setWordplaySubPhase('fodder');
+        if (isStepDependent) {
+          setWordplaySubPhase('result');
+        } else {
+          setWordplaySubPhase('fodder');
+        }
       }, 600);
     } else {
       // Wrong - auto-clear after brief red flash
@@ -533,6 +552,48 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // RENDER HELPERS
   // ---------------------------------------------------------------------------
 
+  // Get a display-friendly step type label (handles "unknown" gracefully)
+  const getStepTypeLabel = (step: typeof currentIndicatorTarget): string => {
+    if (!step) return '';
+    const stepType = step.stepType?.toLowerCase() || 'unknown';
+
+    // Map known types to friendly labels
+    const typeLabels: Record<string, string> = {
+      'anagram': 'Anagram',
+      'container': 'Container',
+      'hidden': 'Hidden Word',
+      'reversal': 'Reversal',
+      'deletion': 'Deletion',
+      'homophone': 'Homophone',
+      'abbreviation': 'Abbreviation',
+      'letter_selection': 'Letter Selection',
+      'letter_movement': 'Letter Movement',
+      'synonym': 'Synonym',
+      'assembly': 'Assembly',
+    };
+
+    if (typeLabels[stepType]) return typeLabels[stepType];
+
+    // For "unknown", try to infer from indicator text
+    if (stepType === 'unknown') {
+      const indicator = step.indicator?.toLowerCase() || '';
+      if (indicator.includes('last') || indicator.includes('final') || indicator.includes('end')) {
+        return 'Last Letters';
+      }
+      if (indicator.includes('first') || indicator.includes('start') || indicator.includes('head')) {
+        return 'First Letters';
+      }
+      if (indicator.includes('middle') || indicator.includes('heart') || indicator.includes('centre')) {
+        return 'Middle Letters';
+      }
+      // Fallback to "Wordplay" instead of "Unknown"
+      return 'Wordplay';
+    }
+
+    // Fallback: capitalize the step type
+    return stepType.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   const getWordStyle = (wordIndex: number): string => {
     // Check if word is in discovered parts
     for (const part of discoveredParts) {
@@ -556,32 +617,36 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
     }
 
-    // Wordplay phase - indicator selection
+    // Wordplay phase - indicator selection (persist through all sub-phases once confirmed)
     if (selectedIndicatorIndices.includes(wordIndex)) {
-      // Correct indicator found
-      if (phase === 'wordplay' && hasCheckedIndicator && isIndicatorCorrect) {
+      // Confirmed correct indicator - keep orange highlight through fodder and result phases
+      if (phase === 'wordplay' && isIndicatorCorrect) {
         return 'bg-orange-200 text-orange-800 ring-2 ring-orange-400 font-bold';
       }
-      // Wrong selection
+      // Wrong selection (only during indicator sub-phase)
       if (phase === 'wordplay' && hasCheckedIndicator && !isIndicatorCorrect) {
         return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
       }
-      // Normal selection (before checking)
-      return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
+      // Normal selection (before checking, during indicator sub-phase)
+      if (phase === 'wordplay' && wordplaySubPhase === 'indicator') {
+        return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
+      }
     }
 
-    // Wordplay phase - fodder selection
+    // Wordplay phase - fodder selection (persist through result phase once confirmed)
     if (selectedFodderIndices.includes(wordIndex)) {
-      // Correct fodder found
-      if (phase === 'wordplay' && hasCheckedFodder && isFodderCorrect) {
+      // Confirmed correct fodder - keep blue highlight through result phase
+      if (phase === 'wordplay' && isFodderCorrect) {
         return 'bg-blue-200 text-blue-800 ring-2 ring-blue-400 font-bold';
       }
-      // Wrong selection
+      // Wrong selection (only during fodder sub-phase)
       if (phase === 'wordplay' && hasCheckedFodder && !isFodderCorrect) {
         return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
       }
-      // Normal selection (before checking)
-      return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
+      // Normal selection (before checking, during fodder sub-phase)
+      if (phase === 'wordplay' && wordplaySubPhase === 'fodder') {
+        return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
+      }
     }
 
     // Interactive state - definition or wordplay selection phases
@@ -894,7 +959,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         <Check size={12} />
                       </div>
                       <span className="text-orange-600 font-medium">"{step.indicator}"</span>
-                      <span className="text-slate-400">({step.stepType.replace('_', ' ')})</span>
+                      <span className="text-slate-400">({getStepTypeLabel(step)})</span>
                       <span className="text-slate-400">+</span>
                       <span className="text-blue-600 font-medium">"{step.fodder}"</span>
                       <span className="text-slate-400">→</span>
@@ -910,11 +975,12 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   {/* Step header */}
                   <div className="flex items-center justify-between">
                     <p className="text-slate-700 font-bold">
-                      <span className="text-amber-600 capitalize">{currentIndicatorTarget.stepType.replace('_', ' ')}</span>
+                      <span className="text-amber-600">{getStepTypeLabel(currentIndicatorTarget)}</span>
                     </p>
                     <span className="text-xs text-slate-400 uppercase tracking-wide">
                       {wordplaySubPhase === 'indicator' ? '1. Find Indicator' :
-                       wordplaySubPhase === 'fodder' ? '2. Find Fodder' : '3. Work Out Result'}
+                       wordplaySubPhase === 'fodder' ? '2. Find Fodder' :
+                       isStepDependent ? '2. Work Out Result' : '3. Work Out Result'}
                     </span>
                   </div>
 
@@ -922,7 +988,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   <p className="text-slate-500 text-sm">
                     {wordplaySubPhase === 'indicator' && (currentIndicatorTarget.hint || `Look for a word that signals a ${currentIndicatorTarget.stepType.replace('_', ' ')} operation`)}
                     {wordplaySubPhase === 'fodder' && `Now find the word(s) that the indicator operates on`}
-                    {wordplaySubPhase === 'result' && `What does applying "${currentIndicatorTarget.indicator}" to "${currentIndicatorTarget.fodder}" give you?`}
+                    {wordplaySubPhase === 'result' && isStepDependent && `This step combines your previous results. What does "${currentIndicatorTarget.indicator}" do to ${currentIndicatorTarget.fodder}?`}
+                    {wordplaySubPhase === 'result' && !isStepDependent && `What does applying "${currentIndicatorTarget.indicator}" to "${currentIndicatorTarget.fodder}" give you?`}
                   </p>
 
                   {/* === INDICATOR SUB-PHASE === */}
@@ -1006,10 +1073,24 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         </div>
                         <span className="text-slate-400">+</span>
                         <div className="flex items-center gap-1">
-                          <div className="bg-blue-500 text-white p-0.5 rounded-full">
-                            <Check size={12} />
-                          </div>
-                          <span className="text-blue-600 font-medium">"{currentIndicatorTarget.fodder}"</span>
+                          {isStepDependent ? (
+                            // Dependent step - fodder from previous results (purple/violet styling)
+                            <>
+                              <div className="bg-violet-500 text-white p-0.5 rounded-full">
+                                <Zap size={12} />
+                              </div>
+                              <span className="text-violet-600 font-medium">{currentIndicatorTarget.fodder}</span>
+                              <span className="text-violet-400 text-xs">(from previous)</span>
+                            </>
+                          ) : (
+                            // Independent step - fodder was selected by user
+                            <>
+                              <div className="bg-blue-500 text-white p-0.5 rounded-full">
+                                <Check size={12} />
+                              </div>
+                              <span className="text-blue-600 font-medium">"{currentIndicatorTarget.fodder}"</span>
+                            </>
+                          )}
                         </div>
                         <span className="text-slate-400">= ?</span>
                       </div>
