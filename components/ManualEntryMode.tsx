@@ -56,6 +56,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
   }, [freeformText, publicationId]);
 
   const [isAccepted, setIsAccepted] = useState(false);
+  const [showSaveFlash, setShowSaveFlash] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
 
   // Send failed parse for offline analysis
@@ -145,6 +146,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
     setFullAnalysis(evaluation);
     setIsAccepted(false);
+    setShowSaveFlash(false);
     setIsTutorMode(true);
   };
 
@@ -263,12 +265,19 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     );
 
     setIsAccepted(true);
+    setShowSaveFlash(true);
     setRawPuzzleData(null); // Clear raw data after save
     setTotalClueCount(getClueCount(publicationId));
 
     // Update imported count if in puzzle mode
     if (isPuzzleMode) {
       setAlreadyImportedCount(prev => prev + 1);
+
+      // Auto-advance to next clue after brief flash
+      setTimeout(() => {
+        setShowSaveFlash(false);
+        goToPuzzleClue('next');
+      }, 1500);
     }
   };
 
@@ -317,31 +326,29 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
     return (
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => {
-              if (isPuzzleMode) {
-                exitPuzzleMode();
-              } else {
+        {/* Header - only show in freeform mode */}
+        {!isPuzzleMode && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
                 setIsTutorMode(false);
                 if (isAccepted) {
                   setFreeformText('');
                   setParseResult(null);
                   setIsAccepted(false);
                 }
-              }
-            }}
-            className="flex items-center text-slate-500 hover:text-slate-900 font-bold transition-colors"
-          >
-            <ArrowLeft size={18} className="mr-2" /> {isPuzzleMode ? 'Exit Puzzle' : isAccepted ? 'Done' : 'Edit'}
-          </button>
-          {isAccepted && (
-            <span className="text-xs font-black text-green-600 uppercase tracking-widest flex items-center gap-2">
-              <Check size={14} /> Saved to Library
-            </span>
-          )}
-        </div>
+              }}
+              className="flex items-center text-slate-500 hover:text-slate-900 font-bold transition-colors"
+            >
+              <ArrowLeft size={18} className="mr-2" /> {isAccepted ? 'Done' : 'Edit'}
+            </button>
+            {isAccepted && (
+              <span className="text-xs font-black text-green-600 uppercase tracking-widest flex items-center gap-2">
+                <Check size={14} /> Saved to Library
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Main Battlecard */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
@@ -349,6 +356,12 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           {/* Puzzle Header (when in puzzle mode) */}
           {isPuzzleMode && puzzleMetadata && (
             <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
+              <button
+                onClick={exitPuzzleMode}
+                className="flex items-center text-indigo-600 hover:text-indigo-900 font-medium text-xs transition-colors"
+              >
+                <ArrowLeft size={14} className="mr-1" /> Exit Puzzle
+              </button>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => goToPuzzleClue('prev')}
@@ -534,8 +547,16 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                   })}
                 </div>
               </div>
-            ) : isAccepted ? (
-              // SAVED: Show confirmation
+            ) : isAccepted && showSaveFlash ? (
+              // SAVED FLASH: Brief confirmation before auto-advance
+              <div className="bg-green-50 border border-green-100 rounded-xl p-6 text-center animate-in fade-in">
+                <div className="bg-green-600 text-white p-3 rounded-full inline-flex mb-4">
+                  <Check size={24} />
+                </div>
+                <h3 className="font-bold text-green-900 text-lg">Saved to Library</h3>
+              </div>
+            ) : isAccepted && !isPuzzleMode ? (
+              // SAVED (freeform mode only): Show confirmation with actions
               <div className="bg-green-50 border border-green-100 rounded-xl p-6 text-center">
                 <div className="bg-green-600 text-white p-3 rounded-full inline-flex mb-4">
                   <Check size={24} />
@@ -698,7 +719,12 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           }
 
           if (isAccepted) {
-            // Already saved - in puzzle mode, go to next clue; otherwise allow importing another
+            // In puzzle mode with flash showing, don't render buttons (auto-advancing)
+            if (isPuzzleMode && showSaveFlash) {
+              return null;
+            }
+
+            // Already saved - in freeform mode, allow importing another
             return (
               <div className="flex gap-3">
                 <button
@@ -709,20 +735,15 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                 </button>
                 <button
                   onClick={() => {
-                    if (isPuzzleMode) {
-                      // Go to next clue in puzzle
-                      goToPuzzleClue('next');
-                    } else {
-                      // Reset for freeform import
-                      setIsTutorMode(false);
-                      setFreeformText('');
-                      setParseResult(null);
-                      setIsAccepted(false);
-                    }
+                    // Reset for freeform import
+                    setIsTutorMode(false);
+                    setFreeformText('');
+                    setParseResult(null);
+                    setIsAccepted(false);
                   }}
                   className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
                 >
-                  <ChevronRight size={18} /> {isPuzzleMode ? 'Next Clue' : 'Import Another'}
+                  <ChevronRight size={18} /> Import Another
                 </button>
               </div>
             );
