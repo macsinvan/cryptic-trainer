@@ -317,9 +317,6 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
     return (
       <div className="space-y-6">
-        {/* Puzzle Navigation (when in puzzle mode) */}
-        {renderPuzzleNavigation()}
-
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
@@ -348,6 +345,39 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
         {/* Main Battlecard */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+
+          {/* Puzzle Header (when in puzzle mode) */}
+          {isPuzzleMode && puzzleMetadata && (
+            <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => goToPuzzleClue('prev')}
+                  disabled={currentPuzzleIndex === 0}
+                  className="p-1.5 bg-white rounded border border-indigo-200 hover:bg-indigo-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={16} className="text-indigo-600" />
+                </button>
+                <div className="text-center">
+                  <span className="text-xs font-bold text-indigo-900">
+                    {puzzleMetadata.publisher} #{puzzleMetadata.puzzle_number}
+                  </span>
+                  {puzzleMetadata.setter && puzzleMetadata.setter !== 'Unknown' && (
+                    <span className="text-xs text-indigo-600 ml-2">by {puzzleMetadata.setter}</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => goToPuzzleClue('next')}
+                  disabled={currentPuzzleIndex === puzzleClues.length - 1}
+                  className="p-1.5 bg-white rounded border border-indigo-200 hover:bg-indigo-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={16} className="text-indigo-600" />
+                </button>
+              </div>
+              <span className="text-xs text-indigo-600 font-medium">
+                Clue {currentPuzzleIndex + 1} of {puzzleClues.length}
+              </span>
+            </div>
+          )}
 
           {/* Clue Display */}
           <div className="p-8 border-b border-slate-100">

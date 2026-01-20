@@ -456,13 +456,16 @@ Reset with: `python cryptic_trainer.py clear-stats`
 
 ### Core Files
 - `cryptic_trainer.py` — solver, frame generation, trace
-- `server.py` — HTTP server wrapper (localhost:5001) for UI integration
+- `server.py` — HTTP server (localhost:5001) for solver API + clue storage
 
 ### Training & Testing
 - `regression_cases.json` — training set with expected answers
 - `puzzle_scraper.py` — scrapes Times for the Times blog for training data
 - `puzzle_tester.py` — test harness for comparing solver vs ground truth
 - `puzzle.json` — current puzzle being tested
+
+### Data Storage (auto-generated)
+- `clues_db.json` — server-side clue storage (replaces browser IndexedDB)
 
 ### Learned Cache (auto-generated)
 - `learned_synonyms.json` — validated AI-provided synonyms
@@ -473,5 +476,43 @@ Reset with: `python cryptic_trainer.py clear-stats`
 - `DESIGN_SPEC.md` — this document (architecture & workflow)
 - `CRYPTIC_TRAINER_DESIGN_SPEC.md` — detailed output schema
 - `README.md` — quick start guide
+
+---
+
+## Server API
+
+The `server.py` provides both the solver endpoint and clue storage REST API.
+
+### Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/solve` | POST | Solve a cryptic clue (JSON body: `{clue, length, knownAnswer?}`) |
+| `/clues` | GET | List all saved clues |
+| `/clues` | POST | Save/update a clue (JSON body with `id` field) |
+| `/clues/<id>` | DELETE | Delete a clue by ID |
+| `/clues/bulk` | POST | Bulk import clues (JSON body: `{items: [...]}`) |
+| `/clues/clear` | POST | Clear all clues |
+| `/parser-issues` | GET | List parser issues |
+| `/parser-issues` | POST | Save a parser issue |
+
+### Storage Format
+
+Clues are stored in `clues_db.json`:
+```json
+{
+  "version": 1,
+  "training_items": {
+    "clue-id-1": { "id": "...", "clue": "...", "patternData": {...} },
+    ...
+  },
+  "parser_issues": { ... }
+}
+```
+
+Each clue's `patternData` includes puzzle metadata:
+- `puzzleNumber` — e.g., 29435
+- `publication` — e.g., "times"
+- `setter` — e.g., "Unknown"
 
 ---

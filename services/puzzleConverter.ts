@@ -386,7 +386,8 @@ function buildEngineVariables(clue: PuzzleClue): Record<string, string> {
  */
 export function convertClueToPatternInstance(
   clue: PuzzleClue,
-  clueNumber: string
+  clueNumber: string,
+  puzzleMetadata?: { publication?: string; puzzleNumber?: number; setter?: string }
 ): PatternInstance {
   // Check for special clue types (assembly.method indicates this)
   const isDoubleDefinition = clue.assembly.method === 'double_definition';
@@ -450,8 +451,10 @@ export function convertClueToPatternInstance(
     // Human-readable comments
     solverComments: getCommentsArray(clue.comments),
 
-    // Confidence from the solver
-    // (could add confidence field to PatternInstance if needed)
+    // Puzzle metadata for identification
+    publication: puzzleMetadata?.publication,
+    puzzleNumber: puzzleMetadata?.puzzleNumber,
+    setter: puzzleMetadata?.setter,
   };
 }
 
@@ -461,8 +464,15 @@ export function convertClueToPatternInstance(
 export function convertPuzzleFile(puzzle: PuzzleFile): PatternInstance[] {
   const instances: PatternInstance[] = [];
 
+  // Extract puzzle metadata to attach to each clue
+  const puzzleMetadata = {
+    publication: puzzle.metadata?.publisher,
+    puzzleNumber: puzzle.metadata?.puzzle_number ? parseInt(puzzle.metadata.puzzle_number, 10) : undefined,
+    setter: puzzle.metadata?.setter,
+  };
+
   for (const [clueNumber, clue] of Object.entries(puzzle.clues)) {
-    instances.push(convertClueToPatternInstance(clue, clueNumber));
+    instances.push(convertClueToPatternInstance(clue, clueNumber, puzzleMetadata));
   }
 
   return instances;

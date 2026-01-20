@@ -62,14 +62,27 @@ Before editing ANY file, you MUST:
 
 ## ARCHITECTURE
 
-The system has two components:
+The system has two components that must BOTH be running:
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Python Solver | `cryptic_trainer_bundle/` | Constraint-first solver with traceable proofs |
-| React UI | Root directory | Training interface that displays solver output |
+| Component | Location | Port | Start Command |
+|-----------|----------|------|---------------|
+| Python Backend | `cryptic_trainer_bundle/` | 5001 | `python3 server.py` |
+| React UI | Root directory | 3000 | `npm run dev` |
 
 **Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
+
+### Quick Start (two terminals)
+```bash
+# Terminal 1: Python backend
+cd cryptic_trainer_bundle && python3 server.py
+
+# Terminal 2: React UI (from project root)
+npm run dev
+```
+
+### Data Storage
+- Clues stored in `cryptic_trainer_bundle/clues_db.json` (server-side, not browser)
+- Each clue has `puzzleNumber`, `publication`, `setter` metadata
 
 ---
 
@@ -125,4 +138,4 @@ See `cryptic_trainer_bundle/DESIGN_SPEC.md` for the full Times for the Times wor
 
 ---
 
-*Last updated: 2026-01-08*
+*Last updated: 2026-01-20*
