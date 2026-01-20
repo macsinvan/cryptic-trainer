@@ -8,7 +8,7 @@ import { SolverMode } from './components/SolverMode';
 import { ManualEntryMode } from './components/ManualEntryMode';
 import { DataManager } from './components/DataManager';
 import { ClueTrainer } from './components/ClueTrainer';
-import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus } from './services/clueManager';
+import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus, getTrainingQueue } from './services/clueManager';
 
 const EXTERNAL_BLOGGERS = [
   {
@@ -279,8 +279,34 @@ export default function App() {
     </div>
   );
 
-  // Test view for ClueTrainer
-  if (showTrainerTest) {
+  // Test view for ClueTrainer - now uses real imported clues
+  const TrainerTestView = () => {
+    const [testQueue, setTestQueue] = React.useState<any[]>([]);
+    const [currentIndex, setCurrentIndex] = React.useState(0);
+
+    React.useEffect(() => {
+      // Get clues from all publications that have patternData
+      const allClues: any[] = [];
+      PUBLICATIONS.forEach(pub => {
+        const queue = getTrainingQueue(pub.id);
+        queue.forEach(item => {
+          if (item.patternData?.definitionText) {
+            allClues.push(item);
+          }
+        });
+      });
+      setTestQueue(allClues);
+    }, []);
+
+    const currentItem = testQueue[currentIndex];
+    const handleNext = () => {
+      if (currentIndex < testQueue.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        setCurrentIndex(0); // Loop back
+      }
+    };
+
     return (
       <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
         <div className="max-w-7xl mx-auto">
@@ -294,30 +320,56 @@ export default function App() {
             >
               <ArrowLeft size={20} className="mr-2" /> Exit Test Mode
             </button>
-            <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-bold">
-              ClueTrainer Test Mode
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500">
+                {testQueue.length > 0 ? `${currentIndex + 1} of ${testQueue.length}` : 'Loading...'}
+              </span>
+              <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-bold">
+                ClueTrainer Test Mode
+              </span>
+            </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-bold text-slate-600">Test Publication</span>
-                <span className="text-xs text-slate-400">Mock Data</span>
+          {currentItem ? (
+            <>
+              <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs font-bold text-slate-600">
+                      {PUBLICATIONS.find(p => p.id === currentItem.publicationId)?.name || 'Unknown'}
+                    </span>
+                    {currentItem.setterName && currentItem.setterName !== 'Community' && (
+                      <span className="text-xs text-slate-400">by {currentItem.setterName}</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="text-xs text-slate-400 mt-2">
-              Testing ClueTrainer component with mock data
-            </div>
-          </div>
 
-          <ClueTrainer
-            onNext={() => alert('Next clue would load here')}
-            onCorrect={() => console.log('Correct!')}
-          />
+              <ClueTrainer
+                key={currentItem.id}
+                patternData={currentItem.patternData}
+                clueNumber={currentItem.clueNumber}
+                enumeration={currentItem.patternData?.enumeration}
+                onNext={handleNext}
+                onCorrect={() => console.log('Correct!')}
+              />
+            </>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+              <p className="text-slate-500">
+                {testQueue.length === 0 && isDbReady
+                  ? 'No clues with definition data found. Import some clues first!'
+                  : 'Loading clues...'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
+  };
+
+  if (showTrainerTest) {
+    return <TrainerTestView />;
   }
 
   return (
