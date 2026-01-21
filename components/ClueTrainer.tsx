@@ -854,9 +854,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
         {/* Prompt - evolves based on phase */}
         {phase !== 'complete' && (() => {
-          const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'fodder');
+          const isIndicatorSelection = phase === 'wordplay' && wordplaySubPhase === 'indicator';
+          const isFodderSelection = phase === 'wordplay' && wordplaySubPhase === 'fodder';
+          const isFocusedSelection = isIndicatorSelection || isFodderSelection;
+
           return (
             <div className="text-center mt-4">
+              {/* Standard prompt text */}
               <div className={`transition-all duration-300 ${
                 isFocusedSelection
                   ? 'text-base font-semibold text-indigo-700 bg-indigo-50 rounded-lg px-3 py-1.5 inline-block'
@@ -864,6 +868,45 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               }`}>
                 {getPromptText()}
               </div>
+
+              {/* Check Indicator button - in clue box */}
+              {isIndicatorSelection && selectedIndicatorIndices.length > 0 && !hasCheckedIndicator && (
+                <div className="mt-3">
+                  <button
+                    onClick={handleCheckIndicator}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2 mx-auto"
+                  >
+                    <Check size={16} />
+                    Check Indicator
+                  </button>
+                </div>
+              )}
+
+              {/* Check Fodder button - in clue box */}
+              {isFodderSelection && selectedFodderIndices.length > 0 && !hasCheckedFodder && (
+                <div className="mt-3">
+                  <button
+                    onClick={handleCheckFodder}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2 mx-auto"
+                  >
+                    <Check size={16} />
+                    Check Fodder
+                  </button>
+                </div>
+              )}
+
+              {/* Check Definition button - in clue box */}
+              {phase === 'definition' && selectedIndices.length > 0 && !hasCheckedDefinition && (
+                <div className="mt-3">
+                  <button
+                    onClick={handleCheckDefinition}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2 mx-auto"
+                  >
+                    <Check size={16} />
+                    Check Definition
+                  </button>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -999,18 +1042,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             </div>
           )}
 
-          {/* Step 1: Check button - appears when user has selected words but hasn't checked yet */}
-          {selectedIndices.length > 0 && !hasCheckedDefinition && (
-            <button
-              onClick={handleCheckDefinition}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-            >
-              <Check size={16} />
-              Check
-            </button>
-          )}
+          {/* Check button moved to clue box above */}
 
-          {/* Step 2: Result after checking - with key learning */}
+          {/* Result after checking - with key learning */}
           {hasCheckedDefinition && isDefinitionCorrect && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -1163,16 +1197,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               {/* === INDICATOR SUB-PHASE === */}
               {wordplaySubPhase === 'indicator' && (
                 <div className="space-y-3">
-                  {/* Check button */}
-                  {selectedIndicatorIndices.length > 0 && !hasCheckedIndicator && (
-                    <button
-                      onClick={handleCheckIndicator}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-                    >
-                      <Check size={16} />
-                      Check Indicator
-                    </button>
-                  )}
+                  {/* Check button moved to clue box above */}
 
                   {/* Correct indicator - auto-advances */}
                   {hasCheckedIndicator && isIndicatorCorrect && (
@@ -1200,16 +1225,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                     <span className="text-indigo-600 font-medium">Indicator: "{currentIndicatorTarget.indicator}"</span>
                   </div>
 
-                  {/* Check button */}
-                  {selectedFodderIndices.length > 0 && !hasCheckedFodder && (
-                    <button
-                      onClick={handleCheckFodder}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-                    >
-                      <Check size={16} />
-                      Check Fodder
-                    </button>
-                  )}
+                  {/* Check button moved to clue box above */}
 
                   {/* Correct fodder - auto-advances */}
                   {hasCheckedFodder && isFodderCorrect && (

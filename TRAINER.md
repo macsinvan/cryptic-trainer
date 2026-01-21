@@ -83,9 +83,9 @@ This forces conscious thinking about clue structure before diving in.
 **Hint:** "Every clue has a definition + wordplay, both leading to the same answer. Finding that split is key to solving every clue. It is usually easier to spot the definition as it is always at the START or END of the clue."
 
 **Interaction:**
-- User taps words to select (contiguous selection)
+- User taps words in the clue box to select (contiguous selection)
+- "Check Definition" button appears in the clue box when words are selected
 - Green highlight when correct
-- "Yes, that's the definition" button appears on correct selection
 - Back link to return to clue type selection if needed
 
 ### Phase 2: Wordplay
@@ -93,17 +93,17 @@ This forces conscious thinking about clue structure before diving in.
 
 **For each independent wordplay step (expanded panel):**
 
-1. **Find indicator** - User taps word(s) → Check → Orange highlight
-2. **Find fodder** - User taps word(s) → Check → Blue highlight
+1. **Find indicator** - User taps word(s) in clue box → "Check Indicator" button appears in clue box → Orange highlight
+2. **Find fodder** - User taps word(s) in clue box → "Check Fodder" button appears in clue box → Blue highlight
 3. **Enter result** - User types what the wordplay produces (with Reveal button)
-4. **Panel collapses** - Shows summary: "busy" (anagram) + "lymph too" → PHLOTOMY
+4. **Panel collapses** - Shows summary with expandable key learnings
 
 **Then for dependent steps:**
 - Same flow, but fodder references results from previous steps
 
 **Panel States:**
 - **Expanded** - Active step, user working on it
-- **Collapsed** - Completed step, shows key info only
+- **Collapsed** - Completed step, clickable to expand key learnings
 
 ### Phase 3: Solve
 **Goal:** User enters the answer
@@ -129,9 +129,11 @@ This forces conscious thinking about clue structure before diving in.
 
 1. **Explicit choice upfront** - User consciously identifies clue type before proceeding
 2. **Continuous reveal** - Highlights accumulate, no modal steps
-3. **Answer grid always visible** - User can attempt answer at any time
+3. **Answer grid always visible** - User can attempt answer at any time (hidden during indicator/fodder selection for focus)
 4. **Natural prompts** - Text evolves based on state, not phase labels
 5. **No step-based feeling** - Flow should feel like guided discovery
+6. **Unified interaction zone** - All Check buttons appear in the clue box where user is already focused
+7. **Expandable learnings** - Completed steps can be clicked to reveal key learnings
 
 ---
 
