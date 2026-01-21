@@ -918,11 +918,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       {/* CHOOSE PHASE - User picks clue type */}
       {phase === 'choose' && (
         <div className="bg-white rounded-lg border border-slate-200 p-4 animate-in fade-in slide-in-from-bottom-2">
-          {/* Introduction text - the fundamental rule */}
+          {/* Introduction text - instructional guidance */}
           <div className="bg-slate-50 rounded-md p-3 border border-slate-200 mb-4">
             <p className="text-slate-600 text-sm leading-relaxed">
-              Every clue has a <strong>definition + wordplay</strong>, both leading to the same answer.
-              Finding that split is key to solving every clue. The definition is always at the <strong>start</strong> or <strong>end</strong>.
+              Before solving, look for a clean split between the <strong>definition</strong> (always at start or end) and <strong>wordplay</strong> (the rest).
+              Skilled solvers stay flexible — let the structure tell you how the clue wants to be read.
+            </p>
+            <p className="text-slate-500 text-xs mt-2 italic">
+              Tip: <strong>?</strong> often signals wordplay or a cryptic definition. <strong>!</strong> traditionally marks an &lit clue. Other punctuation is usually just for the surface reading.
             </p>
           </div>
 
@@ -934,35 +937,39 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">What type of clue is this?</h3>
           </div>
 
-          {/* All clue type options */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* All clue type options - stacked for more room */}
+          <div className="space-y-2">
             <button
               onClick={handleChooseStandard}
-              className="text-left p-3 rounded-md border-2 border-indigo-300 bg-indigo-50 hover:border-indigo-500 hover:bg-indigo-100 transition-all"
+              className="w-full text-left p-3 rounded-md border-2 border-indigo-300 bg-indigo-50 hover:border-indigo-500 hover:bg-indigo-100 transition-all"
             >
               <span className="font-bold text-indigo-700 text-sm">Standard</span>
-              <p className="text-xs text-indigo-600">Definition + wordplay</p>
+              <p className="text-xs text-indigo-600 mt-0.5">Do you see a definition at the start or end, with wordplay indicators in the rest?</p>
+              <p className="text-xs text-indigo-500 italic mt-1">e.g. "Crazy golf equipment (7)" → PUTTERS (anagram of "putters")</p>
             </button>
             <button
               onClick={() => handleSpecialType('double_definition')}
-              className="text-left p-3 rounded-md border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+              className="w-full text-left p-3 rounded-md border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
             >
               <span className="font-bold text-slate-700 text-sm">Double Definition</span>
-              <p className="text-xs text-slate-500">Two definitions</p>
+              <p className="text-xs text-slate-500 mt-0.5">Do you see two separate meanings with no wordplay indicators?</p>
+              <p className="text-xs text-slate-400 italic mt-1">e.g. "Sound barrier (5)" → FENCE (healthy + obstacle)</p>
             </button>
             <button
               onClick={() => handleSpecialType('cryptic_definition')}
-              className="text-left p-3 rounded-md border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+              className="w-full text-left p-3 rounded-md border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
             >
               <span className="font-bold text-slate-700 text-sm">Cryptic Definition</span>
-              <p className="text-xs text-slate-500">Entire clue is a hint</p>
+              <p className="text-xs text-slate-500 mt-0.5">Does the whole clue read as one whimsical description with no obvious wordplay?</p>
+              <p className="text-xs text-slate-400 italic mt-1">e.g. "HIJKLMNO? (5)" → WATER (H to O = H₂O)</p>
             </button>
             <button
               onClick={() => handleSpecialType('and_lit')}
-              className="text-left p-3 rounded-md border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+              className="w-full text-left p-3 rounded-md border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
             >
-              <span className="font-bold text-slate-700 text-sm">&lit</span>
-              <p className="text-xs text-slate-500">Both combined</p>
+              <span className="font-bold text-slate-700 text-sm">&lit <span className="font-normal text-slate-400">("and literally so")</span></span>
+              <p className="text-xs text-slate-500 mt-0.5">Does the whole clue both describe AND construct the answer simultaneously?</p>
+              <p className="text-xs text-slate-400 italic mt-1">e.g. "Terribly angered! (7)" → ENRAGED (anagram + literal meaning)</p>
             </button>
           </div>
         </div>
