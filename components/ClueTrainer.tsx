@@ -827,7 +827,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
       {/* CLUE DISPLAY */}
       <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200 text-center relative">
-        <div className="text-xl md:text-2xl font-serif text-slate-900 leading-relaxed flex flex-wrap justify-center items-baseline gap-x-2 gap-y-2">
+        <div className="text-xl md:text-2xl font-serif text-slate-900 leading-relaxed inline-flex flex-wrap items-baseline gap-x-2 gap-y-2">
           {/* Clue number */}
           {displayClueNumber && (
             <span className="text-indigo-600 font-bold">{displayClueNumber}</span>
