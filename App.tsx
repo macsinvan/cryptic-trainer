@@ -308,43 +308,32 @@ export default function App() {
     };
 
     return (
-      <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
+      <div className="min-h-screen bg-slate-100 p-2 font-sans">
+        <div className="max-w-2xl mx-auto">
+          {/* Compact header row */}
+          <div className="flex items-center justify-between mb-3 px-1">
             <button
               onClick={() => {
                 setShowTrainerTest(false);
                 window.history.replaceState({}, '', window.location.pathname);
               }}
-              className="flex items-center text-slate-500 hover:text-slate-800 transition-colors"
+              className="flex items-center text-slate-400 hover:text-slate-600 transition-colors text-sm"
             >
-              <ArrowLeft size={20} className="mr-2" /> Exit Test Mode
+              <ArrowLeft size={16} className="mr-1" /> Exit
             </button>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500">
-                {testQueue.length > 0 ? `${currentIndex + 1} of ${testQueue.length}` : 'Loading...'}
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span>
+                {PUBLICATIONS.find(p => p.id === currentItem?.publicationId)?.name || ''}
               </span>
-              <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-bold">
-                ClueTrainer Test Mode
+              <span>•</span>
+              <span>
+                {testQueue.length > 0 ? `${currentIndex + 1}/${testQueue.length}` : '...'}
               </span>
             </div>
           </div>
 
           {currentItem ? (
             <>
-              <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs font-bold text-slate-600">
-                      {PUBLICATIONS.find(p => p.id === currentItem.publicationId)?.name || 'Unknown'}
-                    </span>
-                    {currentItem.setterName && currentItem.setterName !== 'Community' && (
-                      <span className="text-xs text-slate-400">by {currentItem.setterName}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               <ClueTrainer
                 key={currentItem.id}
                 patternData={currentItem.patternData}
