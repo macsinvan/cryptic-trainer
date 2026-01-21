@@ -7,8 +7,7 @@ import { TrainingMode } from './components/TrainingMode';
 import { SolverMode } from './components/SolverMode';
 import { ManualEntryMode } from './components/ManualEntryMode';
 import { DataManager } from './components/DataManager';
-import { ClueTrainer } from './components/ClueTrainer';
-import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus, getTrainingQueue } from './services/clueManager';
+import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus } from './services/clueManager';
 
 const EXTERNAL_BLOGGERS = [
   {
@@ -55,12 +54,6 @@ export default function App() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passInput, setPassInput] = useState('');
   const [passError, setPassError] = useState(false);
-
-  // Test mode for ClueTrainer component (access via ?test=trainer)
-  const [showTrainerTest, setShowTrainerTest] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('test') === 'trainer';
-  });
 
   useEffect(() => {
     const init = async () => {
@@ -278,88 +271,6 @@ export default function App() {
       </div>
     </div>
   );
-
-  // Test view for ClueTrainer - now uses real imported clues
-  const TrainerTestView = () => {
-    const [testQueue, setTestQueue] = React.useState<any[]>([]);
-    const [currentIndex, setCurrentIndex] = React.useState(0);
-
-    React.useEffect(() => {
-      // Get clues from all publications that have patternData
-      const allClues: any[] = [];
-      PUBLICATIONS.forEach(pub => {
-        const queue = getTrainingQueue(pub.id);
-        queue.forEach(item => {
-          if (item.patternData?.definitionText) {
-            allClues.push(item);
-          }
-        });
-      });
-      setTestQueue(allClues);
-    }, []);
-
-    const currentItem = testQueue[currentIndex];
-    const handleNext = () => {
-      if (currentIndex < testQueue.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else {
-        setCurrentIndex(0); // Loop back
-      }
-    };
-
-    return (
-      <div className="min-h-screen bg-slate-100 p-2 font-sans">
-        <div className="max-w-2xl mx-auto">
-          {/* Compact header row */}
-          <div className="flex items-center justify-between mb-3 px-1">
-            <button
-              onClick={() => {
-                setShowTrainerTest(false);
-                window.history.replaceState({}, '', window.location.pathname);
-              }}
-              className="flex items-center text-slate-400 hover:text-slate-600 transition-colors text-sm"
-            >
-              <ArrowLeft size={16} className="mr-1" /> Exit
-            </button>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span>
-                {PUBLICATIONS.find(p => p.id === currentItem?.publicationId)?.name || ''}
-              </span>
-              <span>•</span>
-              <span>
-                {testQueue.length > 0 ? `${currentIndex + 1}/${testQueue.length}` : '...'}
-              </span>
-            </div>
-          </div>
-
-          {currentItem ? (
-            <>
-              <ClueTrainer
-                key={currentItem.id}
-                patternData={currentItem.patternData}
-                clueNumber={currentItem.clueNumber}
-                enumeration={currentItem.patternData?.enumeration}
-                onNext={handleNext}
-                onCorrect={() => console.log('Correct!')}
-              />
-            </>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
-              <p className="text-slate-500">
-                {testQueue.length === 0 && isDbReady
-                  ? 'No clues with definition data found. Import some clues first!'
-                  : 'Loading clues...'}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  if (showTrainerTest) {
-    return <TrainerTestView />;
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">

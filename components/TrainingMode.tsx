@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Trophy, ChevronRight } from 'lucide-react';
 import { PUBLICATIONS } from '../data';
 import { ScannedClue, TrainingItem } from '../types';
-import { ClueSolver } from './ClueSolver';
+import { ClueTrainer } from './ClueTrainer';
 import { getTrainingQueue } from '../services/clueManager';
 import { STANDARD_CLUE_TYPES } from '../data';
 
@@ -59,11 +59,13 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
     }
 
     const items = getTrainingQueue(publicationId);
-    setQueue(items);
+    // Filter to only clues with patternData.definitionText (required for ClueTrainer)
+    const trainableItems = items.filter(item => item.patternData?.definitionText);
+    setQueue(trainableItems);
   }, [publicationId, isCustomMode, customClues]);
 
-  // No JIT AI evaluation - all processing done at import time
-  // If patternData is missing, the ClueSolver will work with evaluation data only
+  // ClueTrainer requires patternData with definitionText
+  // Clues without this data are filtered out of the queue
 
   const currentItem = queue[currentIndex];
 
@@ -107,61 +109,47 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={onExit} className="flex items-center text-slate-500 hover:text-slate-800 transition-colors">
-            <ArrowLeft size={20} className="mr-2" /> Exit Dojo
+    <div className="min-h-screen bg-slate-100 p-2 font-sans">
+      <div className="max-w-2xl mx-auto">
+        {/* Compact header row */}
+        <div className="flex items-center justify-between mb-3 px-1">
+          <button onClick={onExit} className="flex items-center text-slate-500 hover:text-slate-800 transition-colors text-sm">
+            <ArrowLeft size={16} className="mr-1" /> Exit
           </button>
-          <div className="flex items-center gap-4">
-            <div className="bg-white px-3 py-1 rounded-full border border-slate-200 text-sm font-bold text-slate-600 shadow-sm">
-              Streak: <span className="text-orange-500">{streak} 🔥</span>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span>{pubName}</span>
+            <span>•</span>
+            <span>{currentIndex + 1}/{queue.length}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="bg-white px-2 py-0.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600">
+              <span className="text-orange-500">{streak}🔥</span>
             </div>
-            <div className="bg-slate-800 px-4 py-1 rounded-full text-white font-bold shadow-sm flex items-center gap-2">
-              <Trophy size={14} className="text-yellow-400" />
-              Score: {score}
+            <div className="bg-slate-800 px-2 py-0.5 rounded-full text-white text-xs font-bold flex items-center gap-1">
+              <Trophy size={12} className="text-yellow-400" />
+              {score}
             </div>
+            <button
+              onClick={skipClue}
+              className="flex items-center gap-0.5 text-xs font-bold text-slate-400 hover:text-slate-600"
+            >
+              Skip <ChevronRight size={14} />
+            </button>
           </div>
         </div>
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-3xl mx-auto">
-             {/* Clue Metadata Header */}
-             <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
-               <div className="flex justify-between items-center">
-                 <div className="flex items-center gap-4">
-                   <span className="text-xs font-bold text-slate-600">{pubName}</span>
-                   {currentItem.setterName && currentItem.setterName !== 'Community' && (
-                     <span className="text-xs text-slate-400">by {currentItem.setterName}</span>
-                   )}
-                   {currentItem.patternData?.clueNumber && (
-                     <span className="text-xs font-mono bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">
-                       {currentItem.patternData.clueNumber}
-                     </span>
-                   )}
-                 </div>
-                 <button
-                     onClick={skipClue}
-                     className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider"
-                 >
-                     Skip <ChevronRight size={14} />
-                 </button>
-               </div>
-               <div className="text-xs text-slate-400 mt-2">
-                 Clue {currentIndex + 1} of {queue.length}
-               </div>
-             </div>
-
-            {/* Debug: log patternData variables */}
-            {console.log('[TrainingMode] patternData:', currentItem.patternData)}
-            {console.log('[TrainingMode] patternData.variables:', currentItem.patternData?.variables)}
-            <ClueSolver
-                evaluation={currentItem.evaluation}
-                patternData={currentItem.patternData} // Pass the new engine data
-                onCorrect={handleCorrect}
-                onNext={nextClue}
-                setterName={currentItem.setterName}
-                level={currentItem.evaluation?.difficulty.toLowerCase() || currentItem.example.level}
-            />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <ClueTrainer
+            key={currentItem.id}
+            patternData={currentItem.patternData}
+            onCorrect={handleCorrect}
+            onNext={nextClue}
+            onGiveUp={handleGiveUp}
+            clueNumber={currentItem.patternData?.clueNumber}
+            enumeration={currentItem.patternData?.enumeration}
+            setterName={currentItem.setterName}
+            difficulty={currentItem.evaluation?.difficulty?.toLowerCase() || 'medium'}
+          />
         </div>
       </div>
     </div>
