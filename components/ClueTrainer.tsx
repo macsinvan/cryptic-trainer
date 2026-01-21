@@ -52,6 +52,72 @@ interface ClueTrainerProps {
 }
 
 // =============================================================================
+// KEY LEARNINGS - Educational text shown after successful steps
+// =============================================================================
+
+const DEFINITION_LEARNINGS: Record<ClueType, string> = {
+  standard: "The definition is always at the **start** or **end** — never buried in the middle. It must work as a standalone synonym or phrase that could replace the answer in a sentence.",
+  double_definition: "Double definitions have **no wordplay** — just two different meanings of the same word. They're often short clues (2-4 words). Look for where one definition ends and another begins.",
+  triple_definition: "Triple definitions are rare gems — three separate meanings for one word, with no wordplay. Each part must independently define the answer.",
+  cryptic_definition: "The **entire clue** is a misleading definition — there's no separate wordplay. The setter uses puns, misdirection, or whimsy. Question marks often signal this type.",
+  and_lit: "In an &lit clue, the **whole clue is both definition AND wordplay** simultaneously. The surface reading describes the answer while also containing the cryptic instructions. Often marked with \"!\" at the end."
+};
+
+const WORDPLAY_LEARNINGS: Record<string, string> = {
+  anagram: "Anagram indicators suggest **disorder or change**: \"mixed\", \"broken\", \"wild\", \"drunk\", \"crazy\". The fodder (letters to rearrange) is always **adjacent** to the indicator.",
+  container: "Container indicators signal one thing goes **inside** another: \"in\", \"around\", \"holding\", \"swallowing\". The fodder is **adjacent** to the indicator.",
+  hidden: "Hidden word indicators conceal the answer **consecutively within** the clue text: \"in\", \"part of\", \"some\", \"held by\". The fodder is **adjacent** to the indicator.",
+  reversal: "Reversal indicators suggest **backwards** movement: \"back\", \"returned\", \"up\" (in down clues), \"west\" (in across clues). The fodder is **adjacent** to the indicator.",
+  deletion: "Deletion indicators **remove letters**: \"headless\" (first), \"endless\" (last), \"heartless\" (middle). The fodder is **adjacent** to the indicator.",
+  homophone: "Homophone indicators signal a word that **sounds like** the answer: \"heard\", \"said\", \"reportedly\", \"on the radio\". The fodder is **adjacent** to the indicator.",
+  abbreviation: "Common abbreviations: directions (N,S,E,W), titles (DR, ST, REV), units, symbols. \"Doctor\" = DR, \"note\" = musical letters.",
+  letter_selection: "Letter selection extracts **specific letters**: \"first\" (initial), \"last\" (final), \"odd\", \"even\", \"regularly\" (alternating). The fodder is **adjacent** to the indicator.",
+  letter_movement: "Letter movement **repositions letters** within a word, indicated by words suggesting motion or displacement. The fodder is **adjacent** to the indicator.",
+  synonym: "Synonym substitution replaces a word with its **equivalent meaning**. The indicator and fodder combine through direct word replacement."
+};
+
+// Generate clue-specific learning sentence based on step type
+const getClueSpecificLearning = (stepType: string, indicator: string, fodder: string): string => {
+  const type = stepType?.toLowerCase() || '';
+  switch (type) {
+    case 'anagram':
+      return `Here, "${indicator}" signalled an anagram and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'container':
+      return `Here, "${indicator}" signalled a container and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'hidden':
+      return `Here, "${indicator}" signalled a hidden word and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'reversal':
+      return `Here, "${indicator}" signalled a reversal and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'deletion':
+      return `Here, "${indicator}" signalled a deletion and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'homophone':
+      return `Here, "${indicator}" signalled a homophone and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'letter_selection':
+      return `Here, "${indicator}" signalled letter selection and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'letter_movement':
+      return `Here, "${indicator}" signalled letter movement and the fodder "${fodder}" was found adjacent to the indicator.`;
+    case 'abbreviation':
+      return `Here, "${fodder}" is a common abbreviation that solvers learn to recognise.`;
+    case 'synonym':
+      return `Here, "${fodder}" provides a synonym that contributes to the answer.`;
+    default:
+      // No silent fallback - unknown types should be fixed in metadata
+      return '';
+  }
+};
+
+// Helper to render markdown-style **bold** text as JSX
+const renderLearningText = (text: string): React.ReactNode => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
+// =============================================================================
 // MOCK DATA (for development - remove when wiring up)
 // =============================================================================
 
@@ -901,12 +967,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Find Definition</h3>
           </div>
 
-          {/* Instruction card */}
-          <div className="bg-slate-50 rounded-md p-3 border border-slate-200 mb-3">
-            <p className="text-slate-600 text-sm">
-              Tap the definition words above. It's always at the <strong>start</strong> or <strong>end</strong> of the clue.
-            </p>
-          </div>
+          {/* Instruction card - hide once definition is correct */}
+          {!(hasCheckedDefinition && isDefinitionCorrect) && (
+            <div className="bg-slate-50 rounded-md p-3 border border-slate-200 mb-3">
+              <p className="text-slate-600 text-sm">
+                Tap the definition words above. It's always at the <strong>start</strong> or <strong>end</strong> of the clue.
+              </p>
+            </div>
+          )}
 
           {/* Step 1: Check button - appears when user has selected words but hasn't checked yet */}
           {selectedIndices.length > 0 && !hasCheckedDefinition && (
@@ -919,19 +987,26 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             </button>
           )}
 
-          {/* Step 2: Result after checking */}
+          {/* Step 2: Result after checking - with key learning */}
           {hasCheckedDefinition && isDefinitionCorrect && (
-            <div className="flex items-center gap-3">
-              <div className="bg-green-50 border border-green-200 rounded-md px-3 py-2 text-green-700 font-medium text-sm flex items-center gap-2">
-                <Check size={14} className="text-green-600" />
-                Correct!
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-50 border border-green-200 rounded-md px-3 py-2 text-green-700 font-bold text-sm flex items-center gap-2">
+                  <Check size={14} className="text-green-600" />
+                  Nice split!
+                </div>
+                <button
+                  onClick={handleDefinitionConfirm}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shadow-sm flex items-center gap-1"
+                >
+                  Continue <ChevronRight size={16} />
+                </button>
               </div>
-              <button
-                onClick={handleDefinitionConfirm}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shadow-sm flex items-center gap-1"
-              >
-                Continue <ChevronRight size={16} />
-              </button>
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                <p className="text-amber-800 text-sm leading-relaxed">
+                  <strong>Key learning:</strong> {renderLearningText(DEFINITION_LEARNINGS[identifiedType || 'standard'])}
+                </p>
+              </div>
             </div>
           )}
 
@@ -1171,13 +1246,32 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         </div>
                       )}
 
-                      {/* Correct result - complete step */}
+                      {/* Correct result - complete step with key learning */}
                       {hasCheckedResult && isResultCorrect && (
                         <div className="space-y-3">
                           <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
                             <Check size={14} className="text-green-600" />
                             Correct! {currentIndicatorTarget.explanation || `"${currentIndicatorTarget.fodder}" → ${currentIndicatorTarget.result}`}
                           </div>
+                          {/* Key learning for this wordplay type */}
+                          {(() => {
+                            const stepType = currentIndicatorTarget.stepType?.toLowerCase() || '';
+                            const learning = WORDPLAY_LEARNINGS[stepType];
+                            const clueSpecific = getClueSpecificLearning(stepType, currentIndicatorTarget.indicator, currentIndicatorTarget.fodder);
+                            if (!learning) return null;
+                            return (
+                              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-2">
+                                <p className="text-amber-800 text-sm leading-relaxed">
+                                  <strong>Key learning:</strong> {renderLearningText(learning)}
+                                </p>
+                                {clueSpecific && (
+                                  <p className="text-amber-700 text-sm leading-relaxed italic">
+                                    {clueSpecific}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <button
                             onClick={handleStepComplete}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"

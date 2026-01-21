@@ -164,7 +164,7 @@
             "hint": "conclude job at last",
             "complexity": 2,
             "isAssembly": false,
-            "stepType": "unknown",
+            "stepType": "letter_selection",
             "explanation": "conclude job \u2192 EB"
           },
           {

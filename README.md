@@ -95,3 +95,16 @@ See `cryptic_trainer_bundle/DESIGN_SPEC.md` for the full workflow:
 1. Create a puzzle JSON file (see `cryptic_trainer_bundle/DESIGN_SPEC.md` for format)
 2. In the UI, click "Import Puzzle" and select the JSON file
 3. Each clue imports with `puzzleNumber`, `publication`, and `setter` metadata
+
+## Deployment
+
+**Production URL:** https://www.cryptic-trainer.com
+
+The React UI is deployed via Vercel. The Python backend runs separately.
+
+```bash
+# Build for production
+npm run build
+```
+
+Vercel auto-deploys from the `main` branch.
