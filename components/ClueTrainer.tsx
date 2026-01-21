@@ -113,6 +113,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [isResultCorrect, setIsResultCorrect] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Collapsed steps
   const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
+  const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], fodderIndices: number[]}[]>([]); // Persisted wordplay highlights
 
   // For special clue types
   const [identifiedType, setIdentifiedType] = useState<ClueType | null>(null);
@@ -218,6 +219,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setIsResultCorrect(false);
     setCompletedSteps([]);
     setRevealedIndicatorSteps([]);
+    setConfirmedHighlights([]);
 
     // Initialize answer grid
     const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
@@ -321,7 +323,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       text: defText,
       wordIndices: [...selectedIndices],
       colorType: 'GREEN',
-      explanation: `"${defText}" means ${answer}`
+      explanation: `"${defText}" is the definition`
     }]);
 
     setSelectedIndices([]);
@@ -461,6 +463,12 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   };
 
   const handleStepComplete = () => {
+    // Save confirmed highlights before clearing
+    setConfirmedHighlights(prev => [...prev, {
+      indicatorIndices: [...selectedIndicatorIndices],
+      fodderIndices: [...selectedFodderIndices]
+    }]);
+
     // Mark step as completed (collapsed)
     setCompletedSteps(prev => [...prev, currentWordplayStep]);
 
@@ -595,11 +603,21 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   };
 
   const getWordStyle = (wordIndex: number): string => {
-    // Check if word is in discovered parts
+    // Check if word is in discovered parts (definition)
     for (const part of discoveredParts) {
       if (part.wordIndices.includes(wordIndex)) {
         const theme = WORKFLOW_COLORS[part.colorType];
         return `${theme?.bg || 'bg-slate-200'} ${theme?.text || 'text-slate-600'} ${theme?.border || ''} font-bold`;
+      }
+    }
+
+    // Check persisted wordplay highlights from completed steps
+    for (const highlight of confirmedHighlights) {
+      if (highlight.indicatorIndices.includes(wordIndex)) {
+        return 'bg-orange-200 text-orange-800 ring-2 ring-orange-400 font-bold';
+      }
+      if (highlight.fodderIndices.includes(wordIndex)) {
+        return 'bg-blue-200 text-blue-800 ring-2 ring-blue-400 font-bold';
       }
     }
 
@@ -761,74 +779,116 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         )}
       </div>
 
-      {/* ANSWER GRID - Always visible */}
-      <div className="flex justify-center gap-2 md:gap-3 py-2">
-        {grid.map((char, i) => (
-          <input
-            key={i}
-            ref={el => gridRefs.current[i] = el}
-            type="text"
-            maxLength={1}
-            value={char}
-            onChange={(e) => handleGridChange(i, e.target.value)}
-            onKeyDown={(e) => handleGridKeyDown(i, e)}
-            disabled={phase === 'complete'}
-            className={`
-              w-10 h-10 md:w-14 md:h-14 text-center text-xl md:text-2xl font-bold rounded-lg border-2 shadow-sm
-              focus:outline-none focus:ring-4 focus:ring-indigo-100 transition-all uppercase
-              ${phase === 'complete'
-                ? 'bg-green-50 border-green-200 text-green-700'
-                : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-500'}
-            `}
-          />
-        ))}
-      </div>
+      {/* ANSWER GRID - Hidden during indicator/fodder selection for focus */}
+      {(() => {
+        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'fodder');
+        return (
+          <div className={`flex justify-center gap-2 md:gap-3 py-2 transition-all duration-300 ${
+            isFocusedSelection ? 'opacity-0 h-0 overflow-hidden py-0' : 'opacity-100'
+          }`}>
+            {grid.map((char, i) => (
+              <input
+                key={i}
+                ref={el => gridRefs.current[i] = el}
+                type="text"
+                maxLength={1}
+                value={char}
+                onChange={(e) => handleGridChange(i, e.target.value)}
+                onKeyDown={(e) => handleGridKeyDown(i, e)}
+                disabled={phase === 'complete'}
+                tabIndex={isFocusedSelection ? -1 : 0}
+                className={`
+                  w-10 h-10 md:w-14 md:h-14 text-center text-xl md:text-2xl font-bold rounded-lg border-2 shadow-sm
+                  focus:outline-none focus:ring-4 focus:ring-indigo-100 transition-all uppercase
+                  ${phase === 'complete'
+                    ? 'bg-green-50 border-green-200 text-green-700'
+                    : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-500'}
+                `}
+              />
+            ))}
+          </div>
+        );
+      })()}
 
-      {/* DEFINITION PHASE - Confirm button & special type options */}
+      {/* DISCOVERED PARTS - Hidden during indicator/fodder selection for focus */}
+      {(() => {
+        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'fodder');
+        const shouldShow = discoveredParts.length > 0 && phase !== 'complete';
+
+        if (!shouldShow) return null;
+
+        return (
+          <div className={`bg-white rounded-xl border border-slate-200 p-5 transition-all duration-300 ${
+            isFocusedSelection ? 'opacity-0 h-0 overflow-hidden p-0 border-0' : 'opacity-100 animate-in fade-in'
+          }`}>
+            <p className="text-indigo-600 text-xs font-bold uppercase tracking-wide mb-3">
+              Discovered
+            </p>
+            <div className="space-y-2">
+              {discoveredParts.map((part, i) => (
+                <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                  <div className="flex items-start gap-2">
+                    <span className="text-indigo-500 mt-0.5">•</span>
+                    <div>
+                      <span className="text-indigo-600 text-xs font-bold uppercase mr-2">
+                        {part.role}:
+                      </span>
+                      <span className="text-indigo-600 font-medium">
+                        {part.text}
+                      </span>
+                      {part.explanation && (
+                        <p className="text-slate-500 text-xs mt-1">{part.explanation}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* CHOOSE PHASE - User picks clue type */}
       {phase === 'choose' && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-start gap-4">
-            <BookOpen className="text-indigo-500 mt-1 shrink-0" size={24} />
-
-            <div className="flex-1 space-y-4">
-              {/* Main hint */}
-              <p className="text-slate-600 text-sm leading-relaxed">
-                {getHintText()}
-              </p>
-
-              {/* All clue type options */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handleChooseStandard}
-                  className="text-left p-4 rounded-lg border-2 border-indigo-200 bg-indigo-50 hover:border-indigo-400 hover:bg-indigo-100 transition-all group"
-                >
-                  <span className="font-bold text-indigo-700 group-hover:text-indigo-900">Standard</span>
-                  <p className="text-xs text-indigo-600 mt-1">Definition + wordplay</p>
-                </button>
-                <button
-                  onClick={() => handleSpecialType('double_definition')}
-                  className="text-left p-4 rounded-lg border-2 border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-all group"
-                >
-                  <span className="font-bold text-slate-700 group-hover:text-amber-700">Double Definition</span>
-                  <p className="text-xs text-slate-500 group-hover:text-amber-600 mt-1">Two definitions, no wordplay</p>
-                </button>
-                <button
-                  onClick={() => handleSpecialType('cryptic_definition')}
-                  className="text-left p-4 rounded-lg border-2 border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-all group"
-                >
-                  <span className="font-bold text-slate-700 group-hover:text-purple-700">Cryptic Definition</span>
-                  <p className="text-xs text-slate-500 group-hover:text-purple-600 mt-1">Entire clue is a cryptic hint</p>
-                </button>
-                <button
-                  onClick={() => handleSpecialType('and_lit')}
-                  className="text-left p-4 rounded-lg border-2 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all group"
-                >
-                  <span className="font-bold text-slate-700 group-hover:text-emerald-700">&lit</span>
-                  <p className="text-xs text-slate-500 group-hover:text-emerald-600 mt-1">Definition AND wordplay combined</p>
-                </button>
-              </div>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="bg-indigo-600 text-white p-2 rounded-lg">
+              <BookOpen size={20} />
             </div>
+            <h3 className="font-bold text-slate-800 uppercase tracking-wide">What Type of Clue?</h3>
+          </div>
+
+          {/* All clue type options */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={handleChooseStandard}
+              className="text-left p-4 rounded-lg border-2 border-indigo-300 bg-indigo-50 hover:border-indigo-500 hover:bg-indigo-100 transition-all"
+            >
+              <span className="font-bold text-indigo-700">Standard</span>
+              <p className="text-xs text-indigo-600 mt-1">Definition + wordplay</p>
+            </button>
+            <button
+              onClick={() => handleSpecialType('double_definition')}
+              className="text-left p-4 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+            >
+              <span className="font-bold text-slate-700 hover:text-indigo-700">Double Definition</span>
+              <p className="text-xs text-slate-500 mt-1">Two definitions, no wordplay</p>
+            </button>
+            <button
+              onClick={() => handleSpecialType('cryptic_definition')}
+              className="text-left p-4 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+            >
+              <span className="font-bold text-slate-700 hover:text-indigo-700">Cryptic Definition</span>
+              <p className="text-xs text-slate-500 mt-1">Entire clue is a cryptic hint</p>
+            </button>
+            <button
+              onClick={() => handleSpecialType('and_lit')}
+              className="text-left p-4 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+            >
+              <span className="font-bold text-slate-700 hover:text-indigo-700">&lit</span>
+              <p className="text-xs text-slate-500 mt-1">Definition AND wordplay combined</p>
+            </button>
           </div>
         </div>
       )}
@@ -836,229 +896,215 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       {/* DEFINITION PHASE - User taps words to select definition */}
       {phase === 'definition' && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-start gap-4">
-            <BookOpen className="text-indigo-500 mt-1 shrink-0" size={24} />
-
-            <div className="flex-1 space-y-4">
-              {/* Selected Standard button with instruction */}
-              <div className="p-4 rounded-lg border-2 border-green-400 bg-green-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="bg-green-500 text-white p-1 rounded-full">
-                    <Check size={14} />
-                  </div>
-                  <span className="font-bold text-green-700">Standard</span>
-                </div>
-                <p className="text-green-700 font-medium">
-                  Now tap the definition words in the clue above
-                </p>
-              </div>
-
-              {/* Main hint */}
-              <p className="text-slate-600 text-sm leading-relaxed">
-                {getHintText()}
-              </p>
-
-              {/* Step 1: Check button - appears when user has selected words but hasn't checked yet */}
-              {selectedIndices.length > 0 && !hasCheckedDefinition && (
-                <button
-                  onClick={handleCheckDefinition}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-                >
-                  <Check size={18} />
-                  Check
-                </button>
-              )}
-
-              {/* Step 2: Result after checking */}
-              {hasCheckedDefinition && isDefinitionCorrect && (
-                <div className="space-y-3">
-                  <div className="bg-green-100 border border-green-300 rounded-lg p-3 text-green-800 font-medium">
-                    ✓ Correct! That's the definition.
-                  </div>
-                  <button
-                    onClick={handleDefinitionConfirm}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-                  >
-                    Continue <ChevronRight size={18} />
-                  </button>
-                </div>
-              )}
-
-              {hasCheckedDefinition && !isDefinitionCorrect && (
-                <div className="bg-red-100 border border-red-300 rounded-lg p-3 text-red-800 font-medium animate-in fade-in">
-                  ✗ Not quite — try again
-                </div>
-              )}
-
-              {/* Back to choose - only when nothing selected and not checked */}
-              {selectedIndices.length === 0 && !hasCheckedDefinition && (
-                <button
-                  onClick={() => setPhase('choose')}
-                  className="text-slate-400 hover:text-slate-600 text-xs font-medium"
-                >
-                  ← Back to clue type selection
-                </button>
-              )}
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="bg-indigo-600 text-white p-2 rounded-lg">
+              <BookOpen size={20} />
             </div>
+            <h3 className="font-bold text-slate-800 uppercase tracking-wide">Find the Definition</h3>
           </div>
+
+          {/* Instruction card */}
+          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 mb-4">
+            <p className="text-indigo-600 text-xs font-bold uppercase tracking-wide mb-2">
+              Tap the definition words in the clue above
+            </p>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              The definition is always at the START or END of the clue. It's usually a synonym for the answer.
+            </p>
+          </div>
+
+          {/* Step 1: Check button - appears when user has selected words but hasn't checked yet */}
+          {selectedIndices.length > 0 && !hasCheckedDefinition && (
+            <button
+              onClick={handleCheckDefinition}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+            >
+              <Check size={18} />
+              Check
+            </button>
+          )}
+
+          {/* Step 2: Result after checking */}
+          {hasCheckedDefinition && isDefinitionCorrect && (
+            <div className="space-y-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium flex items-center gap-2">
+                <Check size={16} className="text-green-600" />
+                Correct! That's the definition.
+              </div>
+              <button
+                onClick={handleDefinitionConfirm}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+              >
+                Continue <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+
+          {hasCheckedDefinition && !isDefinitionCorrect && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 font-medium animate-in fade-in">
+              ✗ Not quite — try again
+            </div>
+          )}
+
+          {/* Back to choose - only when nothing selected and not checked */}
+          {selectedIndices.length === 0 && !hasCheckedDefinition && (
+            <button
+              onClick={() => setPhase('choose')}
+              className="text-slate-400 hover:text-slate-600 text-xs font-medium mt-2"
+            >
+              ← Back to clue type selection
+            </button>
+          )}
         </div>
       )}
 
       {/* WORDPLAY PHASE - Progressive indicator/fodder/result flow */}
       {phase === 'wordplay' && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-start gap-4">
-            <Lightbulb className="text-amber-500 mt-1 shrink-0" size={24} />
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="bg-indigo-600 text-white p-2 rounded-lg">
+              <Lightbulb size={20} />
+            </div>
+            <h3 className="font-bold text-slate-800 uppercase tracking-wide">Solve the Wordplay</h3>
+          </div>
 
-            <div className="flex-1 space-y-4">
-              {/* Wordplay intro box */}
-              <div className="p-4 rounded-lg border-2 border-amber-400 bg-amber-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="bg-amber-500 text-white p-1 rounded-full">
-                    <Zap size={14} />
+          {/* Progress indicator for multiple steps */}
+          {indicatorSteps.length > 1 && (
+            <div className="flex items-center gap-2 mb-4">
+              {indicatorSteps.map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-3 h-3 rounded-full transition-colors ${
+                    completedSteps.includes(i)
+                      ? 'bg-green-500'
+                      : i === currentWordplayStep
+                      ? 'bg-indigo-500 ring-2 ring-indigo-300'
+                      : 'bg-slate-200'
+                  }`}
+                />
+              ))}
+              <span className="text-xs text-slate-500 ml-2">
+                Step {Math.min(currentWordplayStep + 1, indicatorSteps.length)} of {indicatorSteps.length}
+              </span>
+            </div>
+          )}
+
+          {/* COLLAPSED PANELS - Show completed steps (without revealing results) */}
+          <div className="space-y-3 mb-4">
+            {completedSteps.map((stepIdx) => {
+              const step = indicatorSteps[stepIdx];
+              if (!step) return null;
+              return (
+                <div key={stepIdx} className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <p className="text-indigo-600 text-xs font-bold uppercase tracking-wide mb-2">
+                    {getStepTypeLabel(step)}
+                  </p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check size={14} className="text-green-600" />
+                    <span className="text-indigo-600 font-medium">"{step.indicator}" + "{step.fodder}" ✓</span>
                   </div>
-                  <span className="font-bold text-amber-700">Wordplay</span>
                 </div>
-                <p className="text-amber-700 font-medium">
-                  {indicatorSteps.length > 1
-                    ? `This clue has ${indicatorSteps.length} wordplay operations. Solve each one to build the answer.`
-                    : 'Identify the parts of this wordplay operation'
-                  }
+              );
+            })}
+          </div>
+
+          {/* EXPANDED PANEL - Current active step */}
+          {currentIndicatorTarget && currentWordplayStep < indicatorSteps.length && (
+            <div className="bg-slate-50 border-2 border-indigo-300 rounded-lg p-4 space-y-4">
+              {/* Step header */}
+              <div className="flex items-center justify-between">
+                <p className="text-indigo-600 text-xs font-bold uppercase tracking-wide">
+                  {getStepTypeLabel(currentIndicatorTarget)}
+                </p>
+                <span className="text-xs text-slate-400 uppercase tracking-wide">
+                  Step {currentWordplayStep + 1} of {indicatorSteps.length}
+                </span>
+              </div>
+
+              {/* Clear instruction */}
+              <div className="bg-white rounded-lg p-4 border border-slate-200">
+                <p className="text-slate-800 font-medium mb-2">
+                  {wordplaySubPhase === 'indicator' && `Tap the ${currentIndicatorTarget.stepType.replace('_', ' ')} indicator in the clue above`}
+                  {wordplaySubPhase === 'fodder' && `Now tap the fodder words in the clue above`}
+                  {wordplaySubPhase === 'result' && `Type the result of this wordplay step`}
+                </p>
+                <p className="text-slate-500 text-sm">
+                  {wordplaySubPhase === 'indicator' && `Look for a word that signals letters should be rearranged, selected, or transformed`}
+                  {wordplaySubPhase === 'fodder' && `The fodder is adjacent to the indicator in the clue`}
+                  {wordplaySubPhase === 'result' && isStepDependent && `This step combines your previous results. What do you get?`}
+                  {wordplaySubPhase === 'result' && !isStepDependent && `Apply the operation to the fodder — what do you get?`}
                 </p>
               </div>
 
-              {/* Progress indicator for multiple steps */}
-              {indicatorSteps.length > 1 && (
-                <div className="flex items-center gap-2">
-                  {indicatorSteps.map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-3 h-3 rounded-full transition-colors ${
-                        completedSteps.includes(i)
-                          ? 'bg-green-500'
-                          : i === currentWordplayStep
-                          ? 'bg-amber-300 ring-2 ring-amber-400'
-                          : 'bg-slate-200'
-                      }`}
-                    />
-                  ))}
-                  <span className="text-xs text-slate-500 ml-2">
-                    Step {Math.min(currentWordplayStep + 1, indicatorSteps.length)} of {indicatorSteps.length}
-                  </span>
+              {/* === INDICATOR SUB-PHASE === */}
+              {wordplaySubPhase === 'indicator' && (
+                <div className="space-y-3">
+                  {/* Check button */}
+                  {selectedIndicatorIndices.length > 0 && !hasCheckedIndicator && (
+                    <button
+                      onClick={handleCheckIndicator}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                    >
+                      <Check size={16} />
+                      Check Indicator
+                    </button>
+                  )}
+
+                  {/* Correct indicator - auto-advances */}
+                  {hasCheckedIndicator && isIndicatorCorrect && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
+                      <Check size={14} className="text-green-600" />
+                      "{currentIndicatorTarget.indicator}" — correct!
+                    </div>
+                  )}
+
+                  {/* Wrong indicator */}
+                  {hasCheckedIndicator && !isIndicatorCorrect && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 font-medium text-sm animate-in fade-in">
+                      ✗ Not quite — try again
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* COLLAPSED PANELS - Show completed steps */}
-              {completedSteps.map((stepIdx) => {
-                const step = indicatorSteps[stepIdx];
-                if (!step) return null;
-                return (
-                  <div key={stepIdx} className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="bg-green-500 text-white p-0.5 rounded-full">
-                        <Check size={12} />
-                      </div>
-                      <span className="text-orange-600 font-medium">"{step.indicator}"</span>
-                      <span className="text-slate-400">({getStepTypeLabel(step)})</span>
-                      <span className="text-slate-400">+</span>
-                      <span className="text-blue-600 font-medium">"{step.fodder}"</span>
-                      <span className="text-slate-400">→</span>
-                      <span className="text-green-700 font-bold">{step.result}</span>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* EXPANDED PANEL - Current active step */}
-              {currentIndicatorTarget && currentWordplayStep < indicatorSteps.length && (
-                <div className="bg-white border-2 border-amber-300 rounded-lg p-4 space-y-4">
-                  {/* Step header */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-slate-700 font-bold">
-                      <span className="text-amber-600">{getStepTypeLabel(currentIndicatorTarget)}</span>
-                    </p>
-                    <span className="text-xs text-slate-400 uppercase tracking-wide">
-                      {wordplaySubPhase === 'indicator' ? '1. Find Indicator' :
-                       wordplaySubPhase === 'fodder' ? '2. Find Fodder' :
-                       isStepDependent ? '2. Work Out Result' : '3. Work Out Result'}
-                    </span>
+              {/* === FODDER SUB-PHASE === */}
+              {wordplaySubPhase === 'fodder' && (
+                <div className="space-y-3">
+                  {/* Show confirmed indicator */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check size={14} className="text-green-600" />
+                    <span className="text-indigo-600 font-medium">Indicator: "{currentIndicatorTarget.indicator}"</span>
                   </div>
 
-                  {/* Hint text */}
-                  <p className="text-slate-500 text-sm">
-                    {wordplaySubPhase === 'indicator' && (currentIndicatorTarget.hint || `Look for a word that signals a ${currentIndicatorTarget.stepType.replace('_', ' ')} operation`)}
-                    {wordplaySubPhase === 'fodder' && `Now find the word(s) that the indicator operates on`}
-                    {wordplaySubPhase === 'result' && isStepDependent && `This step combines your previous results. What does "${currentIndicatorTarget.indicator}" do to ${currentIndicatorTarget.fodder}?`}
-                    {wordplaySubPhase === 'result' && !isStepDependent && `What does applying "${currentIndicatorTarget.indicator}" to "${currentIndicatorTarget.fodder}" give you?`}
-                  </p>
+                  {/* Check button */}
+                  {selectedFodderIndices.length > 0 && !hasCheckedFodder && (
+                    <button
+                      onClick={handleCheckFodder}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                    >
+                      <Check size={16} />
+                      Check Fodder
+                    </button>
+                  )}
 
-                  {/* === INDICATOR SUB-PHASE === */}
-                  {wordplaySubPhase === 'indicator' && (
-                    <div className="space-y-3">
-                      {/* Check button */}
-                      {selectedIndicatorIndices.length > 0 && !hasCheckedIndicator && (
-                        <button
-                          onClick={handleCheckIndicator}
-                          className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-                        >
-                          <Check size={16} />
-                          Check Indicator
-                        </button>
-                      )}
-
-                      {/* Correct indicator - auto-advances */}
-                      {hasCheckedIndicator && isIndicatorCorrect && (
-                        <div className="bg-orange-100 border border-orange-300 rounded-lg p-3 text-orange-800 font-medium text-sm">
-                          ✓ "{currentIndicatorTarget.indicator}" — correct!
-                        </div>
-                      )}
-
-                      {/* Wrong indicator */}
-                      {hasCheckedIndicator && !isIndicatorCorrect && (
-                        <div className="bg-red-100 border border-red-300 rounded-lg p-3 text-red-800 font-medium text-sm animate-in fade-in">
-                          ✗ Not quite — try again
-                        </div>
-                      )}
+                  {/* Correct fodder - auto-advances */}
+                  {hasCheckedFodder && isFodderCorrect && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
+                      <Check size={14} className="text-green-600" />
+                      "{currentIndicatorTarget.fodder}" — correct!
                     </div>
                   )}
 
-                  {/* === FODDER SUB-PHASE === */}
-                  {wordplaySubPhase === 'fodder' && (
-                    <div className="space-y-3">
-                      {/* Show confirmed indicator */}
-                      <div className="flex items-center gap-2 text-sm">
-                        <div className="bg-orange-500 text-white p-0.5 rounded-full">
-                          <Check size={12} />
-                        </div>
-                        <span className="text-orange-600 font-medium">Indicator: "{currentIndicatorTarget.indicator}"</span>
-                      </div>
-
-                      {/* Check button */}
-                      {selectedFodderIndices.length > 0 && !hasCheckedFodder && (
-                        <button
-                          onClick={handleCheckFodder}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-                        >
-                          <Check size={16} />
-                          Check Fodder
-                        </button>
-                      )}
-
-                      {/* Correct fodder - auto-advances */}
-                      {hasCheckedFodder && isFodderCorrect && (
-                        <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 text-blue-800 font-medium text-sm">
-                          ✓ "{currentIndicatorTarget.fodder}" — correct!
-                        </div>
-                      )}
-
-                      {/* Wrong fodder */}
-                      {hasCheckedFodder && !isFodderCorrect && (
-                        <div className="bg-red-100 border border-red-300 rounded-lg p-3 text-red-800 font-medium text-sm animate-in fade-in">
-                          ✗ Not quite — try again
-                        </div>
-                      )}
+                  {/* Wrong fodder */}
+                  {hasCheckedFodder && !isFodderCorrect && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 font-medium text-sm animate-in fade-in">
+                      ✗ Not quite — try again
                     </div>
                   )}
+                </div>
+              )}
 
                   {/* === RESULT SUB-PHASE === */}
                   {wordplaySubPhase === 'result' && (
@@ -1074,21 +1120,17 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         <span className="text-slate-400">+</span>
                         <div className="flex items-center gap-1">
                           {isStepDependent ? (
-                            // Dependent step - fodder from previous results (purple/violet styling)
+                            // Dependent step - fodder from previous results
                             <>
-                              <div className="bg-violet-500 text-white p-0.5 rounded-full">
-                                <Zap size={12} />
-                              </div>
-                              <span className="text-violet-600 font-medium">{currentIndicatorTarget.fodder}</span>
-                              <span className="text-violet-400 text-xs">(from previous)</span>
+                              <Zap size={12} className="text-indigo-500" />
+                              <span className="text-indigo-600 font-medium">{currentIndicatorTarget.fodder}</span>
+                              <span className="text-slate-400 text-xs">(from previous)</span>
                             </>
                           ) : (
                             // Independent step - fodder was selected by user
                             <>
-                              <div className="bg-blue-500 text-white p-0.5 rounded-full">
-                                <Check size={12} />
-                              </div>
-                              <span className="text-blue-600 font-medium">"{currentIndicatorTarget.fodder}"</span>
+                              <Check size={12} className="text-green-600" />
+                              <span className="text-indigo-600 font-medium">"{currentIndicatorTarget.fodder}"</span>
                             </>
                           )}
                         </div>
@@ -1104,17 +1146,17 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                           placeholder="Type result..."
                           className={`flex-1 px-4 py-2.5 rounded-lg border-2 font-mono text-lg uppercase tracking-wider transition-colors
                             ${hasCheckedResult && isResultCorrect
-                              ? 'bg-green-50 border-green-400 text-green-700'
+                              ? 'bg-green-50 border-green-200 text-green-700'
                               : hasCheckedResult && !isResultCorrect
-                              ? 'bg-red-50 border-red-400 text-red-700'
-                              : 'bg-white border-slate-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100'
+                              ? 'bg-red-50 border-red-200 text-red-700'
+                              : 'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
                             }`}
                           disabled={hasCheckedResult && isResultCorrect}
                         />
                         {!hasCheckedResult && stepResultInput.length > 0 && (
                           <button
                             onClick={handleCheckResult}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
                           >
                             Check
                           </button>
@@ -1133,7 +1175,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
                       {/* Wrong result feedback */}
                       {hasCheckedResult && !isResultCorrect && (
-                        <div className="bg-red-100 border border-red-300 rounded-lg p-2 text-red-800 font-medium text-sm animate-in fade-in">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-red-700 font-medium text-sm animate-in fade-in">
                           ✗ Not quite — try again
                         </div>
                       )}
@@ -1141,12 +1183,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                       {/* Correct result - complete step */}
                       {hasCheckedResult && isResultCorrect && (
                         <div className="space-y-3">
-                          <div className="bg-green-100 border border-green-300 rounded-lg p-3 text-green-800 font-medium text-sm">
-                            ✓ Correct! {currentIndicatorTarget.explanation || `"${currentIndicatorTarget.fodder}" → ${currentIndicatorTarget.result}`}
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
+                            <Check size={14} className="text-green-600" />
+                            Correct! {currentIndicatorTarget.explanation || `"${currentIndicatorTarget.fodder}" → ${currentIndicatorTarget.result}`}
                           </div>
                           <button
                             onClick={handleStepComplete}
-                            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
                           >
                             {currentWordplayStep + 1 >= indicatorSteps.length ? (
                               <>Enter Answer <ChevronRight size={16} /></>
@@ -1163,33 +1206,36 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
               {/* Fallback if no indicator steps */}
               {indicatorSteps.length === 0 && (
-                <div className="space-y-3">
-                  <p className="text-slate-500 text-sm italic">
+                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                  <p className="text-slate-600 text-sm mb-3">
                     No wordplay indicators to identify for this clue.
                   </p>
                   <button
                     onClick={() => setPhase('solve')}
-                    className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
                   >
                     Enter the answer <ChevronRight size={18} />
                   </button>
                 </div>
               )}
-            </div>
-          </div>
         </div>
       )}
 
       {/* SOLVE PHASE - Just encouragement */}
       {phase === 'solve' && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Zap className="text-indigo-500" size={24} />
-              <p className="text-slate-600 text-sm">
-                Type the answer above — it will auto-check when complete
-              </p>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-indigo-600 text-white p-2 rounded-lg">
+              <Zap size={20} />
             </div>
+            <h3 className="font-bold text-slate-800 uppercase tracking-wide">Enter the Answer</h3>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-slate-600 text-sm">
+              Type the answer above — it will auto-check when complete
+            </p>
 
             <button
               onClick={handleRevealAnswer}
@@ -1201,75 +1247,80 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         </div>
       )}
 
-      {/* DISCOVERED PARTS - Accumulates as user progresses */}
-      {discoveredParts.length > 0 && phase !== 'complete' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 animate-in fade-in">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-            Discovered
-          </p>
-          <div className="space-y-2">
-            {discoveredParts.map((part, i) => {
-              const theme = WORKFLOW_COLORS[part.colorType];
-              return (
-                <div key={i} className="flex items-start gap-3">
-                  <div className={`w-3 h-3 rounded-full mt-1.5 shrink-0 ${theme?.dot || 'bg-slate-400'}`} />
-                  <div>
-                    <span className="text-slate-500 text-xs font-bold uppercase mr-2">
-                      {part.role}:
-                    </span>
-                    <span className={`font-medium ${theme?.text || 'text-slate-700'}`}>
-                      {part.text}
-                    </span>
-                    {part.explanation && (
-                      <p className="text-slate-500 text-xs mt-1">{part.explanation}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* COMPLETE - Summary and next */}
       {phase === 'complete' && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6 animate-in zoom-in-95">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-green-600 text-white p-2 rounded-full">
+        <div className="bg-white rounded-xl border border-slate-200 p-6 animate-in zoom-in-95">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="bg-indigo-600 text-white p-2 rounded-lg">
               <Check size={20} />
             </div>
-            <h3 className="font-bold text-green-900 text-lg">Solved!</h3>
+            <h3 className="font-bold text-slate-800 uppercase tracking-wide">Solved — What We Learned</h3>
           </div>
 
-          {/* Summary of what was learned */}
+          {/* Technique tags */}
+          {patternData?.wordplaySteps && patternData.wordplaySteps.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+              <div className="flex flex-wrap gap-2">
+                {Array.from(new Set(patternData.wordplaySteps.map(s => getStepTypeLabel(s)))).map((technique, i) => (
+                  <span key={i} className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+                    {technique}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summary cards - Definition always first */}
           <div className="space-y-3 mb-6">
-            {discoveredParts.map((part, i) => (
-              <div key={i} className="bg-white/70 rounded-lg p-3 border border-green-200">
-                <span className="text-green-600 text-xs font-bold uppercase">{part.role}</span>
-                <p className="text-slate-800 font-medium mt-1">"{part.text}"</p>
-                {part.explanation && (
-                  <p className="text-slate-600 text-sm mt-1">{part.explanation}</p>
-                )}
+            {/* Definition card - always first */}
+            {patternData?.definitionText && (
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <p className="text-indigo-600 text-xs font-bold uppercase tracking-wide mb-2">
+                  Definition: Found at the {patternData.definitionPosition === 'start' ? 'start' : 'end'} of the clue
+                </p>
+                <div className="flex items-start gap-2">
+                  <span className="text-indigo-500 mt-0.5">•</span>
+                  <span className="text-indigo-600 font-medium">{patternData.definitionText}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Wordplay step cards */}
+            {patternData?.wordplaySteps?.map((step, i) => (
+              <div key={i} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <p className="text-indigo-600 text-xs font-bold uppercase tracking-wide mb-2">
+                  {getStepTypeLabel(step)}
+                </p>
+                <div className="flex items-start gap-2">
+                  <span className="text-indigo-500 mt-0.5">•</span>
+                  <span className="text-indigo-600 font-medium">
+                    {step.fodder} → {step.result}
+                  </span>
+                </div>
               </div>
             ))}
 
             {/* Special clue type note */}
             {identifiedType && identifiedType !== 'standard' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <span className="text-amber-600 text-xs font-bold uppercase">Clue Type</span>
-                <p className="text-slate-800 font-medium mt-1">
-                  {identifiedType === 'double_definition' && 'Double Definition — two definitions, no wordplay'}
-                  {identifiedType === 'triple_definition' && 'Triple Definition — three definitions, no wordplay'}
-                  {identifiedType === 'cryptic_definition' && 'Cryptic Definition — the entire clue hints at the answer'}
-                  {identifiedType === 'and_lit' && '&lit — the clue is both definition AND wordplay'}
-                </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-amber-600 text-xs font-bold uppercase tracking-wide mb-2">Clue Type</p>
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span className="text-amber-700 font-medium">
+                    {identifiedType === 'double_definition' && 'Double Definition — two definitions, no wordplay'}
+                    {identifiedType === 'triple_definition' && 'Triple Definition — three definitions, no wordplay'}
+                    {identifiedType === 'cryptic_definition' && 'Cryptic Definition — the entire clue hints at the answer'}
+                    {identifiedType === 'and_lit' && '&lit — the clue is both definition AND wordplay'}
+                  </span>
+                </div>
               </div>
             )}
           </div>
 
           <button
             onClick={onNext}
-            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-lg"
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-lg"
           >
             Next Clue <ChevronRight size={20} />
           </button>
