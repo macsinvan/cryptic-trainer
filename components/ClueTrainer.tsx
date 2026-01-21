@@ -1221,7 +1221,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               {indicatorSteps.map((step, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <Check size={14} className="text-green-600" />
-                  <span className="text-indigo-600 font-bold text-xs uppercase">{getStepTypeLabel(step)}</span>
+                  <span className="text-indigo-600 font-bold text-xs uppercase">{getStepTypeLabel(step)}:</span>
                   <span className="text-slate-500">"{step.indicator}" + "{step.fodder}" → {step.result}</span>
                 </div>
               ))}
