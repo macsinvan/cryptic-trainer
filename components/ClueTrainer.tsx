@@ -178,6 +178,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [hasCheckedResult, setHasCheckedResult] = useState(false);
   const [isResultCorrect, setIsResultCorrect] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Collapsed steps
+  const [expandedCompletedSteps, setExpandedCompletedSteps] = useState<number[]>([]); // Which collapsed steps are expanded to show learnings
   const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
   const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], fodderIndices: number[]}[]>([]); // Persisted wordplay highlights
 
@@ -287,6 +288,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setHasCheckedResult(false);
     setIsResultCorrect(false);
     setCompletedSteps([]);
+    setExpandedCompletedSteps([]);
     setRevealedIndicatorSteps([]);
     setConfirmedHighlights([]);
     setShowLearnings(false);
@@ -826,8 +828,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     <div className="max-w-2xl mx-auto flex flex-col gap-3 font-sans">
 
       {/* CLUE DISPLAY */}
-      <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200 text-center relative">
-        <div className="text-xl md:text-2xl font-serif text-slate-900 leading-relaxed inline-flex flex-wrap items-baseline gap-x-2 gap-y-2">
+      <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200 relative">
+        <div className="text-xl md:text-2xl font-serif text-slate-900 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           {/* Clue number */}
           {displayClueNumber && (
             <span className="text-indigo-600 font-bold">{displayClueNumber}</span>
@@ -854,12 +856,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         {phase !== 'complete' && (() => {
           const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'fodder');
           return (
-            <div className={`mt-4 transition-all duration-300 ${
-              isFocusedSelection
-                ? 'text-base font-semibold text-indigo-700 bg-indigo-50 rounded-lg px-3 py-1.5 inline-block'
-                : 'text-sm text-slate-600'
-            }`}>
-              {getPromptText()}
+            <div className="text-center mt-4">
+              <div className={`transition-all duration-300 ${
+                isFocusedSelection
+                  ? 'text-base font-semibold text-indigo-700 bg-indigo-50 rounded-lg px-3 py-1.5 inline-block'
+                  : 'text-sm text-slate-600'
+              }`}>
+                {getPromptText()}
+              </div>
             </div>
           );
         })()}
@@ -1076,17 +1080,50 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             )}
           </div>
 
-          {/* COLLAPSED PANELS - Show completed steps (without revealing results) */}
+          {/* COLLAPSED PANELS - Show completed steps with expandable learnings */}
           {completedSteps.length > 0 && (
             <div className="space-y-2 mb-3">
               {completedSteps.map((stepIdx) => {
                 const step = indicatorSteps[stepIdx];
                 if (!step) return null;
+                const stepType = step.stepType?.toLowerCase() || '';
+                const learning = WORDPLAY_LEARNINGS[stepType];
+                const clueSpecific = getClueSpecificLearning(stepType, step.indicator, step.fodder);
+                const isExpanded = expandedCompletedSteps.includes(stepIdx);
                 return (
-                  <div key={stepIdx} className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 flex items-center gap-2">
-                    <Check size={14} className="text-green-600" />
-                    <span className="text-indigo-600 text-xs font-bold uppercase">{getStepTypeLabel(step)}</span>
-                    <span className="text-slate-400 text-xs">"{step.indicator}" + "{step.fodder}"</span>
+                  <div key={stepIdx} className="bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
+                    <button
+                      onClick={() => {
+                        if (isExpanded) {
+                          setExpandedCompletedSteps(prev => prev.filter(i => i !== stepIdx));
+                        } else {
+                          setExpandedCompletedSteps(prev => [...prev, stepIdx]);
+                        }
+                      }}
+                      className="w-full px-3 py-2 flex items-center gap-2 hover:bg-slate-100 transition-colors"
+                    >
+                      <Check size={16} className="text-green-600 flex-shrink-0" />
+                      <span className="text-indigo-600 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
+                      <span className="text-slate-600 text-base">"{step.indicator}" + "{step.fodder}" → {step.result}</span>
+                      <ChevronDown
+                        size={14}
+                        className={`ml-auto text-slate-400 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                      />
+                    </button>
+                    {isExpanded && learning && (
+                      <div className="px-3 pb-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-2">
+                          <p className="text-amber-800 text-base leading-relaxed">
+                            <strong>Key learning:</strong> {renderLearningText(learning)}
+                          </p>
+                          {clueSpecific && (
+                            <p className="text-amber-700 text-base leading-relaxed italic">
+                              {clueSpecific}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1098,10 +1135,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             <div className="bg-slate-50 border-2 border-indigo-300 rounded-lg p-3 space-y-3">
               {/* Step header */}
               <div className="flex items-center justify-between">
-                <p className="text-indigo-600 text-xs font-bold uppercase tracking-wide">
+                <p className="text-indigo-600 text-sm font-bold uppercase tracking-wide">
                   {getStepTypeLabel(currentIndicatorTarget)}
                 </p>
-                <span className="text-xs text-slate-400">
+                <span className="text-sm text-slate-400">
                   {currentWordplayStep + 1}/{indicatorSteps.length}
                 </span>
               </div>
@@ -1109,12 +1146,12 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               {/* Clear instruction - hide once result is correct */}
               {!(hasCheckedResult && isResultCorrect) && (
                 <div className="bg-white rounded-lg p-3 border border-slate-200">
-                  <p className="text-slate-800 font-medium text-sm">
+                  <p className="text-slate-800 font-medium text-base">
                     {wordplaySubPhase === 'indicator' && `Tap the ${getStepTypeLabel(currentIndicatorTarget).toLowerCase()} indicator in the clue above`}
                     {wordplaySubPhase === 'fodder' && `Now tap the fodder words in the clue above`}
                     {wordplaySubPhase === 'result' && `Type the result of this wordplay step`}
                   </p>
-                  <p className="text-slate-500 text-xs mt-1">
+                  <p className="text-slate-500 text-sm mt-1">
                     {wordplaySubPhase === 'indicator' && `Look for a word that signals letters should be rearranged, selected, or transformed`}
                     {wordplaySubPhase === 'fodder' && `The fodder is adjacent to the indicator in the clue`}
                     {wordplaySubPhase === 'result' && isStepDependent && `This step combines your previous results`}
@@ -1268,8 +1305,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                       {/* Correct result - complete step with key learning */}
                       {hasCheckedResult && isResultCorrect && (
                         <div className="space-y-3">
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
-                            <Check size={14} className="text-green-600" />
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-base flex items-center gap-2">
+                            <Check size={16} className="text-green-600" />
                             Correct! {currentIndicatorTarget.explanation || `"${currentIndicatorTarget.fodder}" → ${currentIndicatorTarget.result}`}
                           </div>
                           {/* Key learning for this wordplay type */}
@@ -1280,11 +1317,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                             if (!learning) return null;
                             return (
                               <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-2">
-                                <p className="text-amber-800 text-sm leading-relaxed">
+                                <p className="text-amber-800 text-base leading-relaxed">
                                   <strong>Key learning:</strong> {renderLearningText(learning)}
                                 </p>
                                 {clueSpecific && (
-                                  <p className="text-amber-700 text-sm leading-relaxed italic">
+                                  <p className="text-amber-700 text-base leading-relaxed italic">
                                     {clueSpecific}
                                   </p>
                                 )}
@@ -1328,16 +1365,51 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       {/* SOLVE PHASE - Show wordplay summary + answer prompt */}
       {phase === 'solve' && (
         <div className="bg-white rounded-lg border border-slate-200 p-4 animate-in fade-in slide-in-from-bottom-2">
-          {/* Wordplay summary */}
+          {/* Wordplay summary - expandable */}
           {indicatorSteps.length > 0 && (
             <div className="space-y-2 mb-3 pb-3 border-b border-slate-100">
-              {indicatorSteps.map((step, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  <Check size={14} className="text-green-600" />
-                  <span className="text-indigo-600 font-bold text-xs uppercase">{getStepTypeLabel(step)}:</span>
-                  <span className="text-slate-500">"{step.indicator}" + "{step.fodder}" → {step.result}</span>
-                </div>
-              ))}
+              {indicatorSteps.map((step, i) => {
+                const stepType = step.stepType?.toLowerCase() || '';
+                const learning = WORDPLAY_LEARNINGS[stepType];
+                const clueSpecific = getClueSpecificLearning(stepType, step.indicator, step.fodder);
+                const isExpanded = expandedCompletedSteps.includes(i);
+                return (
+                  <div key={i} className="bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
+                    <button
+                      onClick={() => {
+                        if (isExpanded) {
+                          setExpandedCompletedSteps(prev => prev.filter(idx => idx !== i));
+                        } else {
+                          setExpandedCompletedSteps(prev => [...prev, i]);
+                        }
+                      }}
+                      className="w-full px-3 py-2 flex items-center gap-2 hover:bg-slate-100 transition-colors text-left"
+                    >
+                      <Check size={16} className="text-green-600 flex-shrink-0" />
+                      <span className="text-indigo-600 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
+                      <span className="text-slate-600 text-base">"{step.indicator}" + "{step.fodder}" → {step.result}</span>
+                      <ChevronDown
+                        size={16}
+                        className={`ml-auto text-slate-400 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                      />
+                    </button>
+                    {isExpanded && learning && (
+                      <div className="px-3 pb-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-2">
+                          <p className="text-amber-800 text-base leading-relaxed">
+                            <strong>Key learning:</strong> {renderLearningText(learning)}
+                          </p>
+                          {clueSpecific && (
+                            <p className="text-amber-700 text-base leading-relaxed italic">
+                              {clueSpecific}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
           <div className="flex items-center justify-between">
@@ -1345,7 +1417,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               <div className="bg-indigo-600 text-white p-1.5 rounded-md">
                 <Zap size={16} />
               </div>
-              <span className="text-slate-600 text-sm">Type the answer above</span>
+              <span className="text-slate-600 text-base">Type the answer above</span>
             </div>
             <button
               onClick={handleRevealAnswer}
@@ -1379,21 +1451,59 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             )}
           </div>
 
-          {/* Compact summary */}
+          {/* Summary with expandable wordplay steps */}
           <div className="space-y-2 mb-4">
             {patternData?.definitionText && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-indigo-600 font-bold text-xs uppercase">Def:</span>
+              <div className="flex items-center gap-2 text-base px-3 py-2 bg-slate-50 border border-slate-200 rounded-md">
+                <span className="text-indigo-600 font-bold text-sm uppercase">Def:</span>
                 <span className="text-indigo-600">{patternData.definitionText}</span>
-                <span className="text-slate-400 text-xs">({patternData.definitionPosition})</span>
+                <span className="text-slate-400 text-sm">({patternData.definitionPosition})</span>
               </div>
             )}
-            {patternData?.wordplaySteps?.map((step, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-indigo-600 font-bold text-xs uppercase">{getStepTypeLabel(step)}:</span>
-                <span className="text-slate-600">{step.fodder} → {step.result}</span>
-              </div>
-            ))}
+            {patternData?.wordplaySteps?.map((step, i) => {
+              const stepType = step.stepType?.toLowerCase() || '';
+              const learning = WORDPLAY_LEARNINGS[stepType];
+              const clueSpecific = getClueSpecificLearning(stepType, step.indicator || '', step.fodder);
+              const isExpanded = expandedCompletedSteps.includes(i);
+              return (
+                <div key={i} className="bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
+                  <button
+                    onClick={() => {
+                      if (isExpanded) {
+                        setExpandedCompletedSteps(prev => prev.filter(idx => idx !== i));
+                      } else {
+                        setExpandedCompletedSteps(prev => [...prev, i]);
+                      }
+                    }}
+                    className="w-full px-3 py-2 flex items-center gap-2 hover:bg-slate-100 transition-colors text-left"
+                  >
+                    <Check size={16} className="text-green-600 flex-shrink-0" />
+                    <span className="text-indigo-600 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
+                    <span className="text-slate-600 text-base">{step.fodder} → {step.result}</span>
+                    {learning && (
+                      <ChevronDown
+                        size={16}
+                        className={`ml-auto text-slate-400 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                      />
+                    )}
+                  </button>
+                  {isExpanded && learning && (
+                    <div className="px-3 pb-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-2">
+                        <p className="text-amber-800 text-base leading-relaxed">
+                          <strong>Key learning:</strong> {renderLearningText(learning)}
+                        </p>
+                        {clueSpecific && (
+                          <p className="text-amber-700 text-base leading-relaxed italic">
+                            {clueSpecific}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Collapsible Key Learnings Section */}
