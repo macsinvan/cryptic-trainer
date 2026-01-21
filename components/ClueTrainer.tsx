@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ChevronRight, Check, HelpCircle, Lightbulb, Zap, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, Check, HelpCircle, Lightbulb, Zap, BookOpen } from 'lucide-react';
 import { PatternInstance, WordHighlight } from '../types';
 import { WORKFLOW_COLORS } from '../data/designTemplates';
 
@@ -184,6 +184,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // For special clue types
   const [identifiedType, setIdentifiedType] = useState<ClueType | null>(null);
 
+  // For complete phase
+  const [showLearnings, setShowLearnings] = useState(false);
+
   // Refs
   const gridRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -286,6 +289,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setCompletedSteps([]);
     setRevealedIndicatorSteps([]);
     setConfirmedHighlights([]);
+    setShowLearnings(false);
 
     // Initialize answer grid
     const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
@@ -914,12 +918,20 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       {/* CHOOSE PHASE - User picks clue type */}
       {phase === 'choose' && (
         <div className="bg-white rounded-lg border border-slate-200 p-4 animate-in fade-in slide-in-from-bottom-2">
+          {/* Introduction text - the fundamental rule */}
+          <div className="bg-slate-50 rounded-md p-3 border border-slate-200 mb-4">
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Every clue has a <strong>definition + wordplay</strong>, both leading to the same answer.
+              Finding that split is key to solving every clue. The definition is always at the <strong>start</strong> or <strong>end</strong>.
+            </p>
+          </div>
+
           {/* Header */}
           <div className="flex items-center gap-2 mb-3">
             <div className="bg-indigo-600 text-white p-1.5 rounded-md">
               <BookOpen size={16} />
             </div>
-            <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Clue Type</h3>
+            <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">What type of clue is this?</h3>
           </div>
 
           {/* All clue type options */}
@@ -1376,6 +1388,54 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               </div>
             ))}
           </div>
+
+          {/* Collapsible Key Learnings Section */}
+          {patternData?.wordplaySteps && patternData.wordplaySteps.length > 0 && (
+            <div className="mb-4">
+              <button
+                onClick={() => setShowLearnings(!showLearnings)}
+                className="flex items-center gap-2 text-amber-700 hover:text-amber-800 font-medium text-sm transition-colors"
+              >
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${showLearnings ? 'rotate-0' : '-rotate-90'}`}
+                />
+                Key Learnings
+              </button>
+              {showLearnings && (
+                <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {/* Definition learning */}
+                  {identifiedType && DEFINITION_LEARNINGS[identifiedType] && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                      <p className="text-amber-600 font-bold text-xs uppercase mb-1">Definition ({identifiedType.replace('_', ' ')})</p>
+                      <p className="text-amber-800 text-sm leading-relaxed">
+                        {renderLearningText(DEFINITION_LEARNINGS[identifiedType])}
+                      </p>
+                    </div>
+                  )}
+                  {/* Wordplay learnings - one per unique step type */}
+                  {Array.from(new Set(patternData.wordplaySteps.map(s => s.stepType?.toLowerCase()))).map((stepType, i) => {
+                    if (!stepType || !WORDPLAY_LEARNINGS[stepType]) return null;
+                    const step = patternData.wordplaySteps?.find(s => s.stepType?.toLowerCase() === stepType);
+                    if (!step) return null;
+                    return (
+                      <div key={i} className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                        <p className="text-amber-600 font-bold text-xs uppercase mb-1">{getStepTypeLabel(step)}</p>
+                        <p className="text-amber-800 text-sm leading-relaxed">
+                          {renderLearningText(WORDPLAY_LEARNINGS[stepType])}
+                        </p>
+                        {step.indicator && (
+                          <p className="text-amber-700 text-sm leading-relaxed italic mt-2">
+                            {getClueSpecificLearning(stepType, step.indicator, step.fodder)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             onClick={onNext}
