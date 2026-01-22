@@ -166,27 +166,32 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [currentWordplayStep, setCurrentWordplayStep] = useState(0);
 
   // Wordplay step state
-  type WordplaySubPhase = 'indicator' | 'fodder' | 'result';
+  // Sub-phases: indicator → deleteTarget (for deletion) → fodder → discovery (if implied op) → result
+  type WordplaySubPhase = 'indicator' | 'deleteTarget' | 'fodder' | 'discovery' | 'result';
   const [wordplaySubPhase, setWordplaySubPhase] = useState<WordplaySubPhase>('indicator');
   const [selectedIndicatorIndices, setSelectedIndicatorIndices] = useState<number[]>([]);
+  const [selectedDeleteTargetIndices, setSelectedDeleteTargetIndices] = useState<number[]>([]); // For deletion: what to delete
   const [selectedFodderIndices, setSelectedFodderIndices] = useState<number[]>([]);
   const [hasCheckedIndicator, setHasCheckedIndicator] = useState(false);
   const [isIndicatorCorrect, setIsIndicatorCorrect] = useState(false);
+  const [hasCheckedDeleteTarget, setHasCheckedDeleteTarget] = useState(false);
+  const [isDeleteTargetCorrect, setIsDeleteTargetCorrect] = useState(false);
   const [hasCheckedFodder, setHasCheckedFodder] = useState(false);
   const [isFodderCorrect, setIsFodderCorrect] = useState(false);
+  const [impliedResultInput, setImpliedResultInput] = useState(''); // For discovery phase: user types implied result (e.g., MOTHERS)
+  const [hasCheckedImpliedResult, setHasCheckedImpliedResult] = useState(false);
+  const [isImpliedResultCorrect, setIsImpliedResultCorrect] = useState(false);
   const [stepResultInput, setStepResultInput] = useState('');
   const [hasCheckedResult, setHasCheckedResult] = useState(false);
   const [isResultCorrect, setIsResultCorrect] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Collapsed steps
   const [expandedCompletedSteps, setExpandedCompletedSteps] = useState<number[]>([]); // Which collapsed steps are expanded to show learnings
   const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
-  const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], fodderIndices: number[]}[]>([]); // Persisted wordplay highlights
+  const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], deleteTargetIndices: number[], fodderIndices: number[]}[]>([]); // Persisted wordplay highlights
 
   // For special clue types
   const [identifiedType, setIdentifiedType] = useState<ClueType | null>(null);
 
-  // For complete phase
-  const [showLearnings, setShowLearnings] = useState(false);
 
   // Refs
   const gridRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -241,27 +246,74 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     return MOCK_CLUE.definition;
   }, [patternData, words]);
 
-  // Get wordplay steps that have indicators (exclude assembly steps which are informational)
-  const indicatorSteps = useMemo(() => {
+  // Get wordplay steps (exclude assembly steps only - include indicatorless steps like synonym/abbreviation)
+  const wordplaySteps = useMemo(() => {
     const steps = patternData?.wordplaySteps || [];
-    return steps.filter(step => !step.isAssembly && step.indicator);
+    return steps.filter(step => !step.isAssembly);
   }, [patternData]);
 
-  // Current indicator step the user needs to find
-  const currentIndicatorTarget = indicatorSteps[currentWordplayStep];
+  // Current step the user is working on
+  const currentStep = wordplaySteps[currentWordplayStep];
 
-  // Check if a step is "dependent" (fodder uses results from previous steps, not clue text)
-  const isStepDependent = useMemo(() => {
-    if (!currentIndicatorTarget) return false;
-    const fodder = currentIndicatorTarget.fodder.toLowerCase();
-    // If fodder contains uppercase result references or + signs, it's dependent
-    // Also check if fodder words don't exist in the clue text
+  // Check if current step has an indicator (vs indicatorless like synonym/abbreviation)
+  const stepHasIndicator = useMemo(() => {
+    return currentStep?.indicator && currentStep.indicator.trim() !== '';
+  }, [currentStep]);
+
+  // Check if current step is a deletion with implied operation (needs discovery flow)
+  const isDeletionWithImpliedOp = useMemo(() => {
+    if (!currentStep) return false;
+    return currentStep.stepType === 'deletion' &&
+           currentStep.deleteTarget &&
+           currentStep.impliedOperation;
+  }, [currentStep]);
+
+  // Check if a step's fodder is "dependent" (uses results from previous steps, not clue text)
+  const isFodderDependent = useMemo(() => {
+    if (!currentStep) return false;
+    // Deletion with implied op is NOT dependent - fodder comes from clue
+    if (isDeletionWithImpliedOp) return false;
+    const fodder = currentStep.fodder?.toLowerCase() || '';
+    if (!fodder) return false;
+    // Check if fodder words exist in the clue text
     const fodderWords = fodder.split(/\s+/).map(w => w.replace(/[^a-z]/gi, '').toLowerCase());
     const clueWordsLower = words.map(w => w.text.toLowerCase());
-    // A step is dependent if most of its fodder words aren't in the clue
+    // A fodder is dependent if most of its words aren't in the clue
     const wordsInClue = fodderWords.filter(fw => fw && clueWordsLower.includes(fw));
     return wordsInClue.length < fodderWords.length / 2;
-  }, [currentIndicatorTarget, words]);
+  }, [currentStep, words, isDeletionWithImpliedOp]);
+
+  // Compute accumulated letters from completed steps
+  const accumulatedLetters = useMemo(() => {
+    return completedSteps.map(stepIdx => wordplaySteps[stepIdx]?.result || '').join('');
+  }, [completedSteps, wordplaySteps]);
+
+  // Compute letters still needed
+  const lettersNeeded = useMemo(() => {
+    const answerLength = answer.replace(/[^A-Z]/gi, '').length;
+    return answerLength - accumulatedLetters.length;
+  }, [answer, accumulatedLetters]);
+
+  // Compute which word indices are "used" (highlighted in completed steps or definition)
+  const usedWordIndices = useMemo(() => {
+    const used = new Set<number>();
+    // Definition words
+    for (const part of discoveredParts) {
+      part.wordIndices.forEach(i => used.add(i));
+    }
+    // Completed wordplay step words
+    for (const highlight of confirmedHighlights) {
+      highlight.indicatorIndices.forEach(i => used.add(i));
+      highlight.deleteTargetIndices.forEach(i => used.add(i));
+      highlight.fodderIndices.forEach(i => used.add(i));
+    }
+    return used;
+  }, [discoveredParts, confirmedHighlights]);
+
+  // Get unused words (not yet highlighted)
+  const unusedWords = useMemo(() => {
+    return words.filter((_, idx) => !usedWordIndices.has(idx));
+  }, [words, usedWordIndices]);
 
   // ---------------------------------------------------------------------------
   // INITIALIZATION
@@ -279,11 +331,17 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setIdentifiedType(null);
     setWordplaySubPhase('indicator');
     setSelectedIndicatorIndices([]);
+    setSelectedDeleteTargetIndices([]);
     setSelectedFodderIndices([]);
     setHasCheckedIndicator(false);
     setIsIndicatorCorrect(false);
+    setHasCheckedDeleteTarget(false);
+    setIsDeleteTargetCorrect(false);
     setHasCheckedFodder(false);
     setIsFodderCorrect(false);
+    setImpliedResultInput('');
+    setHasCheckedImpliedResult(false);
+    setIsImpliedResultCorrect(false);
     setStepResultInput('');
     setHasCheckedResult(false);
     setIsResultCorrect(false);
@@ -291,7 +349,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setExpandedCompletedSteps([]);
     setRevealedIndicatorSteps([]);
     setConfirmedHighlights([]);
-    setShowLearnings(false);
 
     // Initialize answer grid
     const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
@@ -324,10 +381,17 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       return;
     }
 
-    // Wordplay phase - indicator or fodder selection
+    // Wordplay phase - indicator, deleteTarget, or fodder selection
     if (phase === 'wordplay' && !showWordplayDetail) {
       if (wordplaySubPhase === 'indicator') {
         setSelectedIndicatorIndices(prev => {
+          if (prev.includes(wordIndex)) {
+            return prev.filter(i => i !== wordIndex);
+          }
+          return [...prev, wordIndex].sort((a, b) => a - b);
+        });
+      } else if (wordplaySubPhase === 'deleteTarget') {
+        setSelectedDeleteTargetIndices(prev => {
           if (prev.includes(wordIndex)) {
             return prev.filter(i => i !== wordIndex);
           }
@@ -451,11 +515,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   };
 
   const handleCheckIndicator = () => {
-    if (!currentIndicatorTarget) return;
+    if (!currentStep) return;
 
     // Get the selected text
     const selectedText = selectedIndicatorIndices.map(i => words[i].text).join(' ');
-    const targetIndicator = currentIndicatorTarget.indicator.toLowerCase().replace(/[.,;!?()'"]/g, '');
+    const targetIndicator = currentStep.indicator.toLowerCase().replace(/[.,;!?()'"]/g, '');
 
     // Check if it matches (allowing for some flexibility)
     const isMatch = selectedText === targetIndicator ||
@@ -467,12 +531,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     if (isMatch) {
       // Correct - auto-advance after brief success flash
-      // For dependent steps (fodder from previous results), skip to result
-      // For independent steps, go to fodder selection
       setTimeout(() => {
-        if (isStepDependent) {
+        if (isDeletionWithImpliedOp) {
+          // Deletion with implied op: go to deleteTarget phase
+          setWordplaySubPhase('deleteTarget');
+        } else if (isFodderDependent) {
+          // Dependent fodder: skip to result
           setWordplaySubPhase('result');
         } else {
+          // Normal: go to fodder selection
           setWordplaySubPhase('fodder');
         }
       }, 600);
@@ -486,12 +553,42 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }
   };
 
+  const handleCheckDeleteTarget = () => {
+    if (!currentStep || !currentStep.deleteTarget) return;
+
+    // Get the selected text
+    const selectedText = selectedDeleteTargetIndices.map(i => words[i].text).join(' ');
+    const targetDelete = currentStep.deleteTarget.toLowerCase().replace(/[.,;!?()'"]/g, '');
+
+    // Check if it matches
+    const isMatch = selectedText === targetDelete ||
+                    selectedText.includes(targetDelete) ||
+                    targetDelete.includes(selectedText);
+
+    setHasCheckedDeleteTarget(true);
+    setIsDeleteTargetCorrect(isMatch);
+
+    if (isMatch) {
+      // Correct - auto-advance to fodder selection
+      setTimeout(() => {
+        setWordplaySubPhase('fodder');
+      }, 600);
+    } else {
+      // Wrong - auto-clear after brief red flash
+      setTimeout(() => {
+        setSelectedDeleteTargetIndices([]);
+        setHasCheckedDeleteTarget(false);
+        setIsDeleteTargetCorrect(false);
+      }, 800);
+    }
+  };
+
   const handleCheckFodder = () => {
-    if (!currentIndicatorTarget) return;
+    if (!currentStep) return;
 
     // Get the selected text
     const selectedText = selectedFodderIndices.map(i => words[i].text).join(' ');
-    const targetFodder = currentIndicatorTarget.fodder.toLowerCase().replace(/[.,;!?()'"]/g, '');
+    const targetFodder = currentStep.fodder.toLowerCase().replace(/[.,;!?()'"]/g, '');
 
     // Check if it matches (allowing for some flexibility)
     const isMatch = selectedText === targetFodder ||
@@ -502,9 +599,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setIsFodderCorrect(isMatch);
 
     if (isMatch) {
-      // Correct - auto-advance to result after brief success flash
+      // Correct - auto-advance after brief success flash
       setTimeout(() => {
-        setWordplaySubPhase('result');
+        if (isDeletionWithImpliedOp) {
+          // Go to discovery phase - user will realize delete target isn't in fodder
+          setWordplaySubPhase('discovery');
+        } else {
+          setWordplaySubPhase('result');
+        }
       }, 600);
     } else {
       // Wrong - auto-clear after brief red flash
@@ -516,10 +618,35 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }
   };
 
-  const handleCheckResult = () => {
-    if (!currentIndicatorTarget) return;
+  const handleCheckImpliedResult = () => {
+    if (!currentStep || !currentStep.impliedResult) return;
 
-    const targetResult = currentIndicatorTarget.result.toUpperCase().replace(/[^A-Z]/g, '');
+    const targetImplied = currentStep.impliedResult.toUpperCase().replace(/[^A-Z]/g, '');
+    const userImplied = impliedResultInput.toUpperCase().replace(/[^A-Z]/g, '');
+
+    const isMatch = userImplied === targetImplied;
+
+    setHasCheckedImpliedResult(true);
+    setIsImpliedResultCorrect(isMatch);
+
+    if (isMatch) {
+      // Correct - auto-advance to result phase
+      setTimeout(() => {
+        setWordplaySubPhase('result');
+      }, 600);
+    } else {
+      // Wrong - reset after flash
+      setTimeout(() => {
+        setHasCheckedImpliedResult(false);
+        setIsImpliedResultCorrect(false);
+      }, 800);
+    }
+  };
+
+  const handleCheckResult = () => {
+    if (!currentStep) return;
+
+    const targetResult = currentStep.result.toUpperCase().replace(/[^A-Z]/g, '');
     const userResult = stepResultInput.toUpperCase().replace(/[^A-Z]/g, '');
 
     const isMatch = userResult === targetResult;
@@ -537,8 +664,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   };
 
   const handleRevealStepResult = () => {
-    if (!currentIndicatorTarget) return;
-    setStepResultInput(currentIndicatorTarget.result);
+    if (!currentStep) return;
+    setStepResultInput(currentStep.result);
     setHasCheckedResult(true);
     setIsResultCorrect(true);
   };
@@ -547,6 +674,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     // Save confirmed highlights before clearing
     setConfirmedHighlights(prev => [...prev, {
       indicatorIndices: [...selectedIndicatorIndices],
+      deleteTargetIndices: [...selectedDeleteTargetIndices],
       fodderIndices: [...selectedFodderIndices]
     }]);
 
@@ -555,20 +683,31 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     const nextStep = currentWordplayStep + 1;
 
-    if (nextStep >= indicatorSteps.length) {
+    if (nextStep >= wordplaySteps.length) {
       // All steps done - move to solve phase
       setPhase('solve');
     } else {
       // Move to next step
       setCurrentWordplayStep(nextStep);
-      // Reset sub-phase state
-      setWordplaySubPhase('indicator');
+
+      // Check if next step has an indicator to determine starting sub-phase
+      const nextStepData = wordplaySteps[nextStep];
+      const nextStepHasIndicator = nextStepData?.indicator && nextStepData.indicator.trim() !== '';
+
+      // Reset sub-phase state - skip to fodder for indicatorless steps
+      setWordplaySubPhase(nextStepHasIndicator ? 'indicator' : 'fodder');
       setSelectedIndicatorIndices([]);
+      setSelectedDeleteTargetIndices([]);
       setSelectedFodderIndices([]);
       setHasCheckedIndicator(false);
       setIsIndicatorCorrect(false);
+      setHasCheckedDeleteTarget(false);
+      setIsDeleteTargetCorrect(false);
       setHasCheckedFodder(false);
       setIsFodderCorrect(false);
+      setImpliedResultInput('');
+      setHasCheckedImpliedResult(false);
+      setIsImpliedResultCorrect(false);
       setStepResultInput('');
       setHasCheckedResult(false);
       setIsResultCorrect(false);
@@ -581,7 +720,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     const nextStep = currentWordplayStep + 1;
 
-    if (nextStep >= indicatorSteps.length) {
+    if (nextStep >= wordplaySteps.length) {
       // All indicators found - move to solve phase
       setShowWordplayDetail(true);
       setCurrentWordplayStep(nextStep); // Move past last step to show summary
@@ -642,7 +781,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // ---------------------------------------------------------------------------
 
   // Get a display-friendly step type label (handles "unknown" gracefully)
-  const getStepTypeLabel = (step: typeof currentIndicatorTarget): string => {
+  const getStepTypeLabel = (step: typeof currentStep): string => {
     if (!step) return '';
     const stepType = step.stepType?.toLowerCase() || 'unknown';
 
@@ -697,6 +836,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       if (highlight.indicatorIndices.includes(wordIndex)) {
         return 'bg-orange-200 text-orange-800 ring-2 ring-orange-400 font-bold';
       }
+      if (highlight.deleteTargetIndices.includes(wordIndex)) {
+        return 'bg-purple-200 text-purple-800 ring-2 ring-purple-400 font-bold';
+      }
       if (highlight.fodderIndices.includes(wordIndex)) {
         return 'bg-blue-200 text-blue-800 ring-2 ring-blue-400 font-bold';
       }
@@ -748,12 +890,31 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       }
     }
 
+    // Wordplay phase - deleteTarget selection (for deletion steps)
+    if (selectedDeleteTargetIndices.includes(wordIndex)) {
+      // Confirmed correct deleteTarget - keep purple highlight through fodder/discovery phases
+      if (phase === 'wordplay' && isDeleteTargetCorrect) {
+        return 'bg-purple-200 text-purple-800 ring-2 ring-purple-400 font-bold';
+      }
+      // Wrong selection
+      if (phase === 'wordplay' && hasCheckedDeleteTarget && !isDeleteTargetCorrect) {
+        return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
+      }
+      // Normal selection (before checking, during deleteTarget sub-phase)
+      if (phase === 'wordplay' && wordplaySubPhase === 'deleteTarget') {
+        return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
+      }
+    }
+
     // Interactive state - definition or wordplay selection phases
     if (phase === 'definition') {
       return 'hover:bg-indigo-50 cursor-pointer';
     }
     if (phase === 'wordplay' && wordplaySubPhase === 'indicator') {
       return 'hover:bg-orange-50 cursor-pointer';
+    }
+    if (phase === 'wordplay' && wordplaySubPhase === 'deleteTarget') {
+      return 'hover:bg-purple-50 cursor-pointer';
     }
     if (phase === 'wordplay' && wordplaySubPhase === 'fodder') {
       return 'hover:bg-blue-50 cursor-pointer';
@@ -780,18 +941,35 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         return "Tap Check when ready";
 
       case 'wordplay':
-        if (currentIndicatorTarget && currentWordplayStep < indicatorSteps.length) {
-          if (wordplaySubPhase === 'indicator') {
-            return `Find the ${getStepTypeLabel(currentIndicatorTarget).toLowerCase()} indicator`;
-          }
-          if (wordplaySubPhase === 'fodder') {
-            return `Now find the fodder for "${currentIndicatorTarget.indicator}"`;
-          }
-          if (wordplaySubPhase === 'result') {
-            return `Work out the result`;
+        if (currentStep && currentWordplayStep < wordplaySteps.length) {
+          // Indicatorless steps (synonym, abbreviation) - Socratic approach
+          if (!stepHasIndicator) {
+            if (wordplaySubPhase === 'fodder') {
+              return `Select a word to decode`;
+            }
+            if (wordplaySubPhase === 'result') {
+              return `What does "${currentStep.fodder}" give you?`;
+            }
+          } else {
+            // Steps with indicator
+            if (wordplaySubPhase === 'indicator') {
+              return `Find the ${getStepTypeLabel(currentStep).toLowerCase()} indicator`;
+            }
+            if (wordplaySubPhase === 'deleteTarget') {
+              return `What should be deleted?`;
+            }
+            if (wordplaySubPhase === 'fodder') {
+              return `Now find the fodder for "${currentStep.indicator}"`;
+            }
+            if (wordplaySubPhase === 'discovery') {
+              return `But wait...`;
+            }
+            if (wordplaySubPhase === 'result') {
+              return `Work out the result`;
+            }
           }
         }
-        if (completedSteps.length === indicatorSteps.length && indicatorSteps.length > 0) {
+        if (completedSteps.length === wordplaySteps.length && wordplaySteps.length > 0) {
           return "All steps solved — enter the answer!";
         }
         return "Explore the wordplay";
@@ -855,8 +1033,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         {/* Prompt - evolves based on phase */}
         {phase !== 'complete' && (() => {
           const isIndicatorSelection = phase === 'wordplay' && wordplaySubPhase === 'indicator';
+          const isDeleteTargetSelection = phase === 'wordplay' && wordplaySubPhase === 'deleteTarget';
           const isFodderSelection = phase === 'wordplay' && wordplaySubPhase === 'fodder';
-          const isFocusedSelection = isIndicatorSelection || isFodderSelection;
+          const isFocusedSelection = isIndicatorSelection || isDeleteTargetSelection || isFodderSelection;
 
           return (
             <div className="text-center mt-4">
@@ -878,6 +1057,19 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   >
                     <Check size={16} />
                     Check Indicator
+                  </button>
+                </div>
+              )}
+
+              {/* Check Delete Target button - in clue box */}
+              {isDeleteTargetSelection && selectedDeleteTargetIndices.length > 0 && !hasCheckedDeleteTarget && (
+                <div className="mt-3">
+                  <button
+                    onClick={handleCheckDeleteTarget}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2 mx-auto"
+                  >
+                    <Check size={16} />
+                    Check Selection
                   </button>
                 </div>
               )}
@@ -914,7 +1106,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
       {/* ANSWER GRID - Hidden during indicator/fodder selection for focus */}
       {(() => {
-        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'fodder');
+        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'deleteTarget' || wordplaySubPhase === 'fodder');
         return (
           <div className={`flex justify-center gap-1.5 md:gap-2 transition-all duration-300 ${
             isFocusedSelection ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'
@@ -945,7 +1137,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
       {/* DISCOVERED PARTS - Hidden during indicator/fodder selection for focus */}
       {(() => {
-        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'fodder');
+        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'deleteTarget' || wordplaySubPhase === 'fodder');
         const shouldShow = discoveredParts.length > 0 && phase !== 'complete';
 
         if (!shouldShow) return null;
@@ -1096,9 +1288,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               </div>
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Wordplay</h3>
             </div>
-            {indicatorSteps.length > 1 && (
+            {wordplaySteps.length > 1 && (
               <div className="flex items-center gap-1.5">
-                {indicatorSteps.map((_, i) => (
+                {wordplaySteps.map((_, i) => (
                   <div
                     key={i}
                     className={`w-2 h-2 rounded-full transition-colors ${
@@ -1118,7 +1310,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           {completedSteps.length > 0 && (
             <div className="space-y-2 mb-3">
               {completedSteps.map((stepIdx) => {
-                const step = indicatorSteps[stepIdx];
+                const step = wordplaySteps[stepIdx];
                 if (!step) return null;
                 const stepType = step.stepType?.toLowerCase() || '';
                 const learning = WORDPLAY_LEARNINGS[stepType];
@@ -1165,32 +1357,73 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           )}
 
           {/* EXPANDED PANEL - Current active step */}
-          {currentIndicatorTarget && currentWordplayStep < indicatorSteps.length && (
+          {currentStep && currentWordplayStep < wordplaySteps.length && (
             <div className="bg-slate-50 border-2 border-indigo-300 rounded-lg p-3 space-y-3">
               {/* Step header */}
               <div className="flex items-center justify-between">
                 <p className="text-indigo-600 text-sm font-bold uppercase tracking-wide">
-                  {getStepTypeLabel(currentIndicatorTarget)}
+                  {getStepTypeLabel(currentStep)}
                 </p>
                 <span className="text-sm text-slate-400">
-                  {currentWordplayStep + 1}/{indicatorSteps.length}
+                  {currentWordplayStep + 1}/{wordplaySteps.length}
                 </span>
               </div>
 
               {/* Clear instruction - hide once result is correct */}
-              {!(hasCheckedResult && isResultCorrect) && (
+              {!(hasCheckedResult && isResultCorrect) && wordplaySubPhase !== 'discovery' && (
                 <div className="bg-white rounded-lg p-3 border border-slate-200">
-                  <p className="text-slate-800 font-medium text-base">
-                    {wordplaySubPhase === 'indicator' && `Tap the ${getStepTypeLabel(currentIndicatorTarget).toLowerCase()} indicator in the clue above`}
-                    {wordplaySubPhase === 'fodder' && `Now tap the fodder words in the clue above`}
-                    {wordplaySubPhase === 'result' && `Type the result of this wordplay step`}
-                  </p>
-                  <p className="text-slate-500 text-sm mt-1">
-                    {wordplaySubPhase === 'indicator' && `Look for a word that signals letters should be rearranged, selected, or transformed`}
-                    {wordplaySubPhase === 'fodder' && `The fodder is adjacent to the indicator in the clue`}
-                    {wordplaySubPhase === 'result' && isStepDependent && `This step combines your previous results`}
-                    {wordplaySubPhase === 'result' && !isStepDependent && `Apply the operation to the fodder`}
-                  </p>
+                  {/* Indicatorless steps: Socratic approach */}
+                  {!stepHasIndicator && wordplaySubPhase === 'fodder' && (
+                    <>
+                      {/* Letter boxes: accumulated + blanks for remaining */}
+                      <div className="flex items-center gap-1 mb-3">
+                        {accumulatedLetters.split('').map((letter, i) => (
+                          <span key={i} className="w-8 h-8 flex items-center justify-center bg-indigo-100 text-indigo-700 rounded font-mono text-base font-bold border border-indigo-200">
+                            {letter}
+                          </span>
+                        ))}
+                        {Array.from({ length: lettersNeeded }).map((_, i) => (
+                          <span key={`blank-${i}`} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded font-mono text-base border-2 border-dashed border-slate-300">
+                          </span>
+                        ))}
+                      </div>
+                      {/* Socratic guidance */}
+                      <div className="text-slate-600 text-sm space-y-1">
+                        <p>You have {unusedWords.length} word{unusedWords.length !== 1 ? 's' : ''} remaining: <span className="font-medium">{unusedWords.map(w => w.display).join(' and ')}</span>. That's {unusedWords.reduce((sum, w) => sum + w.text.length, 0)} letters.</p>
+                        <p>You only need {lettersNeeded} more letter{lettersNeeded !== 1 ? 's' : ''}.</p>
+                        <p className="text-slate-500 italic">There is likely an implied synonym, abbreviation or literal in there.</p>
+                      </div>
+                    </>
+                  )}
+                  {/* Steps with indicators: direct prompts */}
+                  {stepHasIndicator && (
+                    <>
+                      <p className="text-slate-800 font-medium text-base">
+                        {wordplaySubPhase === 'indicator' && `Tap the ${getStepTypeLabel(currentStep).toLowerCase()} indicator in the clue above`}
+                        {wordplaySubPhase === 'deleteTarget' && `Now tap what should be deleted`}
+                        {wordplaySubPhase === 'fodder' && `Now tap the fodder words in the clue above`}
+                        {wordplaySubPhase === 'result' && `Type the result of this wordplay step`}
+                      </p>
+                      <p className="text-slate-500 text-sm mt-1">
+                        {wordplaySubPhase === 'indicator' && `Look for a word that signals letters should be rearranged, selected, or transformed`}
+                        {wordplaySubPhase === 'deleteTarget' && `The indicator tells you to remove something`}
+                        {wordplaySubPhase === 'fodder' && `The fodder is adjacent to the indicator in the clue`}
+                        {wordplaySubPhase === 'result' && isFodderDependent && `This step combines your previous results`}
+                        {wordplaySubPhase === 'result' && !isFodderDependent && `Apply the operation to the fodder`}
+                      </p>
+                    </>
+                  )}
+                  {/* Indicatorless result phase */}
+                  {!stepHasIndicator && wordplaySubPhase === 'result' && (
+                    <>
+                      <p className="text-slate-800 font-medium text-base">
+                        What does "{currentStep.fodder}" give you?
+                      </p>
+                      <p className="text-slate-500 text-sm mt-1">
+                        Think about synonyms or common abbreviations
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1203,7 +1436,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   {hasCheckedIndicator && isIndicatorCorrect && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
                       <Check size={14} className="text-green-600" />
-                      "{currentIndicatorTarget.indicator}" — correct!
+                      "{currentStep.indicator}" — correct!
                     </div>
                   )}
 
@@ -1216,14 +1449,58 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 </div>
               )}
 
-              {/* === FODDER SUB-PHASE === */}
-              {wordplaySubPhase === 'fodder' && (
+              {/* === DELETE TARGET SUB-PHASE (for deletion with implied op) === */}
+              {wordplaySubPhase === 'deleteTarget' && (
                 <div className="space-y-3">
                   {/* Show confirmed indicator */}
                   <div className="flex items-center gap-2 text-sm">
                     <Check size={14} className="text-green-600" />
-                    <span className="text-indigo-600 font-medium">Indicator: "{currentIndicatorTarget.indicator}"</span>
+                    <span className="text-orange-600 font-medium">Indicator: "{currentStep.indicator}"</span>
                   </div>
+
+                  {/* Check button is in clue box above */}
+
+                  {/* Correct delete target - auto-advances */}
+                  {hasCheckedDeleteTarget && isDeleteTargetCorrect && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
+                      <Check size={14} className="text-green-600" />
+                      Delete "{currentStep.deleteTarget}" — correct!
+                    </div>
+                  )}
+
+                  {/* Wrong delete target */}
+                  {hasCheckedDeleteTarget && !isDeleteTargetCorrect && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 font-medium text-sm animate-in fade-in">
+                      ✗ Not quite — try again
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* === FODDER SUB-PHASE === */}
+              {wordplaySubPhase === 'fodder' && (
+                <div className="space-y-3">
+                  {/* Show confirmed indicator (only for steps with indicators) */}
+                  {stepHasIndicator && !isDeletionWithImpliedOp && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check size={14} className="text-green-600" />
+                      <span className="text-indigo-600 font-medium">Indicator: "{currentStep.indicator}"</span>
+                    </div>
+                  )}
+                  {/* For deletion with implied op, show both indicator and delete target */}
+                  {isDeletionWithImpliedOp && (
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <Check size={14} className="text-green-600" />
+                        <span className="text-orange-600 font-medium">"{currentStep.indicator}"</span>
+                      </div>
+                      <span className="text-slate-400">→ delete</span>
+                      <div className="flex items-center gap-1">
+                        <Check size={14} className="text-green-600" />
+                        <span className="text-purple-600 font-medium">"{currentStep.deleteTarget}"</span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Check button moved to clue box above */}
 
@@ -1231,7 +1508,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   {hasCheckedFodder && isFodderCorrect && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
                       <Check size={14} className="text-green-600" />
-                      "{currentIndicatorTarget.fodder}" — correct!
+                      "{currentStep.fodder}" — correct!
                     </div>
                   )}
 
@@ -1244,36 +1521,137 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 </div>
               )}
 
-                  {/* === RESULT SUB-PHASE === */}
+              {/* === DISCOVERY SUB-PHASE (aha moment for deletion with implied op) === */}
+              {wordplaySubPhase === 'discovery' && isDeletionWithImpliedOp && (
+                <div className="space-y-3">
+                  {/* Show what we have so far */}
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <div className="flex items-center gap-1">
+                      <Check size={14} className="text-green-600" />
+                      <span className="text-orange-600 font-medium">"{currentStep.indicator}"</span>
+                    </div>
+                    <span className="text-slate-400">→ delete</span>
+                    <div className="flex items-center gap-1">
+                      <Check size={14} className="text-green-600" />
+                      <span className="text-purple-600 font-medium">"{currentStep.deleteTarget}"</span>
+                    </div>
+                    <span className="text-slate-400">from</span>
+                    <div className="flex items-center gap-1">
+                      <Check size={14} className="text-green-600" />
+                      <span className="text-blue-600 font-medium">"{currentStep.fodder}"</span>
+                    </div>
+                  </div>
+
+                  {/* The AHA moment */}
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
+                    <p className="text-amber-800 font-bold text-base mb-2">
+                      🤔 But wait...
+                    </p>
+                    <p className="text-amber-700 text-base">
+                      "{currentStep.deleteTarget?.toUpperCase()}" isn't in "{currentStep.fodder?.toUpperCase()}"!
+                    </p>
+                    <p className="text-amber-600 text-sm mt-2">
+                      This implies a {currentStep.impliedOperation} is needed first. What does "{currentStep.fodder}" become?
+                    </p>
+                  </div>
+
+                  {/* Implied result input */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={impliedResultInput}
+                      onChange={(e) => setImpliedResultInput(e.target.value.toUpperCase())}
+                      placeholder={`${currentStep.impliedOperation === 'anagram' ? 'Anagram' : 'Synonym'} of "${currentStep.fodder}"...`}
+                      className={`flex-1 px-4 py-2.5 rounded-lg border-2 font-mono text-lg uppercase tracking-wider transition-colors
+                        ${hasCheckedImpliedResult && isImpliedResultCorrect
+                          ? 'bg-green-50 border-green-200 text-green-700'
+                          : hasCheckedImpliedResult && !isImpliedResultCorrect
+                          ? 'bg-red-50 border-red-200 text-red-700'
+                          : 'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
+                        }`}
+                      disabled={hasCheckedImpliedResult && isImpliedResultCorrect}
+                    />
+                    {!hasCheckedImpliedResult && impliedResultInput.length > 0 && (
+                      <button
+                        onClick={handleCheckImpliedResult}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
+                      >
+                        Check
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Wrong implied result feedback */}
+                  {hasCheckedImpliedResult && !isImpliedResultCorrect && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-red-700 font-medium text-sm animate-in fade-in">
+                      ✗ Not quite — try again
+                    </div>
+                  )}
+
+                  {/* Correct implied result - auto-advances */}
+                  {hasCheckedImpliedResult && isImpliedResultCorrect && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
+                      <Check size={14} className="text-green-600" />
+                      "{currentStep.fodder}" → {currentStep.impliedResult} — now we can delete "{currentStep.deleteTarget}"!
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* === RESULT SUB-PHASE === */}
                   {wordplaySubPhase === 'result' && (
                     <div className="space-y-3">
-                      {/* Show confirmed indicator and fodder */}
-                      <div className="flex items-center gap-2 text-sm flex-wrap">
-                        <div className="flex items-center gap-1">
-                          <div className="bg-orange-500 text-white p-0.5 rounded-full">
-                            <Check size={12} />
+                      {/* Show confirmed parts - different display for deletion with implied op */}
+                      {isDeletionWithImpliedOp ? (
+                        // Deletion with implied op: show full chain
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm flex-wrap">
+                            <span className="text-slate-500">"{currentStep.fodder}"</span>
+                            <span className="text-slate-400">→</span>
+                            <span className="text-green-600 font-medium">{currentStep.impliedResult}</span>
+                            <span className="text-slate-400">(via {currentStep.impliedOperation})</span>
                           </div>
-                          <span className="text-orange-600 font-medium">"{currentIndicatorTarget.indicator}"</span>
+                          <div className="flex items-center gap-2 text-sm flex-wrap">
+                            <span className="text-green-600 font-medium">{currentStep.impliedResult}</span>
+                            <span className="text-slate-400">−</span>
+                            <span className="text-purple-600 font-medium">"{currentStep.deleteTarget}"</span>
+                            <span className="text-slate-400">= ?</span>
+                          </div>
                         </div>
-                        <span className="text-slate-400">+</span>
-                        <div className="flex items-center gap-1">
-                          {isStepDependent ? (
-                            // Dependent step - fodder from previous results
+                      ) : (
+                        // Standard indicator + fodder display
+                        <div className="flex items-center gap-2 text-sm flex-wrap">
+                          {/* Show indicator (only for steps with indicators) */}
+                          {stepHasIndicator && (
                             <>
-                              <Zap size={12} className="text-indigo-500" />
-                              <span className="text-indigo-600 font-medium">{currentIndicatorTarget.fodder}</span>
-                              <span className="text-slate-400 text-xs">(from previous)</span>
-                            </>
-                          ) : (
-                            // Independent step - fodder was selected by user
-                            <>
-                              <Check size={12} className="text-green-600" />
-                              <span className="text-indigo-600 font-medium">"{currentIndicatorTarget.fodder}"</span>
+                              <div className="flex items-center gap-1">
+                                <div className="bg-orange-500 text-white p-0.5 rounded-full">
+                                  <Check size={12} />
+                                </div>
+                                <span className="text-orange-600 font-medium">"{currentStep.indicator}"</span>
+                              </div>
+                              <span className="text-slate-400">+</span>
                             </>
                           )}
+                          <div className="flex items-center gap-1">
+                            {isFodderDependent ? (
+                              // Dependent step - fodder from previous results
+                              <>
+                                <Zap size={12} className="text-indigo-500" />
+                                <span className="text-indigo-600 font-medium">{currentStep.fodder}</span>
+                                <span className="text-slate-400 text-xs">(from previous)</span>
+                              </>
+                            ) : (
+                              // Independent step - fodder was selected by user
+                              <>
+                                <Check size={12} className="text-green-600" />
+                                <span className="text-indigo-600 font-medium">"{currentStep.fodder}"</span>
+                              </>
+                            )}
+                          </div>
+                          <span className="text-slate-400">= ?</span>
                         </div>
-                        <span className="text-slate-400">= ?</span>
-                      </div>
+                      )}
 
                       {/* Result input */}
                       <div className="flex items-center gap-2">
@@ -1323,13 +1701,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         <div className="space-y-3">
                           <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-base flex items-center gap-2">
                             <Check size={16} className="text-green-600" />
-                            Correct! {currentIndicatorTarget.explanation || `"${currentIndicatorTarget.fodder}" → ${currentIndicatorTarget.result}`}
+                            Correct! {currentStep.explanation || `"${currentStep.fodder}" → ${currentStep.result}`}
                           </div>
                           {/* Key learning for this wordplay type */}
                           {(() => {
-                            const stepType = currentIndicatorTarget.stepType?.toLowerCase() || '';
+                            const stepType = currentStep.stepType?.toLowerCase() || '';
                             const learning = WORDPLAY_LEARNINGS[stepType];
-                            const clueSpecific = getClueSpecificLearning(stepType, currentIndicatorTarget.indicator, currentIndicatorTarget.fodder);
+                            const clueSpecific = getClueSpecificLearning(stepType, currentStep.indicator, currentStep.fodder);
                             if (!learning) return null;
                             return (
                               <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-2">
@@ -1348,7 +1726,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                             onClick={handleStepComplete}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
                           >
-                            {currentWordplayStep + 1 >= indicatorSteps.length ? (
+                            {currentWordplayStep + 1 >= wordplaySteps.length ? (
                               <>Enter Answer <ChevronRight size={16} /></>
                             ) : (
                               <>Next Step <ChevronRight size={16} /></>
@@ -1362,7 +1740,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* Fallback if no indicator steps */}
-              {indicatorSteps.length === 0 && (
+              {wordplaySteps.length === 0 && (
                 <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                   <p className="text-slate-600 text-sm mb-3">
                     No wordplay indicators to identify for this clue.
@@ -1382,9 +1760,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       {phase === 'solve' && (
         <div className="bg-white rounded-lg border border-slate-200 p-4 animate-in fade-in slide-in-from-bottom-2">
           {/* Wordplay summary - expandable */}
-          {indicatorSteps.length > 0 && (
+          {wordplaySteps.length > 0 && (
             <div className="space-y-2 mb-3 pb-3 border-b border-slate-100">
-              {indicatorSteps.map((step, i) => {
+              {wordplaySteps.map((step, i) => {
                 const stepType = step.stepType?.toLowerCase() || '';
                 const learning = WORDPLAY_LEARNINGS[stepType];
                 const clueSpecific = getClueSpecificLearning(stepType, step.indicator, step.fodder);
@@ -1521,54 +1899,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               );
             })}
           </div>
-
-          {/* Collapsible Key Learnings Section */}
-          {patternData?.wordplaySteps && patternData.wordplaySteps.length > 0 && (
-            <div className="mb-4">
-              <button
-                onClick={() => setShowLearnings(!showLearnings)}
-                className="flex items-center gap-2 text-amber-700 hover:text-amber-800 font-medium text-sm transition-colors"
-              >
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${showLearnings ? 'rotate-0' : '-rotate-90'}`}
-                />
-                Key Learnings
-              </button>
-              {showLearnings && (
-                <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {/* Definition learning */}
-                  {identifiedType && DEFINITION_LEARNINGS[identifiedType] && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
-                      <p className="text-amber-600 font-bold text-xs uppercase mb-1">Definition ({identifiedType.replace('_', ' ')})</p>
-                      <p className="text-amber-800 text-sm leading-relaxed">
-                        {renderLearningText(DEFINITION_LEARNINGS[identifiedType])}
-                      </p>
-                    </div>
-                  )}
-                  {/* Wordplay learnings - one per unique step type */}
-                  {Array.from(new Set(patternData.wordplaySteps.map(s => s.stepType?.toLowerCase()))).map((stepType, i) => {
-                    if (!stepType || !WORDPLAY_LEARNINGS[stepType]) return null;
-                    const step = patternData.wordplaySteps?.find(s => s.stepType?.toLowerCase() === stepType);
-                    if (!step) return null;
-                    return (
-                      <div key={i} className="bg-amber-50 border border-amber-200 rounded-md p-3">
-                        <p className="text-amber-600 font-bold text-xs uppercase mb-1">{getStepTypeLabel(step)}</p>
-                        <p className="text-amber-800 text-sm leading-relaxed">
-                          {renderLearningText(WORDPLAY_LEARNINGS[stepType])}
-                        </p>
-                        {step.indicator && (
-                          <p className="text-amber-700 text-sm leading-relaxed italic mt-2">
-                            {getClueSpecificLearning(stepType, step.indicator, step.fodder)}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
 
           <button
             onClick={onNext}

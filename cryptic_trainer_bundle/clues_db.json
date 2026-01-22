@@ -366,26 +366,17 @@
         ],
         "wordplaySteps": [
           {
-            "indicator": "",
-            "fodder": "Mums",
-            "result": "MOTHERS",
-            "synonym": "MOTHERS",
-            "hint": "Mums",
-            "complexity": 2,
-            "isAssembly": false,
-            "stepType": "synonym",
-            "explanation": "\"Mums\" gives MOTHERS"
-          },
-          {
             "indicator": "dropping",
-            "fodder": "MOTHERS",
+            "fodder": "Mums",
             "result": "M",
-            "synonym": "M",
-            "hint": "dropping others",
-            "complexity": 2,
+            "deleteTarget": "others",
+            "impliedOperation": "synonym",
+            "impliedResult": "MOTHERS",
+            "hint": "dropping others from Mums",
+            "complexity": 3,
             "isAssembly": false,
             "stepType": "deletion",
-            "explanation": "\"MOTHERS\" with letter(s) removed gives M"
+            "explanation": "\"Mums\" → MOTHERS (synonym), then drop \"others\" → M"
           },
           {
             "indicator": "",

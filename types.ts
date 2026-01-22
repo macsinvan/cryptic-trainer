@@ -53,6 +53,10 @@ export interface WordplayStep {
     isAssembly: boolean; // True for Assembly steps (informational only)
     stepType: 'abbreviation' | 'letter_movement' | 'assembly' | 'synonym' | 'anagram' | 'hidden' | 'reversal' | 'deletion' | 'homophone' | 'container' | 'unknown';
     explanation: string; // Pre-computed plain English explanation for UI
+    // For deletion steps with implied operations (e.g., "dropping others" from "Mums")
+    deleteTarget?: string;        // What to delete (e.g., "others")
+    impliedOperation?: 'anagram' | 'synonym'; // Operation needed to make deletion work
+    impliedResult?: string;       // Result of implied operation (e.g., "MOTHERS" from anagram of "Mums")
 }
 
 /** Word-by-word highlighting data for UI rendering */
