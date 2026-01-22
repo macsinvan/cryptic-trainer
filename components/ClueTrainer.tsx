@@ -1956,13 +1956,47 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                               <span className="text-slate-400">+</span>
                             </>
                           )}
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             {isFodderDependent ? (
                               // Dependent step - fodder from previous results
+                              // Show descriptive text for each component instead of metadata result
                               <>
                                 <Zap size={12} className="text-indigo-500" />
-                                <span className="text-indigo-600 font-medium">{currentStep.fodder}</span>
-                                <span className="text-slate-400 text-xs">(from previous)</span>
+                                {(() => {
+                                  // Build descriptive fodder from completed and on-hold steps
+                                  const parts: React.ReactNode[] = [];
+                                  wordplaySteps.forEach((step, idx) => {
+                                    if (idx === currentWordplayStep) return; // Skip current step
+                                    if (completedSteps.includes(idx)) {
+                                      // Completed step - show result
+                                      parts.push(
+                                        <span key={idx} className="text-green-600 font-medium">{step.result}</span>
+                                      );
+                                    } else if (onHoldSteps.includes(idx)) {
+                                      // On-hold step - show descriptive text
+                                      const stepLabel = step.stepType === 'anagram' ? 'anagram' : step.stepType;
+                                      parts.push(
+                                        <span key={idx} className="text-amber-600 font-medium italic">({stepLabel} of "{step.fodder}")</span>
+                                      );
+                                    }
+                                  });
+                                  return parts.length > 0 ? (
+                                    <>
+                                      {parts.map((part, i) => (
+                                        <React.Fragment key={i}>
+                                          {i > 0 && <span className="text-slate-400 mx-1">+</span>}
+                                          {part}
+                                        </React.Fragment>
+                                      ))}
+                                      <span className="text-slate-400 text-xs ml-1">(from previous)</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-indigo-600 font-medium">{currentStep.fodder}</span>
+                                      <span className="text-slate-400 text-xs">(from previous)</span>
+                                    </>
+                                  );
+                                })()}
                               </>
                             ) : (
                               // Independent step - fodder was selected by user
