@@ -166,8 +166,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [currentWordplayStep, setCurrentWordplayStep] = useState(0);
 
   // Wordplay step state
-  // Sub-phases: indicator → deleteTarget (for deletion) → fodder → discovery (if implied op) → result
-  type WordplaySubPhase = 'indicator' | 'deleteTarget' | 'fodder' | 'discovery' | 'result';
+  // Sub-phases: indicator → deleteTarget (for deletion) → fodder → decodeMethod (for indicatorless) → discovery (if implied op) → result
+  type WordplaySubPhase = 'indicator' | 'deleteTarget' | 'fodder' | 'decodeMethod' | 'discovery' | 'result';
+  type DecodeMethod = 'literal' | 'synonym' | 'abbreviation' | null;
   const [wordplaySubPhase, setWordplaySubPhase] = useState<WordplaySubPhase>('indicator');
   const [selectedIndicatorIndices, setSelectedIndicatorIndices] = useState<number[]>([]);
   const [selectedDeleteTargetIndices, setSelectedDeleteTargetIndices] = useState<number[]>([]); // For deletion: what to delete
@@ -178,6 +179,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [isDeleteTargetCorrect, setIsDeleteTargetCorrect] = useState(false);
   const [hasCheckedFodder, setHasCheckedFodder] = useState(false);
   const [isFodderCorrect, setIsFodderCorrect] = useState(false);
+  const [selectedDecodeMethod, setSelectedDecodeMethod] = useState<DecodeMethod>(null); // How user thinks the word decodes
+  const [decodeMethodInput, setDecodeMethodInput] = useState(''); // User's typed synonym/abbreviation
+  const [hasCheckedDecodeMethod, setHasCheckedDecodeMethod] = useState(false);
+  const [isDecodeMethodCorrect, setIsDecodeMethodCorrect] = useState(false);
   const [impliedResultInput, setImpliedResultInput] = useState(''); // For discovery phase: user types implied result (e.g., MOTHERS)
   const [hasCheckedImpliedResult, setHasCheckedImpliedResult] = useState(false);
   const [isImpliedResultCorrect, setIsImpliedResultCorrect] = useState(false);
@@ -339,6 +344,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setIsDeleteTargetCorrect(false);
     setHasCheckedFodder(false);
     setIsFodderCorrect(false);
+    setSelectedDecodeMethod(null);
+    setDecodeMethodInput('');
+    setHasCheckedDecodeMethod(false);
+    setIsDecodeMethodCorrect(false);
     setImpliedResultInput('');
     setHasCheckedImpliedResult(false);
     setIsImpliedResultCorrect(false);
@@ -604,6 +613,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         if (isDeletionWithImpliedOp) {
           // Go to discovery phase - user will realize delete target isn't in fodder
           setWordplaySubPhase('discovery');
+        } else if (!stepHasIndicator) {
+          // Indicatorless step - ask HOW it decodes (literal/synonym/abbreviation)
+          setWordplaySubPhase('decodeMethod');
         } else {
           setWordplaySubPhase('result');
         }
@@ -614,6 +626,53 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setSelectedFodderIndices([]);
         setHasCheckedFodder(false);
         setIsFodderCorrect(false);
+      }, 800);
+    }
+  };
+
+  const handleCheckDecodeMethod = () => {
+    if (!currentStep || !selectedDecodeMethod) return;
+
+    const targetResult = currentStep.result.toUpperCase().replace(/[^A-Z]/g, '');
+    const fodderText = currentStep.fodder.toUpperCase().replace(/[^A-Z]/g, '');
+    const userInput = decodeMethodInput.toUpperCase().replace(/[^A-Z]/g, '');
+
+    let isCorrect = false;
+
+    if (selectedDecodeMethod === 'literal') {
+      // Literal means the word itself is used (fodder = result)
+      isCorrect = fodderText === targetResult;
+    } else if (selectedDecodeMethod === 'synonym' || selectedDecodeMethod === 'abbreviation') {
+      // User typed a value - check if it matches the result
+      isCorrect = userInput === targetResult;
+    }
+
+    setHasCheckedDecodeMethod(true);
+    setIsDecodeMethodCorrect(isCorrect);
+
+    if (isCorrect) {
+      // Correct - auto-advance to result phase with result pre-filled
+      setTimeout(() => {
+        if (selectedDecodeMethod === 'literal') {
+          // For literal, we already know the result - auto-fill and complete
+          setStepResultInput(targetResult);
+          setHasCheckedResult(true);
+          setIsResultCorrect(true);
+        } else {
+          // For synonym/abbreviation, the user typed the result - auto-fill
+          setStepResultInput(userInput);
+          setHasCheckedResult(true);
+          setIsResultCorrect(true);
+        }
+        // Transition to result sub-phase to show the "Next Step" button
+        setWordplaySubPhase('result');
+      }, 600);
+    } else {
+      // Wrong - reset after flash
+      setTimeout(() => {
+        setHasCheckedDecodeMethod(false);
+        setIsDecodeMethodCorrect(false);
+        // Don't clear the method selection, just let them try again
       }, 800);
     }
   };
@@ -705,6 +764,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       setIsDeleteTargetCorrect(false);
       setHasCheckedFodder(false);
       setIsFodderCorrect(false);
+      setSelectedDecodeMethod(null);
+      setDecodeMethodInput('');
+      setHasCheckedDecodeMethod(false);
+      setIsDecodeMethodCorrect(false);
       setImpliedResultInput('');
       setHasCheckedImpliedResult(false);
       setIsImpliedResultCorrect(false);
@@ -946,6 +1009,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           if (!stepHasIndicator) {
             if (wordplaySubPhase === 'fodder') {
               return `Select a word to decode`;
+            }
+            if (wordplaySubPhase === 'decodeMethod') {
+              return `How does "${currentStep.fodder}" decode?`;
             }
             if (wordplaySubPhase === 'result') {
               return `What does "${currentStep.fodder}" give you?`;
@@ -1413,16 +1479,124 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                       </p>
                     </>
                   )}
-                  {/* Indicatorless result phase */}
-                  {!stepHasIndicator && wordplaySubPhase === 'result' && (
-                    <>
-                      <p className="text-slate-800 font-medium text-base">
-                        What does "{currentStep.fodder}" give you?
+                  {/* Indicatorless decode method phase - how does this word contribute? */}
+                  {!stepHasIndicator && wordplaySubPhase === 'decodeMethod' && (
+                    <div className="space-y-3">
+                      <p className="text-slate-700 font-medium text-sm mb-2">
+                        You selected "<span className="font-bold">{currentStep.fodder}</span>". How does it decode?
                       </p>
-                      <p className="text-slate-500 text-sm mt-1">
-                        Think about synonyms or common abbreviations
-                      </p>
-                    </>
+
+                      {/* Decode method options */}
+                      <div className="space-y-2">
+                        <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedDecodeMethod === 'literal'
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}>
+                          <input
+                            type="radio"
+                            name="decodeMethod"
+                            checked={selectedDecodeMethod === 'literal'}
+                            onChange={() => { setSelectedDecodeMethod('literal'); setDecodeMethodInput(''); setHasCheckedDecodeMethod(false); }}
+                            className="sr-only"
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            selectedDecodeMethod === 'literal' ? 'border-indigo-500' : 'border-slate-300'
+                          }`}>
+                            {selectedDecodeMethod === 'literal' && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
+                          </div>
+                          <span className="text-slate-700">
+                            "<span className="font-bold">{currentStep.fodder}</span>" is used <span className="font-semibold">literally</span>
+                          </span>
+                        </label>
+
+                        <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedDecodeMethod === 'synonym'
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}>
+                          <input
+                            type="radio"
+                            name="decodeMethod"
+                            checked={selectedDecodeMethod === 'synonym'}
+                            onChange={() => { setSelectedDecodeMethod('synonym'); setDecodeMethodInput(''); setHasCheckedDecodeMethod(false); }}
+                            className="sr-only"
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                            selectedDecodeMethod === 'synonym' ? 'border-indigo-500' : 'border-slate-300'
+                          }`}>
+                            {selectedDecodeMethod === 'synonym' && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-slate-700">
+                              "<span className="font-bold">{currentStep.fodder}</span>" has a common cryptic <span className="font-semibold">synonym</span>
+                            </span>
+                            {selectedDecodeMethod === 'synonym' && (
+                              <input
+                                type="text"
+                                value={decodeMethodInput}
+                                onChange={(e) => { setDecodeMethodInput(e.target.value.toUpperCase()); setHasCheckedDecodeMethod(false); }}
+                                placeholder="Type the synonym..."
+                                className="mt-2 w-full px-3 py-2 rounded-md border border-slate-200 font-mono text-sm uppercase focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </label>
+
+                        <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedDecodeMethod === 'abbreviation'
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}>
+                          <input
+                            type="radio"
+                            name="decodeMethod"
+                            checked={selectedDecodeMethod === 'abbreviation'}
+                            onChange={() => { setSelectedDecodeMethod('abbreviation'); setDecodeMethodInput(''); setHasCheckedDecodeMethod(false); }}
+                            className="sr-only"
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                            selectedDecodeMethod === 'abbreviation' ? 'border-indigo-500' : 'border-slate-300'
+                          }`}>
+                            {selectedDecodeMethod === 'abbreviation' && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-slate-700">
+                              "<span className="font-bold">{currentStep.fodder}</span>" has a common cryptic <span className="font-semibold">abbreviation</span>
+                            </span>
+                            {selectedDecodeMethod === 'abbreviation' && (
+                              <input
+                                type="text"
+                                value={decodeMethodInput}
+                                onChange={(e) => { setDecodeMethodInput(e.target.value.toUpperCase()); setHasCheckedDecodeMethod(false); }}
+                                placeholder="Type the abbreviation..."
+                                className="mt-2 w-full px-3 py-2 rounded-md border border-slate-200 font-mono text-sm uppercase focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Check button */}
+                      {selectedDecodeMethod && (selectedDecodeMethod === 'literal' || decodeMethodInput.length > 0) && !hasCheckedDecodeMethod && (
+                        <button
+                          onClick={handleCheckDecodeMethod}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                        >
+                          <Check size={16} />
+                          Check
+                        </button>
+                      )}
+
+                      {/* Feedback */}
+                      {hasCheckedDecodeMethod && !isDecodeMethodCorrect && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-red-700 font-medium text-sm animate-in fade-in">
+                          ✗ Not quite — try again
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
