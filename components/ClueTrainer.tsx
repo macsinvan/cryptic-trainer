@@ -261,9 +261,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const currentStep = wordplaySteps[currentWordplayStep];
 
   // Check if current step has an indicator (vs indicatorless like synonym/abbreviation)
-  const stepHasIndicator = useMemo(() => {
-    return currentStep?.indicator && currentStep.indicator.trim() !== '';
-  }, [currentStep]);
+  // Using direct computation (not useMemo) to avoid any stale value issues
+  const stepHasIndicator = Boolean(currentStep?.indicator && currentStep.indicator.trim() !== '');
 
   // Check if current step is a deletion with implied operation (needs discovery flow)
   const isDeletionWithImpliedOp = useMemo(() => {
