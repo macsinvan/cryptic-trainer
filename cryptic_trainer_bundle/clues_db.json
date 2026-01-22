@@ -148,13 +148,13 @@
           {
             "indicator": "busy",
             "fodder": "lymph too",
-            "result": "PHLOTOMY",
-            "synonym": "PHLOTOMY",
+            "result": "PHLEBOTOMY",
+            "synonym": "PHLEBOTOMY",
             "hint": "lymph too",
             "complexity": 3,
             "isAssembly": false,
             "stepType": "anagram",
-            "explanation": "\"lymph too\" anagrammed (busy) gives PHLOTOMY"
+            "explanation": "\"lymph too\" + \"EB\" anagrammed (busy) gives PHLEBOTOMY"
           },
           {
             "indicator": "at last",
@@ -169,14 +169,14 @@
           },
           {
             "indicator": "nurses",
-            "fodder": "PHLOTOMY + EB",
+            "fodder": "lymph too + EB",
             "result": "PHLEBOTOMY",
             "synonym": "PHLEBOTOMY",
             "hint": "nurses",
             "complexity": 3,
             "isAssembly": false,
             "stepType": "container",
-            "explanation": "PHLOTOMY + EB inserted gives PHLEBOTOMY"
+            "explanation": "EB inserted into \"lymph too\" for anagram"
           }
         ],
         "definitionText": "Drawing blood",
@@ -376,7 +376,7 @@
             "complexity": 3,
             "isAssembly": false,
             "stepType": "deletion",
-            "explanation": "\"Mums\" → MOTHERS (synonym), then drop \"others\" → M"
+            "explanation": "\"Mums\" \u2192 MOTHERS (synonym), then drop \"others\" \u2192 M"
           },
           {
             "indicator": "",
