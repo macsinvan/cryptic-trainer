@@ -190,6 +190,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [hasCheckedResult, setHasCheckedResult] = useState(false);
   const [isResultCorrect, setIsResultCorrect] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Collapsed steps
+  const [onHoldSteps, setOnHoldSteps] = useState<number[]>([]); // Steps where user found indicator/fodder but skipped result
   const [expandedCompletedSteps, setExpandedCompletedSteps] = useState<number[]>([]); // Which collapsed steps are expanded to show learnings
   const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
   const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], deleteTargetIndices: number[], fodderIndices: number[]}[]>([]); // Persisted wordplay highlights
@@ -354,6 +355,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setHasCheckedResult(false);
     setIsResultCorrect(false);
     setCompletedSteps([]);
+    setOnHoldSteps([]);
     setExpandedCompletedSteps([]);
     setRevealedIndicatorSteps([]);
     setConfirmedHighlights([]);
@@ -802,6 +804,97 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       setHasCheckedResult(false);
       setIsResultCorrect(false);
     }
+  };
+
+  // Skip current step and move to next (user can come back later)
+  const handleSkipStep = () => {
+    // Save confirmed highlights before clearing
+    setConfirmedHighlights(prev => [...prev, {
+      indicatorIndices: [...selectedIndicatorIndices],
+      deleteTargetIndices: [...selectedDeleteTargetIndices],
+      fodderIndices: [...selectedFodderIndices]
+    }]);
+
+    // Mark step as on-hold (not completed - result still pending)
+    setOnHoldSteps(prev => [...prev, currentWordplayStep]);
+
+    // Find next step to work on (not completed, not on-hold)
+    const findNextStep = () => {
+      for (let i = currentWordplayStep + 1; i < wordplaySteps.length; i++) {
+        if (!completedSteps.includes(i) && !onHoldSteps.includes(i)) {
+          return i;
+        }
+      }
+      // Wrap around to find earlier steps
+      for (let i = 0; i < currentWordplayStep; i++) {
+        if (!completedSteps.includes(i) && !onHoldSteps.includes(i)) {
+          return i;
+        }
+      }
+      return -1; // No more steps to work on
+    };
+
+    const nextStep = findNextStep();
+
+    if (nextStep === -1) {
+      // All steps either completed or on-hold - check if we can proceed
+      const allNonHoldCompleted = wordplaySteps.every((_, i) =>
+        completedSteps.includes(i) || onHoldSteps.includes(i)
+      );
+      if (allNonHoldCompleted && onHoldSteps.length > 0) {
+        // Go back to first on-hold step
+        const firstOnHold = onHoldSteps[0];
+        setCurrentWordplayStep(firstOnHold);
+        const stepData = wordplaySteps[firstOnHold];
+        const hasIndicator = stepData?.indicator && stepData.indicator.trim() !== '';
+        // On-hold steps already have indicator/fodder found, so go to result
+        setWordplaySubPhase('result');
+      }
+    } else {
+      // Move to next step
+      setCurrentWordplayStep(nextStep);
+
+      // Check if next step has an indicator to determine starting sub-phase
+      const nextStepData = wordplaySteps[nextStep];
+      const nextStepHasIndicator = nextStepData?.indicator && nextStepData.indicator.trim() !== '';
+
+      // Reset sub-phase state
+      setWordplaySubPhase(nextStepHasIndicator ? 'indicator' : 'fodder');
+      setSelectedIndicatorIndices([]);
+      setSelectedDeleteTargetIndices([]);
+      setSelectedFodderIndices([]);
+      setHasCheckedIndicator(false);
+      setIsIndicatorCorrect(false);
+      setHasCheckedDeleteTarget(false);
+      setIsDeleteTargetCorrect(false);
+      setHasCheckedFodder(false);
+      setIsFodderCorrect(false);
+      setSelectedDecodeMethod(null);
+      setDecodeMethodInput('');
+      setHasCheckedDecodeMethod(false);
+      setIsDecodeMethodCorrect(false);
+      setImpliedResultInput('');
+      setHasCheckedImpliedResult(false);
+      setIsImpliedResultCorrect(false);
+      setStepResultInput('');
+      setHasCheckedResult(false);
+      setIsResultCorrect(false);
+    }
+  };
+
+  // Resume an on-hold step
+  const handleResumeStep = (stepIdx: number) => {
+    // Remove from on-hold list
+    setOnHoldSteps(prev => prev.filter(i => i !== stepIdx));
+
+    // Switch to that step
+    setCurrentWordplayStep(stepIdx);
+
+    // On-hold steps already have indicator/fodder found, so go to result
+    setWordplaySubPhase('result');
+    setStepResultInput('');
+    setHasCheckedResult(false);
+    setIsResultCorrect(false);
   };
 
   const handleNextIndicator = () => {
@@ -1389,6 +1482,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                     className={`w-2 h-2 rounded-full transition-colors ${
                       completedSteps.includes(i)
                         ? 'bg-green-500'
+                        : onHoldSteps.includes(i)
+                        ? 'bg-amber-400'
                         : i === currentWordplayStep
                         ? 'bg-indigo-500'
                         : 'bg-slate-200'
@@ -1449,8 +1544,35 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             </div>
           )}
 
+          {/* ON-HOLD PANELS - Show steps where user skipped to work on others */}
+          {onHoldSteps.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {onHoldSteps.map((stepIdx) => {
+                const step = wordplaySteps[stepIdx];
+                if (!step) return null;
+                return (
+                  <div key={stepIdx} className="bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <HelpCircle size={16} className="text-amber-600 flex-shrink-0" />
+                        <span className="text-amber-700 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
+                        <span className="text-amber-600 text-base">"{step.indicator}" + "{step.fodder}" → <span className="italic">?</span></span>
+                      </div>
+                      <button
+                        onClick={() => handleResumeStep(stepIdx)}
+                        className="text-amber-600 hover:text-amber-700 text-xs font-bold"
+                      >
+                        Resume →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* EXPANDED PANEL - Current active step */}
-          {currentStep && currentWordplayStep < wordplaySteps.length && (
+          {currentStep && currentWordplayStep < wordplaySteps.length && !onHoldSteps.includes(currentWordplayStep) && (
             <div className="bg-slate-50 border-2 border-indigo-300 rounded-lg p-3 space-y-3">
               {/* Step header */}
               <div className="flex items-center justify-between">
@@ -1880,14 +2002,24 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         )}
                       </div>
 
-                      {/* Reveal button */}
+                      {/* Reveal and Skip buttons */}
                       {!isResultCorrect && (
-                        <button
-                          onClick={handleRevealStepResult}
-                          className="text-slate-400 hover:text-slate-600 text-xs font-medium"
-                        >
-                          Reveal result
-                        </button>
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={handleRevealStepResult}
+                            className="text-slate-400 hover:text-slate-600 text-xs font-medium"
+                          >
+                            Reveal result
+                          </button>
+                          {wordplaySteps.length > 1 && (
+                            <button
+                              onClick={handleSkipStep}
+                              className="text-amber-500 hover:text-amber-600 text-xs font-medium"
+                            >
+                              Skip for now →
+                            </button>
+                          )}
+                        </div>
                       )}
 
                       {/* Wrong result feedback */}
