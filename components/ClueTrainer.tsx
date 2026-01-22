@@ -167,7 +167,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
   // Wordplay step state
   // Sub-phases: indicator → deleteTarget (for deletion) → fodder → decodeMethod (for indicatorless) → discovery (if implied op) → result
-  type WordplaySubPhase = 'indicator' | 'deleteTarget' | 'fodder' | 'decodeMethod' | 'discovery' | 'result';
+  type WordplaySubPhase = 'indicator' | 'deleteTarget' | 'fodder' | 'decodeMethod' | 'discovery' | 'assembly' | 'result';
   type DecodeMethod = 'literal' | 'synonym' | 'abbreviation' | null;
   const [wordplaySubPhase, setWordplaySubPhase] = useState<WordplaySubPhase>('indicator');
   const [selectedIndicatorIndices, setSelectedIndicatorIndices] = useState<number[]>([]);
@@ -288,9 +288,16 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     return wordsInClue.length < fodderWords.length / 2;
   }, [currentStep, words, isDeletionWithImpliedOp]);
 
-  // Compute accumulated letters from completed steps
+  // Compute accumulated letters from completed steps (only independent steps like letter_selection)
   const accumulatedLetters = useMemo(() => {
-    return completedSteps.map(stepIdx => wordplaySteps[stepIdx]?.result || '').join('');
+    return completedSteps
+      .filter(stepIdx => {
+        const step = wordplaySteps[stepIdx];
+        // Only count steps that produce independent results (not container assembly)
+        return step && step.stepType !== 'container' && step.stepType !== 'anagram';
+      })
+      .map(stepIdx => wordplaySteps[stepIdx]?.result || '')
+      .join('');
   }, [completedSteps, wordplaySteps]);
 
   // Compute letters still needed
@@ -298,6 +305,69 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     const answerLength = answer.replace(/[^A-Z]/gi, '').length;
     return answerLength - accumulatedLetters.length;
   }, [answer, accumulatedLetters]);
+
+  // For container steps that assemble an anagram + other letters, compute the assembled fodder
+  // e.g., "lymph too" + "EB" -> "lymph EB too" (letters ready for anagram)
+  const assembledAnagramFodder = useMemo(() => {
+    if (!currentStep || currentStep.stepType !== 'container') return null;
+
+    // Find the on-hold anagram step
+    const anagramStepIdx = onHoldSteps.find(idx => wordplaySteps[idx]?.stepType === 'anagram');
+    if (anagramStepIdx === undefined) return null;
+
+    const anagramStep = wordplaySteps[anagramStepIdx];
+    const anagramFodder = anagramStep?.fodder || '';
+
+    // Get completed results (like EB from letter_selection)
+    const completedResults = completedSteps
+      .filter(idx => idx !== anagramStepIdx && wordplaySteps[idx]?.stepType !== 'container')
+      .map(idx => wordplaySteps[idx]?.result || '')
+      .filter(r => r);
+
+    if (completedResults.length === 0) return null;
+
+    // Assemble: fodder + inserted letters
+    // For "nurses" (container), EB goes inside "lymph too" -> "lymph EB too"
+    return `${anagramFodder} ${completedResults.join(' ')}`.trim();
+  }, [currentStep, onHoldSteps, completedSteps, wordplaySteps]);
+
+  // Check if current step is a container that assembles letters for a pending anagram
+  const isContainerAssemblyStep = useMemo(() => {
+    if (!currentStep || currentStep.stepType !== 'container') return false;
+    // Check if there's an on-hold anagram step
+    return onHoldSteps.some(idx => wordplaySteps[idx]?.stepType === 'anagram');
+  }, [currentStep, onHoldSteps, wordplaySteps]);
+
+  // Check if current step is an anagram that was resumed after assembly
+  // (container step completed, now solving the anagram with assembled letters)
+  const isResumedAnagramWithAssembly = useMemo(() => {
+    if (!currentStep || currentStep.stepType !== 'anagram') return false;
+    // Check if a container step has been completed
+    const containerCompleted = completedSteps.some(idx => wordplaySteps[idx]?.stepType === 'container');
+    // And we have other completed steps (like letter_selection)
+    const hasOtherResults = completedSteps.some(idx => {
+      const step = wordplaySteps[idx];
+      return step && step.stepType !== 'container' && step.stepType !== 'anagram';
+    });
+    return containerCompleted && hasOtherResults;
+  }, [currentStep, completedSteps, wordplaySteps]);
+
+  // Get the assembled anagram fodder for a resumed anagram
+  const resumedAnagramFodder = useMemo(() => {
+    if (!isResumedAnagramWithAssembly || !currentStep) return null;
+
+    const anagramFodder = currentStep.fodder || '';
+    // Get results from non-anagram, non-container completed steps
+    const otherResults = completedSteps
+      .filter(idx => {
+        const step = wordplaySteps[idx];
+        return step && step.stepType !== 'container' && step.stepType !== 'anagram';
+      })
+      .map(idx => wordplaySteps[idx]?.result || '')
+      .filter(r => r);
+
+    return `${anagramFodder} ${otherResults.join(' ')}`.trim();
+  }, [isResumedAnagramWithAssembly, currentStep, completedSteps, wordplaySteps]);
 
   // Compute which word indices are "used" (highlighted in completed steps or definition)
   const usedWordIndices = useMemo(() => {
@@ -573,6 +643,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         if (isDeletionWithImpliedOp) {
           // Deletion with implied op: go to deleteTarget phase
           setWordplaySubPhase('deleteTarget');
+        } else if (isContainerAssemblyStep) {
+          // Container assembling for anagram: go to assembly phase (shows assembled letters)
+          setWordplaySubPhase('assembly');
         } else if (isFodderDependent) {
           // Dependent fodder: skip to result
           setWordplaySubPhase('result');
@@ -756,6 +829,44 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setStepResultInput(currentStep.result);
     setHasCheckedResult(true);
     setIsResultCorrect(true);
+  };
+
+  // Handle assembly step completion - container assembled letters, now go back to anagram
+  const handleAssemblyComplete = () => {
+    // Save confirmed highlights for container step
+    setConfirmedHighlights(prev => [...prev, {
+      indicatorIndices: [...selectedIndicatorIndices],
+      deleteTargetIndices: [],
+      fodderIndices: []
+    }]);
+
+    // Mark container step as completed
+    setCompletedSteps(prev => [...prev, currentWordplayStep]);
+
+    // Find the on-hold anagram step and resume it
+    const anagramStepIdx = onHoldSteps.find(idx => wordplaySteps[idx]?.stepType === 'anagram');
+    if (anagramStepIdx !== undefined) {
+      // Remove from on-hold
+      setOnHoldSteps(prev => prev.filter(i => i !== anagramStepIdx));
+
+      // Switch to the anagram step
+      setCurrentWordplayStep(anagramStepIdx);
+
+      // Go directly to result phase - user now has all letters
+      setWordplaySubPhase('result');
+      setStepResultInput('');
+      setHasCheckedResult(false);
+      setIsResultCorrect(false);
+      setSelectedIndicatorIndices([]);
+      setSelectedDeleteTargetIndices([]);
+      setSelectedFodderIndices([]);
+      setHasCheckedIndicator(false);
+      setIsIndicatorCorrect(false);
+      setHasCheckedDeleteTarget(false);
+      setIsDeleteTargetCorrect(false);
+      setHasCheckedFodder(false);
+      setIsFodderCorrect(false);
+    }
   };
 
   const handleStepComplete = () => {
@@ -1921,6 +2032,41 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 </div>
               )}
 
+              {/* === ASSEMBLY SUB-PHASE (container assembles letters for pending anagram) === */}
+              {wordplaySubPhase === 'assembly' && isContainerAssemblyStep && (
+                <div className="space-y-3">
+                  {/* Show what we're assembling */}
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <div className="flex items-center gap-1">
+                      <Check size={14} className="text-green-600" />
+                      <span className="text-orange-600 font-medium">"{currentStep.indicator}"</span>
+                    </div>
+                    <span className="text-slate-400">assembles:</span>
+                  </div>
+
+                  {/* Show the assembled letters */}
+                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+                    <p className="text-green-800 font-bold text-base mb-2">
+                      ✓ Letters assembled!
+                    </p>
+                    <p className="text-green-700 text-lg font-mono tracking-wider">
+                      {assembledAnagramFodder?.toUpperCase() || ''}
+                    </p>
+                    <p className="text-green-600 text-sm mt-2">
+                      You now have {(assembledAnagramFodder || '').replace(/\s/g, '').length} letters — enough to solve the anagram!
+                    </p>
+                  </div>
+
+                  {/* Button to go back to anagram */}
+                  <button
+                    onClick={handleAssemblyComplete}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+                  >
+                    Solve the Anagram <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+
               {/* === RESULT SUB-PHASE === */}
                   {wordplaySubPhase === 'result' && (
                     <div className="space-y-3">
@@ -1997,6 +2143,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                                     </>
                                   );
                                 })()}
+                              </>
+                            ) : isResumedAnagramWithAssembly ? (
+                              // Anagram resumed after assembly - show assembled fodder
+                              <>
+                                <Check size={12} className="text-green-600" />
+                                <span className="text-indigo-600 font-medium font-mono tracking-wider">{resumedAnagramFodder?.toUpperCase()}</span>
+                                <span className="text-slate-400 text-xs ml-1">(assembled)</span>
                               </>
                             ) : (
                               // Independent step - fodder was selected by user
