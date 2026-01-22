@@ -189,8 +189,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [stepResultInput, setStepResultInput] = useState('');
   const [hasCheckedResult, setHasCheckedResult] = useState(false);
   const [isResultCorrect, setIsResultCorrect] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Fully completed steps (with result)
-  const [deferredSteps, setDeferredSteps] = useState<number[]>([]); // Steps with indicator+fodder found but result deferred
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Collapsed steps
   const [expandedCompletedSteps, setExpandedCompletedSteps] = useState<number[]>([]); // Which collapsed steps are expanded to show learnings
   const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
   const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], deleteTargetIndices: number[], fodderIndices: number[]}[]>([]); // Persisted wordplay highlights
@@ -320,26 +319,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     return words.filter((_, idx) => !usedWordIndices.has(idx));
   }, [words, usedWordIndices]);
 
-  // Check if current step's result is used by a later dependent/container step
-  // If so, we should defer asking for the result until the container step reveals the structure
-  const isStepResultDeferred = useMemo(() => {
-    if (!currentStep) return false;
-
-    // Look for a later step that references this step's result in its fodder
-    const currentResult = currentStep.result?.toUpperCase().replace(/[^A-Z]/g, '') || '';
-    if (!currentResult) return false;
-
-    for (let i = currentWordplayStep + 1; i < wordplaySteps.length; i++) {
-      const laterStep = wordplaySteps[i];
-      const laterFodder = laterStep.fodder?.toUpperCase().replace(/[^A-Z]/g, '') || '';
-      // If a later step's fodder contains this step's result, defer this step
-      if (laterFodder.includes(currentResult)) {
-        return true;
-      }
-    }
-    return false;
-  }, [currentStep, currentWordplayStep, wordplaySteps]);
-
   // ---------------------------------------------------------------------------
   // INITIALIZATION
   // ---------------------------------------------------------------------------
@@ -375,7 +354,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setHasCheckedResult(false);
     setIsResultCorrect(false);
     setCompletedSteps([]);
-    setDeferredSteps([]);
     setExpandedCompletedSteps([]);
     setRevealedIndicatorSteps([]);
     setConfirmedHighlights([]);
@@ -665,10 +643,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         } else if (!stepHasIndicator) {
           // Indicatorless step - ask HOW it decodes (literal/synonym/abbreviation)
           setWordplaySubPhase('decodeMethod');
-        } else if (isStepResultDeferred) {
-          // This step's result is used by a later container step
-          // Defer asking for result - move to next step to gather more context
-          handleDeferredStepComplete();
         } else {
           setWordplaySubPhase('result');
         }
@@ -780,55 +754,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setStepResultInput(currentStep.result);
     setHasCheckedResult(true);
     setIsResultCorrect(true);
-  };
-
-  // Handle deferred step - indicator + fodder found, but result depends on later steps
-  const handleDeferredStepComplete = () => {
-    // Save confirmed highlights
-    setConfirmedHighlights(prev => [...prev, {
-      indicatorIndices: [...selectedIndicatorIndices],
-      deleteTargetIndices: [...selectedDeleteTargetIndices],
-      fodderIndices: [...selectedFodderIndices]
-    }]);
-
-    // Mark step as deferred (not completed - result still pending)
-    setDeferredSteps(prev => [...prev, currentWordplayStep]);
-
-    const nextStep = currentWordplayStep + 1;
-
-    if (nextStep >= wordplaySteps.length) {
-      // This shouldn't happen - deferred steps should have a container step after
-      setPhase('solve');
-    } else {
-      // Move to next step
-      setCurrentWordplayStep(nextStep);
-
-      // Check if next step has an indicator
-      const nextStepData = wordplaySteps[nextStep];
-      const nextStepHasIndicator = nextStepData?.indicator && nextStepData.indicator.trim() !== '';
-
-      // Reset sub-phase state
-      setWordplaySubPhase(nextStepHasIndicator ? 'indicator' : 'fodder');
-      setSelectedIndicatorIndices([]);
-      setSelectedDeleteTargetIndices([]);
-      setSelectedFodderIndices([]);
-      setHasCheckedIndicator(false);
-      setIsIndicatorCorrect(false);
-      setHasCheckedDeleteTarget(false);
-      setIsDeleteTargetCorrect(false);
-      setHasCheckedFodder(false);
-      setIsFodderCorrect(false);
-      setSelectedDecodeMethod(null);
-      setDecodeMethodInput('');
-      setHasCheckedDecodeMethod(false);
-      setIsDecodeMethodCorrect(false);
-      setImpliedResultInput('');
-      setHasCheckedImpliedResult(false);
-      setIsImpliedResultCorrect(false);
-      setStepResultInput('');
-      setHasCheckedResult(false);
-      setIsResultCorrect(false);
-    }
   };
 
   const handleStepComplete = () => {
@@ -1473,26 +1398,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               </div>
             )}
           </div>
-
-          {/* DEFERRED PANELS - Show steps with indicator+fodder found but result pending */}
-          {deferredSteps.length > 0 && (
-            <div className="space-y-2 mb-3">
-              {deferredSteps.map((stepIdx) => {
-                const step = wordplaySteps[stepIdx];
-                if (!step) return null;
-                return (
-                  <div key={stepIdx} className="bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <HelpCircle size={16} className="text-amber-600 flex-shrink-0" />
-                      <span className="text-amber-700 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
-                      <span className="text-amber-600 text-base">"{step.indicator}" + "{step.fodder}" → <span className="italic">?</span></span>
-                    </div>
-                    <p className="text-amber-600 text-xs mt-1 ml-6">Result pending — need more context</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
 
           {/* COLLAPSED PANELS - Show completed steps with expandable learnings */}
           {completedSteps.length > 0 && (
