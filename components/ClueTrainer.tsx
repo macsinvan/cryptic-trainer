@@ -407,12 +407,40 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           return [...prev, wordIndex].sort((a, b) => a - b);
         });
       } else if (wordplaySubPhase === 'fodder') {
-        setSelectedFodderIndices(prev => {
-          if (prev.includes(wordIndex)) {
-            return prev.filter(i => i !== wordIndex);
+        // For indicatorless steps, auto-validate on single word tap (no Check button needed)
+        if (!stepHasIndicator) {
+          // Check if tapped word matches the expected fodder
+          const tappedWord = words[wordIndex].text;
+          const targetFodder = currentStep?.fodder?.toLowerCase().replace(/[.,;!?()'"]/g, '') || '';
+
+          if (tappedWord === targetFodder) {
+            // Correct - set fodder and auto-advance to decode method
+            setSelectedFodderIndices([wordIndex]);
+            setHasCheckedFodder(true);
+            setIsFodderCorrect(true);
+            setTimeout(() => {
+              setWordplaySubPhase('decodeMethod');
+            }, 300); // Brief highlight before advancing
+          } else {
+            // Wrong word - brief red flash then clear
+            setSelectedFodderIndices([wordIndex]);
+            setHasCheckedFodder(true);
+            setIsFodderCorrect(false);
+            setTimeout(() => {
+              setSelectedFodderIndices([]);
+              setHasCheckedFodder(false);
+              setIsFodderCorrect(false);
+            }, 600);
           }
-          return [...prev, wordIndex].sort((a, b) => a - b);
-        });
+        } else {
+          // Steps with indicators - normal multi-word selection
+          setSelectedFodderIndices(prev => {
+            if (prev.includes(wordIndex)) {
+              return prev.filter(i => i !== wordIndex);
+            }
+            return [...prev, wordIndex].sort((a, b) => a - b);
+          });
+        }
       }
       return;
     }
@@ -1140,8 +1168,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 </div>
               )}
 
-              {/* Check Fodder button - in clue box */}
-              {isFodderSelection && selectedFodderIndices.length > 0 && !hasCheckedFodder && (
+              {/* Check Fodder button - in clue box (only for steps WITH indicators) */}
+              {isFodderSelection && selectedFodderIndices.length > 0 && !hasCheckedFodder && stepHasIndicator && (
                 <div className="mt-3">
                   <button
                     onClick={handleCheckFodder}
