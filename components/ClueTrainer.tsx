@@ -288,26 +288,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     return wordsInClue.length < fodderWords.length / 2;
   }, [currentStep, words, isDeletionWithImpliedOp]);
 
-  // Check if current step's result is an intermediate (used as fodder in a later container step)
-  // If so, we shouldn't ask user to type it - just identify indicator/fodder, then move on
-  const isIntermediateResult = useMemo(() => {
-    if (!currentStep) return false;
-    const currentResult = currentStep.result?.toUpperCase().replace(/[^A-Z]/g, '') || '';
-    if (!currentResult) return false;
-
-    // Look for a later container step that uses this result in its fodder
-    for (let i = currentWordplayStep + 1; i < wordplaySteps.length; i++) {
-      const laterStep = wordplaySteps[i];
-      if (laterStep.stepType === 'container') {
-        const laterFodder = laterStep.fodder?.toUpperCase().replace(/[^A-Z]/g, '') || '';
-        if (laterFodder.includes(currentResult)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }, [currentStep, currentWordplayStep, wordplaySteps]);
-
   // Compute accumulated letters from completed steps
   const accumulatedLetters = useMemo(() => {
     return completedSteps.map(stepIdx => wordplaySteps[stepIdx]?.result || '').join('');
@@ -665,10 +645,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         } else if (!stepHasIndicator) {
           // Indicatorless step - ask HOW it decodes (literal/synonym/abbreviation)
           setWordplaySubPhase('decodeMethod');
-        } else if (isIntermediateResult) {
-          // This step's result is intermediate (used in later container) - auto-complete
-          // Don't ask for result - just mark as complete and move on
-          handleIntermediateStepComplete();
         } else {
           setWordplaySubPhase('result');
         }
@@ -780,49 +756,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setStepResultInput(currentStep.result);
     setHasCheckedResult(true);
     setIsResultCorrect(true);
-  };
-
-  // Handle intermediate step completion (result is used in later container, no user input needed)
-  const handleIntermediateStepComplete = () => {
-    // Save confirmed highlights
-    setConfirmedHighlights(prev => [...prev, {
-      indicatorIndices: [...selectedIndicatorIndices],
-      deleteTargetIndices: [...selectedDeleteTargetIndices],
-      fodderIndices: [...selectedFodderIndices]
-    }]);
-
-    // Mark step as completed
-    setCompletedSteps(prev => [...prev, currentWordplayStep]);
-
-    const nextStep = currentWordplayStep + 1;
-
-    if (nextStep >= wordplaySteps.length) {
-      setPhase('solve');
-    } else {
-      setCurrentWordplayStep(nextStep);
-      const nextStepData = wordplaySteps[nextStep];
-      const nextStepHasIndicator = nextStepData?.indicator && nextStepData.indicator.trim() !== '';
-      setWordplaySubPhase(nextStepHasIndicator ? 'indicator' : 'fodder');
-      setSelectedIndicatorIndices([]);
-      setSelectedDeleteTargetIndices([]);
-      setSelectedFodderIndices([]);
-      setHasCheckedIndicator(false);
-      setIsIndicatorCorrect(false);
-      setHasCheckedDeleteTarget(false);
-      setIsDeleteTargetCorrect(false);
-      setHasCheckedFodder(false);
-      setIsFodderCorrect(false);
-      setSelectedDecodeMethod(null);
-      setDecodeMethodInput('');
-      setHasCheckedDecodeMethod(false);
-      setIsDecodeMethodCorrect(false);
-      setImpliedResultInput('');
-      setHasCheckedImpliedResult(false);
-      setIsImpliedResultCorrect(false);
-      setStepResultInput('');
-      setHasCheckedResult(false);
-      setIsResultCorrect(false);
-    }
   };
 
   const handleStepComplete = () => {
@@ -1571,12 +1504,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 const learning = WORDPLAY_LEARNINGS[stepType];
                 const clueSpecific = getClueSpecificLearning(stepType, step.indicator, step.fodder);
                 const isExpanded = expandedCompletedSteps.includes(stepIdx);
-                // Check if this was an intermediate step (result used in later container)
-                const stepResult = step.result?.toUpperCase().replace(/[^A-Z]/g, '') || '';
-                const isIntermediate = wordplaySteps.slice(stepIdx + 1).some(
-                  laterStep => laterStep.stepType === 'container' &&
-                    (laterStep.fodder?.toUpperCase().replace(/[^A-Z]/g, '') || '').includes(stepResult)
-                );
                 return (
                   <div key={stepIdx} className="bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
                     <button
@@ -1591,11 +1518,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                     >
                       <Check size={16} className="text-green-600 flex-shrink-0" />
                       <span className="text-indigo-600 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
-                      {isIntermediate ? (
-                        <span className="text-slate-600 text-base">"{step.indicator}" + "{step.fodder}" → <span className="italic text-slate-400">(combined below)</span></span>
-                      ) : (
-                        <span className="text-slate-600 text-base">"{step.indicator}" + "{step.fodder}" → {step.result}</span>
-                      )}
+                      <span className="text-slate-600 text-base">"{step.indicator}" + "{step.fodder}" → {step.result}</span>
                       <ChevronDown
                         size={14}
                         className={`ml-auto text-slate-400 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
