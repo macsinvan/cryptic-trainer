@@ -2002,23 +2002,44 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         )}
                       </div>
 
-                      {/* Reveal and Skip buttons */}
+                      {/* Letter count hint and Skip button */}
                       {!isResultCorrect && (
-                        <div className="flex items-center gap-4">
-                          <button
-                            onClick={handleRevealStepResult}
-                            className="text-slate-400 hover:text-slate-600 text-xs font-medium"
-                          >
-                            Reveal result
-                          </button>
-                          {wordplaySteps.length > 1 && (
+                        <div className="space-y-3">
+                          {/* Show letter count mismatch for anagram steps */}
+                          {currentStep.stepType?.toLowerCase() === 'anagram' && (() => {
+                            const fodderLetters = (currentStep.fodder || '').replace(/[^a-zA-Z]/g, '').length;
+                            const answerLetters = answer.replace(/[^a-zA-Z]/g, '').length;
+                            if (fodderLetters < answerLetters) {
+                              return (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                  <p className="text-amber-700 font-medium text-sm">
+                                    ⚠️ Not enough letters! "{currentStep.fodder}" has {fodderLetters} letters, but the answer needs {answerLetters}.
+                                  </p>
+                                  <p className="text-amber-600 text-sm mt-1">
+                                    You may need to find other wordplay steps first to get the missing letters.
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+
+                          <div className="flex items-center gap-3">
                             <button
-                              onClick={handleSkipStep}
-                              className="text-amber-500 hover:text-amber-600 text-xs font-medium"
+                              onClick={handleRevealStepResult}
+                              className="text-slate-400 hover:text-slate-600 text-xs font-medium"
                             >
-                              Skip for now →
+                              Reveal result
                             </button>
-                          )}
+                            {wordplaySteps.length > 1 && (
+                              <button
+                                onClick={handleSkipStep}
+                                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-sm"
+                              >
+                                Skip for now →
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
 
