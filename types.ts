@@ -333,10 +333,81 @@ export interface ScannedCrossword {
   clues: ScannedClue[];
 }
 
-export type ViewState = 
+export type ViewState =
   | { type: 'HOME' }
   | { type: 'PUBLICATION'; publicationId: string }
   | { type: 'SETTER'; publicationId: string; setterId: string }
   | { type: 'TRAINING'; publicationId: string; customClues?: ScannedClue[]; initialIndex?: number }
   | { type: 'SOLVER'; publicationId: string }
   | { type: 'MANUAL_ENTRY'; publicationId: string };
+
+// ========== SERVER-DRIVEN RENDER INSTRUCTIONS ==========
+
+/** Button specification from server */
+export interface ButtonSpec {
+  id: string;
+  label: string;
+  action: string;
+  variant: 'primary' | 'secondary' | 'danger';
+  requiresSelection?: boolean;
+  requiresInput?: boolean;
+}
+
+/** Highlight instruction for clue words */
+export interface HighlightInstruction {
+  indices: number[];
+  color: 'GREEN' | 'ORANGE' | 'BLUE' | 'PURPLE';
+  role: 'definition' | 'indicator' | 'fodder' | 'deleteTarget';
+  confirmed: boolean;
+}
+
+/** Panel types for rendering */
+export type PanelType = 'active' | 'teaching' | 'complete' | 'blocked';
+
+/** Input modes */
+export type InputMode = 'tap_words' | 'enter_text' | 'none';
+
+/** Server-driven render instructions - UI renders exactly what this says */
+export interface RenderInstructions {
+  // Panel type
+  panel: PanelType;
+
+  // Instruction text
+  primaryText: string;
+  secondaryText?: string | null;
+
+  // Input configuration
+  inputMode: InputMode;
+  inputTarget: 'indicator' | 'fodder' | 'result' | null;
+  showResultInput: boolean;
+
+  // Buttons to display
+  buttons: ButtonSpec[];
+
+  // Word highlights
+  highlights: HighlightInstruction[];
+
+  // Step metadata
+  stepLabel: string;
+  stepProgress: string;
+
+  // Optional content
+  resultDisplay?: string | null;
+  blockedHint?: string | null;
+}
+
+/** Training action response from server */
+export interface TrainingActionResponse {
+  success: boolean;
+  clueEntry: any;
+  currentWordplay: any | null;
+  currentWordplayIndex: number;
+  currentPhase: string;
+  isSubOperation: boolean;
+  parentWordplay?: any;
+  blocked?: boolean;
+  blockedHint?: string;
+  allSolved?: boolean;
+  validation?: { correct: boolean; expected: string };
+  render: RenderInstructions;
+}

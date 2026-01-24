@@ -5,20 +5,26 @@ A training app for learning to solve Times-style cryptic crosswords.
 ## Current Status
 
 ### What's Working
-- **Thin client architecture**: All logic on Python server, UI just renders and captures input
+- **Server-driven rendering**: Server sends explicit `RenderInstructions` — UI has zero phase logic
+- **Thin client architecture**: All logic on Python server, UI just renders what server says
 - **Training flow API**: `/training/action` endpoint handles all training state
 - **Dependency system**: Wordplays block/unblock based on `dependencies` array
-- **Teaching moments**: `fodder_selection` with `blockedHint` shows learning point + Pass button
-- **Golden clue tests**: PHLEBOTOMY clue fully tested (11 test cases pass)
+- **Teaching moments**: `fodder_selection` with `blockedHint` shows learning point + Continue button
+- **Golden clue tests**: PHLEBOTOMY clue fully tested (13 test cases pass)
 
 ### Recent Changes
-1. Added teaching moment for `fodder_selection` with `blockedHint` — shows result read-only, blocked hint, and Pass button
-2. Added `'teaching'` phase and `pass_teaching` action to server
-3. Updated DESIGN_SPEC.md with teaching moment documentation
-4. Updated tests for teaching moment flow
+1. **Server-driven rendering** — Server returns `render` object with explicit UI instructions:
+   - `panel`: which panel to show (active, teaching, complete, blocked)
+   - `primaryText`, `secondaryText`: instruction text
+   - `inputMode`: tap_words, enter_text, or none
+   - `buttons`: exactly which buttons to display with labels and actions
+   - `highlights`: which words to highlight and in what color
+2. **InstructionPanel component** — New UI component that renders purely from `render` instructions
+3. Teaching moment for `fodder_selection` now works correctly via `render.panel = 'teaching'`
+4. All 13 golden clue tests pass
 
 ### Known Issues
-- `test_phlebotomy_definition_wrong` test fails (pre-existing, unrelated to teaching moment)
+- None currently
 
 ---
 
@@ -76,6 +82,7 @@ Open http://localhost:3000
 
 ### Key Sections in DESIGN_SPEC.md
 
+- **Server-Driven Rendering** — Server sends explicit `RenderInstructions`, UI has zero logic
 - **Thin Client Architecture** — UI only renders, server handles all logic
 - **UI State Architecture** — Only 4 state variables, everything else derived from `serverState`
 - **Training Flow** — Step-by-step training (clue type → definition → wordplays)
@@ -86,6 +93,8 @@ Open http://localhost:3000
 ## Key Files
 
 ### React UI (root directory)
+- `components/training/InstructionPanel.tsx` — Server-driven rendering (renders `RenderInstructions`)
+- `components/ClueTrainer.tsx` — Training interface (uses InstructionPanel)
 - `services/clueManager.ts` — Clue CRUD via HTTP to Python backend
 - `services/puzzleConverter.ts` — Converts puzzle JSON to UI format
 - `components/ManualEntryMode.tsx` — Puzzle file import UI

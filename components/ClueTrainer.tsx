@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronRight, ChevronDown, Check, HelpCircle, Lightbulb, Zap, BookOpen } from 'lucide-react';
-import { PatternInstance, WordHighlight } from '../types';
+import { PatternInstance, WordHighlight, RenderInstructions } from '../types';
 import { WORKFLOW_COLORS } from '../data/designTemplates';
 import { trainingAction } from '../services/clueManager';
+import { InstructionPanel } from './training/InstructionPanel';
 
 // =============================================================================
 // TYPES
@@ -184,7 +185,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     blocked: boolean;
     blockedHint: string;
     allSolved: boolean;
+    render?: RenderInstructions;  // Server-driven render instructions
   } | null>(null);
+
+  // Feature flag: Use server-driven InstructionPanel for wordplay rendering
+  const USE_INSTRUCTION_PANEL = true;
 
   // Wrapper to log every serverState change
   const setServerState = (value: any) => {
@@ -973,6 +978,77 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       console.warn('[training] Pass teaching failed:', err);
     }
   };
+
+  // Unified action handler for InstructionPanel - handles all server actions
+  const handleServerAction = async (action: string) => {
+    if (!clueId) return;
+
+    const currentWp = serverState?.currentWordplay;
+    const phase = serverState?.currentPhase;
+
+    // Build request data based on action
+    let data: any = { wordplayId: currentWp?.id };
+
+    // Map action to server action and add appropriate data
+    let serverAction = action;
+
+    if (action === 'check_indicator') {
+      const selectedText = selectedIndicatorIndices.map(i => words[i].text).join(' ');
+      data.selected = selectedText;
+      data.selectedIndices = selectedIndicatorIndices;
+    } else if (action === 'check_fodder') {
+      const selectedText = selectedFodderIndices.map(i => words[i].text).join(' ');
+      data.selected = selectedText;
+      data.selectedIndices = selectedFodderIndices;
+    } else if (action === 'check_result') {
+      data.entered = stepResultInput.toUpperCase();
+    }
+
+    try {
+      const response = await trainingAction(clueId, serverAction as any, data);
+
+      // Show feedback if validation
+      if (response.validation) {
+        setCheckFeedback({
+          type: phase === 'indicator' ? 'indicator' : phase === 'fodder' ? 'fodder' : 'result',
+          correct: response.validation.correct
+        });
+      }
+
+      // Update server state including render instructions
+      setServerState(prev => prev ? {
+        ...prev,
+        clueEntry: response.clueEntry,
+        currentWordplay: response.currentWordplay ?? prev.currentWordplay,
+        currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
+        currentPhase: response.currentPhase ?? prev.currentPhase,
+        blockedHint: response.blockedHint ?? prev.blockedHint,
+        render: response.render,  // Include render instructions
+      } : null);
+
+      // Clear inputs after delay
+      setTimeout(() => {
+        setCheckFeedback(null);
+        if (response.validation?.correct) {
+          setSelectedIndicatorIndices([]);
+          setSelectedFodderIndices([]);
+          setStepResultInput('');
+        }
+        if (response.currentPhase === 'complete' || response.allSolved) {
+          setPhase('solve');
+        }
+      }, response.validation?.correct ? 600 : 800);
+
+    } catch (err) {
+      console.warn('[training] Server action failed:', err);
+    }
+  };
+
+  // Feedback state for InstructionPanel
+  const instructionPanelFeedback = checkFeedback ? {
+    type: checkFeedback.correct ? 'success' as const : 'error' as const,
+    message: checkFeedback.correct ? 'Correct!' : 'Not quite - try again'
+  } : null;
 
   const handleCheckDecodeMethod = () => {
     if (!currentStep || !selectedDecodeMethod) return;
@@ -1797,8 +1873,24 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         </div>
       )}
 
-      {/* WORDPLAY PHASE - Progressive indicator/fodder/result flow */}
-      {phase === 'wordplay' && (
+      {/* WORDPLAY PHASE - Server-driven InstructionPanel */}
+      {phase === 'wordplay' && USE_INSTRUCTION_PANEL && serverState?.render && (
+        <InstructionPanel
+          render={serverState.render}
+          selectedIndices={
+            serverState.currentPhase === 'indicator' ? selectedIndicatorIndices :
+            serverState.currentPhase === 'fodder' ? selectedFodderIndices :
+            []
+          }
+          textInput={stepResultInput}
+          onTextChange={setStepResultInput}
+          onAction={handleServerAction}
+          feedback={instructionPanelFeedback}
+        />
+      )}
+
+      {/* WORDPLAY PHASE - Legacy rendering (fallback) */}
+      {phase === 'wordplay' && (!USE_INSTRUCTION_PANEL || !serverState?.render) && (
         <div className="bg-white rounded-lg border border-slate-200 p-4 animate-in fade-in slide-in-from-bottom-2">
           {/* Header with progress */}
           <div className="flex items-center justify-between mb-3">

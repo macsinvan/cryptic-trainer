@@ -323,22 +323,37 @@ export const mapToValidClueType = (s: string, p?: string) => (STANDARD_CLUE_TYPE
 
 // --- Training Flow API ---
 
+import { RenderInstructions } from '../types';
+
 export interface TrainingActionResponse {
     success: boolean;
     clueEntry?: any;
     currentWordplay?: any;
     currentWordplayIndex?: number;
-    currentPhase?: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete';
+    currentPhase?: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete' | 'teaching';
+    isSubOperation?: boolean;
+    parentWordplay?: any;
     blocked?: boolean;
     blockedHint?: string;
     validation?: { correct: boolean; expected: string };
     allSolved?: boolean;
     error?: string;
+    render?: RenderInstructions;
 }
+
+export type TrainingAction =
+    | 'start'
+    | 'get_state'
+    | 'check_definition'
+    | 'check_indicator'
+    | 'check_fodder'
+    | 'check_result'
+    | 'select_wordplay'
+    | 'pass_teaching';
 
 export const trainingAction = async (
     clueId: string,
-    action: 'start' | 'get_state' | 'check_definition' | 'check_indicator' | 'check_fodder' | 'check_result' | 'select_wordplay',
+    action: TrainingAction,
     data?: { wordplayId?: string; selected?: string; entered?: string; selectedIndices?: number[] }
 ): Promise<TrainingActionResponse> => {
     return fetchJson<TrainingActionResponse>('/training/action', {

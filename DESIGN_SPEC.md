@@ -1,6 +1,6 @@
 # Cryptic Trainer — Design Specification
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-01-24 (Server-Driven Rendering)*
 
 ---
 
@@ -21,47 +21,52 @@ This means:
 - The solver/parser generates this metadata; the UI consumes it
 - If the UI behaves incorrectly, the metadata is wrong — fix the metadata, not the UI
 
-### 2. Thin Client Architecture
+### 2. Server-Driven Rendering
+
+**The server tells the UI EXACTLY what to render. The UI has ZERO phase/operation logic.**
+
+Every response from `/training/action` includes a `render` object that specifies:
+- Which panel to display
+- What text to show
+- What input mode to use
+- Which buttons to display
+- Which words to highlight
+
+The UI component (`InstructionPanel`) renders purely based on `render.*` fields — it never checks `currentPhase`, `operation`, or any other field to decide what to display.
+
+**Why This Architecture:**
+- **No sync bugs** — server is single source of truth for rendering
+- **No scattered conditionals** — UI doesn't have 62+ `if (phase === 'X')` checks
+- **Easy to add new phases** — just update server's `_build_render_instructions()`
+- **Predictable behavior** — what server returns is what user sees
+
+### 3. Thin Client Architecture
 
 **ALL business logic lives on the Python server. The UI is a thin client that only renders and captures input.**
 
 | Layer | Responsibility |
 |-------|----------------|
-| **Python Server** (port 5001) | ALL logic: import, validate, store, training flow, dependency checking, answer validation, state management |
-| **React UI** (port 3000) | ONLY: render data, capture user input, display server responses |
+| **Python Server** (port 5001) | ALL logic: import, validate, store, training flow, dependency checking, answer validation, state management, **render instructions** |
+| **React UI** (port 3000) | ONLY: render `RenderInstructions`, capture user input, send actions to server |
 
 **The UI does NOT:**
 - Parse or validate data
 - Check dependencies or blocked state
 - Validate user answers
 - Compute what step comes next
+- Decide what panel/buttons/highlights to show
 - Make any decisions — server decides everything
 
 **The UI ONLY:**
-- Displays what the server tells it to display
+- Renders exactly what `render.*` fields specify
 - Sends user actions to the server
-- Renders server responses
-- **Syncs local display state FROM server state** (never the reverse)
+- Displays feedback from server responses
 
 This ensures:
 - Single source of truth for ALL logic
 - UI can be completely dumb — just a view layer
 - Easy debugging — check server state directly
 - No divergence between server logic and UI behavior
-
-**Critical Implementation Rule:**
-If the UI maintains any local state for display purposes (like `wordplaySubPhase`), it MUST be synced FROM `serverState` via `useEffect`. The UI must NEVER derive server state from local UI state. Pattern:
-```typescript
-// CORRECT: Sync local state FROM server
-useEffect(() => {
-  if (serverState?.currentPhase === 'fodder') {
-    setWordplaySubPhase('fodder');
-  }
-}, [serverState?.currentPhase]);
-
-// WRONG: Would create out-of-sync states
-// Don't manually setWordplaySubPhase without server driving it
-```
 
 ---
 
@@ -552,7 +557,7 @@ The `/training/action` endpoint handles all training flow logic:
 ```json
 {
   "clueId": "user-123-1A",
-  "action": "start|get_state|check_indicator|check_fodder|check_result|select_wordplay",
+  "action": "start|get_state|check_indicator|check_fodder|check_result|pass_teaching|select_wordplay",
   "data": {
     "wordplayId": "1A",     // For check_* and select_wordplay
     "selected": "busy",     // For check_indicator, check_fodder
@@ -567,7 +572,7 @@ The `/training/action` endpoint handles all training flow logic:
   "success": true,
   "clueEntry": { ... },           // Full clue data with updated state
   "currentWordplay": { ... },     // Wordplay user should work on
-  "currentPhase": "indicator|fodder|result|complete|blocked",
+  "currentPhase": "indicator|fodder|result|teaching|complete|blocked",
   "blocked": false,
   "blockedHint": "...",           // ALWAYS included if present on wordplay
   "isSubOperation": true,
@@ -577,15 +582,116 @@ The `/training/action` endpoint handles all training flow logic:
     "correct": true,
     "expected": "busy"
   },
-  "allSolved": false
+  "allSolved": false,
+  "render": { ... }               // RenderInstructions (see below)
 }
 ```
 
 **Phase Transitions:**
 - After `check_indicator` correct → advance to fodder (stay on SAME wordplay)
-- After `check_fodder` correct → advance to result OR complete (for `fodder_selection`)
+- After `check_fodder` correct → advance to result OR teaching OR complete (depends on operation)
 - After `check_result` correct → find NEXT available wordplay
+- After `pass_teaching` → find NEXT available wordplay
 - Wrong answers keep user on same phase
+
+### RenderInstructions Schema
+
+Every response includes a `render` object that tells the UI exactly what to display:
+
+```json
+{
+  "render": {
+    "panel": "active|teaching|complete|blocked",
+    "primaryText": "Tap the indicator word(s)",
+    "secondaryText": "Look for anagram signals like 'busy', 'wild', 'confused'",
+    "inputMode": "tap_words|enter_text|none",
+    "inputTarget": "indicator|fodder|result|null",
+    "showResultInput": false,
+    "buttons": [
+      {
+        "id": "check",
+        "label": "Check",
+        "action": "check_indicator",
+        "variant": "primary",
+        "requiresSelection": true
+      }
+    ],
+    "highlights": [
+      {
+        "indices": [4],
+        "color": "ORANGE",
+        "role": "indicator",
+        "confirmed": true
+      }
+    ],
+    "stepLabel": "INDICATOR",
+    "stepProgress": "1/3",
+    "resultDisplay": "LYMPHTOO",
+    "blockedHint": "Fodder only has 8 letters, answer needs 10..."
+  }
+}
+```
+
+**Field Descriptions:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `panel` | string | Which panel type to render: active (input), teaching (learning moment), complete, blocked |
+| `primaryText` | string | Main instruction text |
+| `secondaryText` | string? | Secondary hint text |
+| `inputMode` | string | How user provides input: tap_words, enter_text, or none |
+| `inputTarget` | string? | What phase the input is for (indicator, fodder, result) |
+| `showResultInput` | boolean | Whether to show text input for result |
+| `buttons` | ButtonSpec[] | Exactly which buttons to display |
+| `highlights` | HighlightInstruction[] | Which words to highlight and in what color |
+| `stepLabel` | string | Current step label (e.g., "INDICATOR", "FODDER") |
+| `stepProgress` | string | Progress indicator (e.g., "1/3") |
+| `resultDisplay` | string? | Result to display read-only (for teaching moments) |
+| `blockedHint` | string? | Hint explaining why step can't complete |
+
+**ButtonSpec:**
+```json
+{
+  "id": "check",
+  "label": "Check",
+  "action": "check_indicator",
+  "variant": "primary|secondary|danger",
+  "requiresSelection": true,
+  "requiresInput": false
+}
+```
+
+**HighlightInstruction:**
+```json
+{
+  "indices": [4, 5],
+  "color": "GREEN|ORANGE|BLUE|PURPLE",
+  "role": "definition|indicator|fodder|deleteTarget",
+  "confirmed": true
+}
+```
+
+### UI Component: InstructionPanel
+
+The `InstructionPanel` component (`components/training/InstructionPanel.tsx`) renders purely from `render` instructions:
+
+```tsx
+<InstructionPanel
+  render={serverState.render}
+  selectedIndices={selectedIndices}
+  textInput={textInput}
+  onTextChange={setTextInput}
+  onAction={handleServerAction}
+  feedback={feedback}
+/>
+```
+
+**Key Principle:** InstructionPanel has ZERO logic about phases or operations. It renders:
+- `render.panel` → which panel type (active, teaching, complete, blocked)
+- `render.primaryText` / `render.secondaryText` → instruction text
+- `render.buttons` → exactly these buttons with these labels
+- `render.highlights` → exactly these highlights
+- `render.showResultInput` → whether to show text input
 
 ### Storage Format
 

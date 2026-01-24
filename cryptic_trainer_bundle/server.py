@@ -533,7 +533,213 @@ class SolverHandler(BaseHTTPRequestHandler):
         # Merge any extra fields
         response.update(extra)
 
+        # Add render instructions (server tells UI exactly what to render)
+        response['render'] = self._build_render_instructions(
+            clue_entry, step, phase, is_subop, parent_wp,
+            wordplays=wordplays,
+            **extra
+        )
+
         return response
+
+    def _build_render_instructions(self, clue_entry, step, phase, is_subop=False, parent_wp=None, **context):
+        """Build explicit render instructions for the UI.
+
+        The UI should render EXACTLY what this returns - no phase/operation logic in UI.
+        """
+        wordplays = context.get('wordplays', [])
+        validation = context.get('validation')
+        blocked = context.get('blocked', False)
+        blocked_hint = context.get('blockedHint') or (step.get('blockedHint') if step else None)
+        all_solved = context.get('allSolved', False)
+
+        # Compute operation label
+        op = step.get('operation', '') if step else ''
+        op_labels = {
+            'anagram': 'ANAGRAM',
+            'letter_selection': 'LETTER SELECTION',
+            'container': 'CONTAINER',
+            'fodder_selection': 'FODDER SELECTION',
+            'reversal': 'REVERSAL',
+            'hidden': 'HIDDEN WORD',
+            'deletion': 'DELETION',
+            'solve_anagram': 'SOLVE ANAGRAM',
+        }
+        step_label = op_labels.get(op, op.upper().replace('_', ' '))
+
+        # Compute progress (current step / total steps)
+        total_steps = sum(
+            len(wp.get('subOperations', [])) or 1 for wp in wordplays
+        )
+        solved_count = sum(
+            1 for wp in wordplays
+            for s in (wp.get('subOperations', []) or [wp])
+            if s.get('state', {}).get('solved', False)
+        )
+        step_progress = f"{solved_count + 1}/{total_steps}" if step else f"{solved_count}/{total_steps}"
+
+        # Compute panel type
+        if all_solved:
+            panel = 'complete'
+        elif blocked:
+            panel = 'blocked'
+        elif phase == 'teaching':
+            panel = 'teaching'
+        elif phase in ('indicator', 'fodder', 'result'):
+            panel = 'active'
+        else:
+            panel = 'active'
+
+        # Compute instruction text based on phase + operation
+        primary_text = ''
+        secondary_text = None
+
+        if phase == 'indicator':
+            primary_text = f"Tap the {step_label.lower()} indicator in the clue"
+            secondary_text = "Look for a word that signals how letters transform"
+        elif phase == 'fodder':
+            fodder = step.get('fodder', '') if step else ''
+            if self._is_fodder_reference(fodder):
+                primary_text = "Fodder comes from previous steps"
+                secondary_text = None
+            else:
+                primary_text = "Now tap the fodder words in the clue"
+                secondary_text = "The fodder is usually adjacent to the indicator"
+        elif phase == 'result':
+            primary_text = "Type the result of this wordplay step"
+            secondary_text = "Apply the operation to the fodder"
+        elif phase == 'teaching':
+            primary_text = "🎓 Learning Point"
+            secondary_text = blocked_hint
+        elif phase == 'complete':
+            primary_text = "Step complete!"
+            secondary_text = None
+        elif phase == 'blocked':
+            primary_text = "This step is blocked"
+            secondary_text = blocked_hint
+
+        # Compute input mode
+        if phase == 'indicator' or phase == 'fodder':
+            input_mode = 'tap_words'
+        elif phase == 'result':
+            input_mode = 'enter_text'
+        else:
+            input_mode = 'none'
+
+        # Compute buttons
+        buttons = []
+        if phase == 'indicator':
+            buttons.append({
+                'id': 'check',
+                'label': 'Check',
+                'action': 'check_indicator',
+                'variant': 'primary',
+                'requiresSelection': True
+            })
+        elif phase == 'fodder':
+            buttons.append({
+                'id': 'check',
+                'label': 'Check',
+                'action': 'check_fodder',
+                'variant': 'primary',
+                'requiresSelection': True
+            })
+        elif phase == 'result':
+            buttons.append({
+                'id': 'check',
+                'label': 'Check',
+                'action': 'check_result',
+                'variant': 'primary',
+                'requiresInput': True
+            })
+        elif phase == 'teaching':
+            buttons.append({
+                'id': 'continue',
+                'label': 'Got it — Continue →',
+                'action': 'pass_teaching',
+                'variant': 'primary',
+                'requiresSelection': False,
+                'requiresInput': False
+            })
+
+        # Add skip button for multi-step clues
+        if len(wordplays) > 1 and phase in ('indicator', 'fodder', 'result'):
+            buttons.append({
+                'id': 'skip',
+                'label': 'Skip for now →',
+                'action': 'skip_wordplay',
+                'variant': 'secondary',
+                'requiresSelection': False,
+                'requiresInput': False
+            })
+
+        # Compute highlights (all confirmed indicators/fodder from all wordplays)
+        highlights = []
+        for wp in wordplays:
+            wp_state = wp.get('state', {})
+            # Add confirmed indicator highlights
+            if wp_state.get('indicatorFound') and wp_state.get('indicatorIndices'):
+                highlights.append({
+                    'indices': wp_state['indicatorIndices'],
+                    'color': 'ORANGE',
+                    'role': 'indicator',
+                    'confirmed': True
+                })
+            # Add confirmed fodder highlights
+            if wp_state.get('fodderFound') and wp_state.get('fodderIndices'):
+                highlights.append({
+                    'indices': wp_state['fodderIndices'],
+                    'color': 'BLUE',
+                    'role': 'fodder',
+                    'confirmed': True
+                })
+            # Check subOperations too
+            for sub in wp.get('subOperations', []):
+                sub_state = sub.get('state', {})
+                if sub_state.get('indicatorFound') and sub_state.get('indicatorIndices'):
+                    highlights.append({
+                        'indices': sub_state['indicatorIndices'],
+                        'color': 'ORANGE',
+                        'role': 'indicator',
+                        'confirmed': True
+                    })
+                if sub_state.get('fodderFound') and sub_state.get('fodderIndices'):
+                    highlights.append({
+                        'indices': sub_state['fodderIndices'],
+                        'color': 'BLUE',
+                        'role': 'fodder',
+                        'confirmed': True
+                    })
+
+        # Add definition highlight
+        clue_state = clue_entry.get('state', {})
+        if clue_state.get('definitionFound') and clue_state.get('definitionIndices'):
+            highlights.append({
+                'indices': clue_state['definitionIndices'],
+                'color': 'GREEN',
+                'role': 'definition',
+                'confirmed': True
+            })
+
+        # Result display (for teaching moment or complete phases)
+        result_display = None
+        if phase == 'teaching' and step:
+            result_display = step.get('result', '')
+
+        return {
+            'panel': panel,
+            'primaryText': primary_text,
+            'secondaryText': secondary_text,
+            'inputMode': input_mode,
+            'inputTarget': phase if phase in ('indicator', 'fodder', 'result') else None,
+            'showResultInput': phase == 'result',
+            'buttons': buttons,
+            'highlights': highlights,
+            'stepLabel': step_label,
+            'stepProgress': step_progress,
+            'resultDisplay': result_display,
+            'blockedHint': blocked_hint,
+        }
 
     def _cleanup_old_sessions(self):
         """Remove training sessions older than SESSION_TIMEOUT_SECONDS."""
