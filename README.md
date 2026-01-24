@@ -2,6 +2,29 @@
 
 A training app for learning to solve Times-style cryptic crosswords.
 
+## Current Status
+
+### What's Working
+- **Thin client architecture**: All logic on Python server, UI just renders and captures input
+- **Training flow API**: `/training/action` endpoint handles all training state
+- **Dependency system**: Wordplays block/unblock based on `dependencies` array
+- **Golden clue tests**: PHLEBOTOMY clue fully tested (13 test cases pass)
+
+### Known Bug (Next Priority)
+- **SubOp 1A result input**: UI shows result input field for `fodder_selection` operations, but it shouldn't. After fodder phase, `fodder_selection` auto-completes — the UI should show `metadata.result` as read-only text, NOT an input field.
+
+### Recent Changes
+1. Added Test Case Design Guidelines to `DESIGN_SPEC.md` — rigorous 3-step format for writing tests
+2. Backend cleanup — removed duplicate code, debug prints, consolidated response building
+3. All tests passing (13/13)
+
+### Next Steps
+1. Fix the `fodder_selection` UI bug (result input shouldn't show)
+2. Write rigorous test for SubOp 1A following new test guidelines
+3. Verify UI behavior matches test expectations
+
+---
+
 ## Architecture
 
 The system has two components:
@@ -51,8 +74,17 @@ Open http://localhost:3000
 | Document | Purpose |
 |----------|---------|
 | `CLAUDE.md` | **Read first** — AI assistant rules and interactive protocol |
-| `cryptic_trainer_bundle/DESIGN_SPEC.md` | Python solver design & training workflow |
+| `DESIGN_SPEC.md` | **Complete system design** — architecture, schema, training flow, test guidelines |
 | `INTERACTIVE_SOLVE_FLOW.md` | Solve UI step-by-step specification |
+
+### Key Sections in DESIGN_SPEC.md
+
+- **Thin Client Architecture** — UI only renders, server handles all logic
+- **UI State Architecture** — Only 4 state variables, everything else derived from `serverState`
+- **Training Flow** — Step-by-step training (clue type → definition → wordplays)
+- **Wordplay Schema** — Complete metadata structure with dependencies and subOperations
+- **Regression Testing** — Golden clue tests for PHLEBOTOMY
+- **Test Case Design Guidelines** — Rigorous 3-step format for writing tests
 
 ## Key Files
 
@@ -70,8 +102,13 @@ Open http://localhost:3000
 ## Testing
 
 ```bash
-# Test Python solver
+# Run golden clue regression tests (requires server running)
 cd cryptic_trainer_bundle
+python3 test_training_flow.py              # Run all tests
+python3 test_training_flow.py --verbose    # Detailed output
+python3 test_training_flow.py --test 1A    # Run specific test
+
+# Test Python solver directly
 python3 cryptic_trainer.py solve --clue "Cross about Scottish inventor being guest announcer" --length 8 --pretty
 
 # Test against scraped puzzles
@@ -80,6 +117,18 @@ python3 puzzle_tester.py puzzle.json --stop-on-fail
 # Build React UI (from project root)
 npm run build
 ```
+
+### Test Design Guidelines
+
+See `DESIGN_SPEC.md` → "Test Case Design Guidelines" for the rigorous 3-step format:
+
+1. **Step 1: Identify Indicator** — positive/negative cases, state changes, UI result
+2. **Step 2: Identify Fodder** — positive/negative cases, state changes, UI result
+3. **Step 3: Result** — depends on `metadata.operation`:
+   - `fodder_selection`: NO result input, auto-completes
+   - Other operations: result input required
+
+**Key principle**: Metadata is source of truth. If test can't be written due to incomplete metadata, fix the metadata.
 
 ## Training Workflow
 

@@ -63,6 +63,101 @@ useEffect(() => {
 // Don't manually setWordplaySubPhase without server driving it
 ```
 
+---
+
+## UI State Architecture (Minimal State)
+
+The UI holds **only 4 pieces of state**. Everything else is derived from `serverState`.
+
+### UI State Variables
+
+| State | Type | Purpose |
+|-------|------|---------|
+| `serverState` | `TrainingActionResponse` | **Source of truth** — full server response |
+| `selectedIndicatorIndices` | `number[]` | Words user has tapped for indicator (pre-check) |
+| `selectedFodderIndices` | `number[]` | Words user has tapped for fodder (pre-check) |
+| `resultInput` | `string` | Text user is typing for result (pre-submit) |
+
+### Everything Else is Derived
+
+**DO NOT create state for these — derive from `serverState`:**
+
+| Derived Value | Source |
+|---------------|--------|
+| Current phase | `serverState.currentPhase` |
+| Current wordplay | `serverState.currentWordplay` |
+| Is indicator correct | `serverState.currentWordplay.state.indicatorFound` |
+| Is fodder correct | `serverState.currentWordplay.state.fodderFound` |
+| Indicator highlight | `serverState.currentWordplay.state.indicatorFound` |
+| Fodder highlight | `serverState.currentWordplay.state.fodderFound` |
+| Blocked hint | `serverState.blockedHint` |
+| Is blocked | `serverState.blocked` |
+
+### State Lifecycle
+
+```
+User taps word
+  → Update selectedIndicatorIndices (local state)
+  → Show "Check" button
+
+User clicks "Check"
+  → Call server: check_indicator(selected)
+  → Server validates, updates state, returns new serverState
+  → setServerState(response)
+  → Clear selectedIndicatorIndices (selection consumed)
+  → UI re-renders from serverState:
+      - serverState.currentPhase shows new phase
+      - serverState.currentWordplay.state.indicatorFound shows highlight
+```
+
+### Clear Rules
+
+**Selection state clears when:**
+1. User submits (check succeeds) — selection was consumed
+2. User submits (check fails) — allow retry with new selection
+3. Server returns different wordplay ID — fresh start
+
+**Selection state NEVER clears when:**
+- Phase changes within same wordplay (highlights come from serverState, not selection)
+
+### Highlight Logic (Derived)
+
+```typescript
+const getWordStyle = (index: number) => {
+  const wp = serverState?.currentWordplay;
+  const phase = serverState?.currentPhase;
+
+  // Correct indicator → orange (from server state)
+  if (wp?.state?.indicatorFound && indicatorIndicesFromServer.includes(index)) {
+    return 'bg-orange-200';
+  }
+
+  // Correct fodder → blue (from server state)
+  if (wp?.state?.fodderFound && fodderIndicesFromServer.includes(index)) {
+    return 'bg-blue-200';
+  }
+
+  // Currently selected (local state, pre-check)
+  if (phase === 'indicator' && selectedIndicatorIndices.includes(index)) {
+    return 'bg-yellow-100';
+  }
+  if (phase === 'fodder' && selectedFodderIndices.includes(index)) {
+    return 'bg-yellow-100';
+  }
+
+  return '';
+};
+```
+
+### Benefits
+
+1. **No sync bugs** — only one source of truth (serverState)
+2. **No duplicate state** — can't get out of sync
+3. **Simple clear rules** — only clear ephemeral input state
+4. **Server controls all logic** — UI just renders
+
+---
+
 ### 3. Constraint-First Solving (No AI Guessing)
 
 The solver derives answers using:
@@ -605,3 +700,246 @@ python3 test_training_flow.py --test PHLEBOTOMY  # Run specific test
 3. **Test complete flows** — not just happy path
 4. **Always include blockedHint tests** — verify informational hints present
 5. **Test phase transitions** — same wordplay until solved, then next
+
+---
+
+## Test Case Design Guidelines
+
+### Philosophy
+
+Tests must verify the **complete user journey**, not just API responses. Each test case documents exactly what a user should see and do at each step.
+
+**The imported metadata is your source of truth.** All expected values come from the wordplay metadata — never hardcode expected values without first reading them from the clue's metadata.
+
+### Test Case Format
+
+Every wordplay test case follows this 3-step format. Expected values are derived from the wordplay metadata:
+
+```json
+// Source: wordplay metadata
+{
+  "id": "1A",
+  "operation": "fodder_selection",
+  "indicator": "busy",           // ← Expected indicator
+  "fodder": "lymph too",         // ← Expected fodder
+  "result": "LYMPHTOO"           // ← Expected result (or auto-set for fodder_selection)
+}
+```
+
+#### Step 1: Identify Indicator
+
+| Aspect | Positive Case | Negative Case |
+|--------|---------------|---------------|
+| **Instructions** | "Tap the indicator word(s)" | Same |
+| **Buttons** | Check (enabled when selection made) | Check (enabled when selection made) |
+| **User Action** | Tap word(s) matching `metadata.indicator` | Tap any other word(s) |
+| **API Call** | `check_indicator(selected: metadata.indicator)` | `check_indicator(selected: <other>)` |
+| **Server Response** | `validation.correct: true`, `validation.expected: metadata.indicator` | `validation.correct: false`, `validation.expected: metadata.indicator` |
+| **State Change** | `indicatorFound: true`, `indicatorIndices: [...]` | No state change |
+| **UI Result** | Orange highlight on indicator, advance to fodder | Red flash, clear selection, stay on indicator |
+| **Next Phase** | `currentPhase: 'fodder'` | `currentPhase: 'indicator'` (unchanged) |
+
+#### Step 2: Identify Fodder
+
+| Aspect | Positive Case | Negative Case |
+|--------|---------------|---------------|
+| **Instructions** | "Tap the fodder word(s)" | Same |
+| **Buttons** | Check (enabled when selection made) | Check (enabled when selection made) |
+| **Prerequisite** | Indicator found (orange highlight visible) | Indicator found |
+| **User Action** | Tap word(s) matching `metadata.fodder` | Tap any other word(s) |
+| **API Call** | `check_fodder(selected: metadata.fodder)` | `check_fodder(selected: <other>)` |
+| **Server Response** | `validation.correct: true`, `validation.expected: metadata.fodder` | `validation.correct: false`, `validation.expected: metadata.fodder` |
+| **State Change** | `fodderFound: true`, `fodderIndices: [...]` | No state change |
+| **UI Result** | Blue highlight on fodder | Red flash, clear selection, stay on fodder |
+| **Next Phase** | Depends on `metadata.operation` (see Step 3) | `currentPhase: 'fodder'` (unchanged) |
+
+#### Step 3: Result (operation-dependent)
+
+**Behavior depends on `metadata.operation`:**
+
+**For `fodder_selection` operations:**
+
+| Aspect | Expected Behavior |
+|--------|-------------------|
+| **Result Input** | NOT SHOWN - operation auto-completes |
+| **Display** | Show `metadata.result` as read-only text |
+| **State Change** | `resultEntered: true`, `solved: true` (auto-set by server) |
+| **Next Wordplay** | Advance to next available wordplay |
+
+**For operations requiring result entry (`anagram`, `letter_selection`, etc.):**
+
+| Aspect | Positive Case | Negative Case |
+|--------|---------------|---------------|
+| **Instructions** | "Enter the result" | Same |
+| **Buttons** | Check (enabled when input non-empty) | Check (enabled when input non-empty) |
+| **Prerequisite** | Indicator + fodder found (highlights visible) | Same |
+| **User Action** | Type text matching `metadata.result` | Type any other text |
+| **API Call** | `check_result(entered: metadata.result)` | `check_result(entered: <other>)` |
+| **Server Response** | `validation.correct: true`, `validation.expected: metadata.result` | `validation.correct: false`, `validation.expected: metadata.result` |
+| **State Change** | `resultEntered: true`, `solved: true` | No state change |
+| **UI Result** | Green highlight, advance to next | Red flash, stay on result |
+
+### Test Case Template (Python)
+
+```python
+# Expected values come from the wordplay metadata
+WORDPLAY_METADATA = {
+    "id": "1A",
+    "operation": "fodder_selection",
+    "indicator": "busy",
+    "fodder": "lymph too",
+    "result": "LYMPHTOO"
+}
+
+def test_<clue>_<wordplay>_flow() -> TestResult:
+    """Test complete flow through wordplay (operation type from metadata).
+
+    Expected values derived from WORDPLAY_METADATA:
+      - indicator: metadata['indicator']
+      - fodder: metadata['fodder']
+      - result: metadata['result']
+      - operation: metadata['operation'] (determines Step 3 behavior)
+    """
+    result = TestResult("<CLUE>: <Wordplay> complete flow")
+
+    metadata = WORDPLAY_METADATA
+    wp_id = metadata['id']
+    expected_indicator = metadata['indicator']
+    expected_fodder = metadata['fodder']
+    expected_result = metadata['result']
+    operation = metadata['operation']
+
+    # === STEP 1: INDICATOR ===
+    resp = training_action(CLUE_ID, 'start')
+    result.assert_eq(resp.get('currentPhase'), 'indicator',
+                     "Initial phase is 'indicator'")
+
+    # Negative case: wrong indicator
+    resp = training_action(CLUE_ID, 'check_indicator', {
+        'wordplayId': wp_id,
+        'selected': 'wrong_word'  # Any word NOT matching expected_indicator
+    })
+    result.assert_true(not resp.get('validation', {}).get('correct'),
+                       "Wrong indicator rejected")
+    result.assert_eq(resp.get('validation', {}).get('expected'), expected_indicator.lower(),
+                     f"Server returns expected indicator from metadata")
+    result.assert_eq(resp.get('currentPhase'), 'indicator',
+                     "Phase unchanged after wrong indicator")
+
+    # Positive case: correct indicator (from metadata)
+    resp = training_action(CLUE_ID, 'check_indicator', {
+        'wordplayId': wp_id,
+        'selected': expected_indicator,
+        'selectedIndices': [4]  # Indices where indicator appears in clue
+    })
+    result.assert_true(resp.get('validation', {}).get('correct'),
+                       f"Indicator '{expected_indicator}' accepted")
+    result.assert_eq(resp.get('currentPhase'), 'fodder',
+                     "Phase advances to fodder")
+    state = resp.get('currentWordplay', {}).get('state', {})
+    result.assert_true(state.get('indicatorFound'),
+                       "indicatorFound is True")
+    result.assert_true(state.get('indicatorIndices') is not None,
+                       "indicatorIndices stored for UI highlight")
+
+    # === STEP 2: FODDER ===
+    # Negative case: wrong fodder
+    resp = training_action(CLUE_ID, 'check_fodder', {
+        'wordplayId': wp_id,
+        'selected': 'wrong words'  # Any words NOT matching expected_fodder
+    })
+    result.assert_true(not resp.get('validation', {}).get('correct'),
+                       "Wrong fodder rejected")
+    result.assert_eq(resp.get('validation', {}).get('expected'), expected_fodder.lower(),
+                     f"Server returns expected fodder from metadata")
+    result.assert_eq(resp.get('currentPhase'), 'fodder',
+                     "Phase unchanged after wrong fodder")
+
+    # Positive case: correct fodder (from metadata)
+    resp = training_action(CLUE_ID, 'check_fodder', {
+        'wordplayId': wp_id,
+        'selected': expected_fodder,
+        'selectedIndices': [2, 3]  # Indices where fodder appears in clue
+    })
+    result.assert_true(resp.get('validation', {}).get('correct'),
+                       f"Fodder '{expected_fodder}' accepted")
+    state = resp.get('currentWordplay', {}).get('state', {})
+    result.assert_true(state.get('fodderFound'),
+                       "fodderFound is True")
+    result.assert_true(state.get('fodderIndices') is not None,
+                       "fodderIndices stored for UI highlight")
+
+    # === STEP 3: RESULT (behavior depends on metadata.operation) ===
+    if operation == 'fodder_selection':
+        # fodder_selection auto-completes after fodder — NO result input
+        result.assert_true(state.get('resultEntered'),
+                           "resultEntered auto-set for fodder_selection")
+        result.assert_true(state.get('solved'),
+                           "solved auto-set for fodder_selection")
+        # UI should display metadata.result as read-only (NOT an input field)
+        # Verify advanced to next wordplay
+        next_wp = resp.get('currentWordplay', {})
+        result.assert_true(next_wp.get('id') != wp_id,
+                           "Advanced to next wordplay")
+    else:
+        # Operations requiring result entry
+        result.assert_eq(resp.get('currentPhase'), 'result',
+                         "Phase advances to result")
+
+        # Negative case: wrong result
+        resp = training_action(CLUE_ID, 'check_result', {
+            'wordplayId': wp_id,
+            'entered': 'WRONG'
+        })
+        result.assert_true(not resp.get('validation', {}).get('correct'),
+                           "Wrong result rejected")
+        result.assert_eq(resp.get('validation', {}).get('expected'), expected_result,
+                         f"Server returns expected result from metadata")
+
+        # Positive case: correct result (from metadata)
+        resp = training_action(CLUE_ID, 'check_result', {
+            'wordplayId': wp_id,
+            'entered': expected_result
+        })
+        result.assert_true(resp.get('validation', {}).get('correct'),
+                           f"Result '{expected_result}' accepted")
+        state = resp.get('currentWordplay', {}).get('state', {})
+        result.assert_true(state.get('solved'),
+                           "Wordplay marked as solved")
+
+    return result
+```
+
+### UI Behavior Assertions
+
+For each phase, the test must verify:
+
+1. **Instructions Panel**
+   - Correct text displayed for current phase
+   - Highlights visible for completed phases
+
+2. **Button State**
+   - Check button: enabled only when selection/input exists
+   - Skip button: visible when multiple wordplays exist
+   - Reveal button: visible when stuck
+
+3. **Input Fields**
+   - Result input: visible ONLY when `currentPhase === 'result'` AND operation requires result entry
+   - Result input: NOT visible for `fodder_selection` operations
+
+4. **Highlight State**
+   - Definition: green (when found)
+   - Indicator: orange (when found)
+   - Fodder: blue (when found)
+   - Current selection: dark/inverted (pre-check)
+
+### Operation Types Reference
+
+| Operation | Phases | Result Entry | Notes |
+|-----------|--------|--------------|-------|
+| `fodder_selection` | indicator → fodder | NO | Auto-completes after fodder |
+| `anagram` | indicator → fodder → result | YES | Full flow |
+| `letter_selection` | indicator → fodder → result | YES | Full flow |
+| `container` | indicator → (fodder) → result | MAYBE | Fodder may be reference |
+| `reversal` | indicator → fodder → result | YES | Full flow |
+| `hidden` | indicator → fodder → result | YES | Full flow |

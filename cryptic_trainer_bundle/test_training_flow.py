@@ -530,6 +530,96 @@ def test_phlebotomy_session_isolation() -> TestResult:
     return result
 
 
+def test_phlebotomy_definition_check() -> TestResult:
+    """Test that definition can be checked and state is stored correctly.
+
+    Clue: "Drawing blood, lymph too, busy nurses conclude job at last"
+    Definition: "Drawing blood" (position: start, word indices: [0, 1])
+    """
+    result = TestResult("PHLEBOTOMY: Definition check")
+
+    # Start fresh session
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
+    if not resp.get('success'):
+        result.error(f"Failed to start session: {resp.get('error')}")
+        return result
+
+    # Initially definition should not be found
+    clue_entry = resp.get('clueEntry', {})
+    state = clue_entry.get('state', {})
+    result.assert_true(not state.get('definitionFound', True), "definitionFound initially False")
+
+    # Check definition with correct text and indices
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_definition', {
+        'selected': 'Drawing blood',
+        'selectedIndices': [0, 1]
+    })
+    result.assert_true(resp.get('success', False), "check_definition succeeds")
+
+    validation = resp.get('validation', {})
+    result.assert_true(validation.get('correct', False), "Definition 'Drawing blood' is correct")
+
+    # State should now show definition found with indices
+    clue_entry = resp.get('clueEntry', {})
+    state = clue_entry.get('state', {})
+    result.assert_true(state.get('definitionFound', False), "definitionFound is True after correct check")
+    result.assert_eq(state.get('definitionIndices'), [0, 1], "definitionIndices stored correctly")
+
+    return result
+
+
+def test_phlebotomy_definition_wrong() -> TestResult:
+    """Test that wrong definition is rejected."""
+    result = TestResult("PHLEBOTOMY: Wrong definition rejected")
+
+    # Start fresh session
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
+    if not resp.get('success'):
+        result.error(f"Failed to start session: {resp.get('error')}")
+        return result
+
+    # Check definition with wrong text
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_definition', {
+        'selected': 'busy nurses',  # Wrong - should be "Drawing blood"
+        'selectedIndices': [4, 5]
+    })
+    result.assert_true(resp.get('success', False), "API returns success")
+
+    validation = resp.get('validation', {})
+    result.assert_true(not validation.get('correct', True), "Wrong definition is rejected")
+    result.assert_eq(validation.get('expected'), 'drawing blood', "Expected definition returned")
+
+    # State should NOT show definition found
+    clue_entry = resp.get('clueEntry', {})
+    state = clue_entry.get('state', {})
+    result.assert_true(not state.get('definitionFound', True), "definitionFound still False after wrong check")
+
+    return result
+
+
+def test_phlebotomy_definition_case_insensitive() -> TestResult:
+    """Test that definition matching is case-insensitive."""
+    result = TestResult("PHLEBOTOMY: Definition case-insensitive")
+
+    # Start fresh session
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
+    if not resp.get('success'):
+        result.error(f"Failed to start session: {resp.get('error')}")
+        return result
+
+    # Check definition with different case
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_definition', {
+        'selected': 'DRAWING BLOOD',  # Uppercase
+        'selectedIndices': [0, 1]
+    })
+    result.assert_true(resp.get('success', False), "check_definition succeeds")
+
+    validation = resp.get('validation', {})
+    result.assert_true(validation.get('correct', False), "Uppercase definition accepted")
+
+    return result
+
+
 # =============================================================================
 # Test Runner
 # =============================================================================
@@ -545,6 +635,9 @@ ALL_TESTS = [
     test_phlebotomy_case_insensitive,
     test_phlebotomy_indices_stored,
     test_phlebotomy_session_isolation,
+    test_phlebotomy_definition_check,
+    test_phlebotomy_definition_wrong,
+    test_phlebotomy_definition_case_insensitive,
 ]
 
 
