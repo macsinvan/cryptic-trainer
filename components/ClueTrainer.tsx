@@ -188,24 +188,27 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     render?: RenderInstructions;  // Server-driven render instructions
   } | null>(null);
 
-  // Wrapper to log every serverState change
+  // Wrapper to log every serverState change - includes render instructions
   const setServerState = (value: any) => {
     if (typeof value === 'function') {
       setServerStateRaw((prev: any) => {
         const result = value(prev);
         console.log('[setServerState] UPDATE:', {
-          prevId: prev?.currentWordplay?.id,
-          newId: result?.currentWordplay?.id,
-          newState: result?.currentWordplay?.state,
-          stack: new Error().stack?.split('\n').slice(2, 5).join(' | ')
+          currentPhase: result?.currentPhase,
+          renderPanel: result?.render?.panel,
+          renderStepLabel: result?.render?.stepLabel,
+          renderShowResultInput: result?.render?.showResultInput,
+          wordplayId: result?.currentWordplay?.id,
         });
         return result;
       });
     } else {
       console.log('[setServerState] SET:', {
-        newId: value?.currentWordplay?.id,
-        newState: value?.currentWordplay?.state,
-        stack: new Error().stack?.split('\n').slice(2, 5).join(' | ')
+        currentPhase: value?.currentPhase,
+        renderPanel: value?.render?.panel,
+        renderStepLabel: value?.render?.stepLabel,
+        renderShowResultInput: value?.render?.showResultInput,
+        wordplayId: value?.currentWordplay?.id,
       });
       setServerStateRaw(value);
     }
@@ -1881,7 +1884,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       )}
 
       {/* WORDPLAY PHASE - Server-driven InstructionPanel */}
-      {phase === 'wordplay' && serverState?.render && (
+      {phase === 'wordplay' && serverState?.render && (() => {
+        console.log('[RENDER] InstructionPanel with:', {
+          panel: serverState.render?.panel,
+          stepLabel: serverState.render?.stepLabel,
+          showResultInput: serverState.render?.showResultInput,
+          primaryText: serverState.render?.primaryText?.substring(0, 30),
+        });
+        return (
         <InstructionPanel
           render={serverState.render}
           selectedIndices={
@@ -1894,7 +1904,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           onAction={handleServerAction}
           feedback={instructionPanelFeedback}
         />
-      )}
+        );
+      })()}
 
       {/* SOLVE PHASE - Show wordplay summary + answer prompt */}
       {phase === 'solve' && (
