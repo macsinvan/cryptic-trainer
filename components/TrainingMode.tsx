@@ -69,7 +69,10 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
 
     const items = getTrainingQueue(publicationId);
     // Filter to only clues with V2 definition (required for ClueTrainer)
-    const trainableItems = items.filter(item => item.patternData?.definition?.text);
+    // Check both V2 definition.text and legacy definitionText
+    const trainableItems = items.filter(item =>
+      item.patternData?.definition?.text || item.patternData?.definitionText
+    );
     setQueue(trainableItems);
   }, [publicationId, isCustomMode, customClues]);
 

@@ -261,13 +261,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           canSolveIndependently: s.training?.canSolveIndependently ?? true,
         }));
     }
-    // Legacy formats
+    // V2 format: wordplays array with dependencies and state
     if (patternData?.wordplays && patternData.wordplays.length > 0) {
       return patternData.wordplays
         .filter((wp: any) => wp.operation !== 'charade')
         .map((wp: any) => ({
+          id: wp.id || '',
           indicator: wp.indicator || '',
           fodder: typeof wp.fodder === 'string' ? wp.fodder : '',
+          fodderRef: typeof wp.fodder === 'object' ? wp.fodder : null,
           result: wp.result || '',
           synonym: '',
           hint: wp.blockedHint || '',
@@ -275,6 +277,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           isAssembly: wp.operation === 'charade',
           stepType: wp.operation as any,
           explanation: wp.explanation || '',
+          dependencies: wp.dependencies || [],
+          blockedHint: wp.blockedHint || '',
+          state: wp.state,
+          subOperations: wp.subOperations,
         }));
     }
     const steps = patternData?.wordplaySteps || [];
@@ -283,6 +289,23 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
   // Current step the user is working on
   const currentStep = wordplaySteps[currentWordplayStep];
+
+  // V2: Check if a wordplay's dependencies are all solved
+  const isWordplayBlocked = (wp: any, allWordplays: any[]): boolean => {
+    if (!wp.dependencies || wp.dependencies.length === 0) return false;
+    return wp.dependencies.some((depId: string) => {
+      const dep = allWordplays.find((w: any) => w.id === depId);
+      return dep && !dep.state?.solved;
+    });
+  };
+
+  // Compute which wordplays are blocked
+  const blockedWordplays = useMemo(() => {
+    return wordplaySteps.map(wp => isWordplayBlocked(wp, wordplaySteps));
+  }, [wordplaySteps]);
+
+  // Check if current step is blocked
+  const isCurrentStepBlocked = blockedWordplays[currentWordplayStep] || false;
 
   // Check if current step has an indicator (vs indicatorless like synonym/abbreviation)
   // Using direct computation (not useMemo) to avoid any stale value issues
@@ -1626,10 +1649,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         ? 'bg-green-500'
                         : onHoldSteps.includes(i)
                         ? 'bg-amber-400'
+                        : blockedWordplays[i]
+                        ? 'bg-slate-300 ring-1 ring-slate-400'
                         : i === currentWordplayStep
                         ? 'bg-indigo-500'
                         : 'bg-slate-200'
                     }`}
+                    title={blockedWordplays[i] ? 'Blocked - solve dependencies first' : undefined}
                   />
                 ))}
               </div>
@@ -1725,6 +1751,16 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   {currentWordplayStep + 1}/{wordplaySteps.length}
                 </span>
               </div>
+
+              {/* V2: Show blockedHint when step has unsolved dependencies */}
+              {isCurrentStepBlocked && currentStep.blockedHint && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-amber-800 text-sm">{currentStep.blockedHint}</p>
+                  <p className="text-amber-600 text-xs mt-1">
+                    Solve the required wordplays first, then come back to this one.
+                  </p>
+                </div>
+              )}
 
               {/* Clear instruction - hide once result is correct */}
               {!(hasCheckedResult && isResultCorrect) && wordplaySubPhase !== 'discovery' && (

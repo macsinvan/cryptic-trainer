@@ -23,22 +23,30 @@ This means:
 
 ### 2. Thin Client Architecture
 
-**The UI is a thin client. All import logic and storage lives on the server.**
+**ALL business logic lives on the Python server. The UI is a thin client that only renders and captures input.**
 
 | Layer | Responsibility |
 |-------|----------------|
-| **Python Server** (port 5001) | Import, validate, convert, store clues |
-| **React UI** (port 3000) | Present clues, capture user input, display results |
+| **Python Server** (port 5001) | ALL logic: import, validate, store, training flow, dependency checking, answer validation, state management |
+| **React UI** (port 3000) | ONLY: render data, capture user input, display server responses |
 
 **The UI does NOT:**
-- Parse or validate puzzle file formats
-- Convert between schema versions
-- Make storage decisions
+- Parse or validate data
+- Check dependencies or blocked state
+- Validate user answers
+- Compute what step comes next
+- Make any decisions — server decides everything
+
+**The UI ONLY:**
+- Displays what the server tells it to display
+- Sends user actions to the server
+- Renders server responses
 
 This ensures:
-- Single source of truth for import logic
-- No divergence between what server stores and what UI expects
-- Easy debugging — check `clues_db.json` directly
+- Single source of truth for ALL logic
+- UI can be completely dumb — just a view layer
+- Easy debugging — check server state directly
+- No divergence between server logic and UI behavior
 
 ### 3. Constraint-First Solving (No AI Guessing)
 
@@ -118,14 +126,16 @@ npm run dev
 
 ### Live Document Model
 
-The schema is a **live working document** during training:
+**The imported clue data structure is ALIVE during training and is the SINGLE SOURCE OF TRUTH.**
 
-1. **On load**: All `state` fields are initialized to `false`
-2. **During training**: As user discovers/solves, `state` fields update to `true`
-3. **UI rendering**: Based entirely on current `state` values
-4. **Middle layer responsibility**: Update state, push changes to UI
+The ClueEntry schema (exactly as imported) is the working document:
 
-The schema is mutated in place — no separate "progress" tracking needed.
+1. **On load**: Server reads ClueEntry from storage — `state` fields start as `false`
+2. **During training**: Server updates `state` fields as user progresses
+3. **UI rendering**: UI receives current state from server and renders it
+4. **All decisions**: Server checks `dependencies`, `state.solved`, `blockedHint` — UI just displays
+
+The ClueEntry is mutated in place by the server — no separate "progress" tracking, no UI-side state.
 
 ### Source Puzzle File Format (Complete Schema)
 

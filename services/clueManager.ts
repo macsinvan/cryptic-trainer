@@ -171,8 +171,25 @@ export const initializeClues = async (): Promise<void> => {
 
   // Load from server
   try {
-      const data = await fetchJson<{ items: TrainingItem[] }>('/clues');
+      const data = await fetchJson<{ items: any[] }>('/clues');
       data.items.forEach(item => {
+          // V2: If item has clueEntry, map to patternData for UI compatibility
+          if (item.clueEntry) {
+              item.clue = item.clueEntry.clue.text;
+              item.answer = item.clueEntry.clue.answer;
+              item.enumeration = item.clueEntry.clue.enumeration;
+              item.clueNumber = item.clueEntry.clue.number;
+              item.patternData = {
+                  id: item.id,
+                  clueText: item.clueEntry.clue.text,
+                  answer: item.clueEntry.clue.answer,
+                  enumeration: item.clueEntry.clue.enumeration,
+                  clueNumber: item.clueEntry.clue.number,
+                  clueType: item.clueEntry.clueType,
+                  definition: item.clueEntry.definition,
+                  wordplays: item.clueEntry.wordplays,
+              };
+          }
           mergedClues.set(normalize(item.clue), item);
       });
   } catch (e) {
