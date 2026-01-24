@@ -183,6 +183,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // Server controls: which wordplay to work on, what phase, what's solved
   const [serverState, setServerState] = useState<{
     clueEntry: any;
+    currentWordplay: any;  // The actual wordplay/subOperation object from server
     currentWordplayIndex: number;
     currentPhase: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete';
     blocked: boolean;
@@ -303,8 +304,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     return steps.filter((step: any) => !step.isAssembly);
   }, [patternData]);
 
-  // Current step the user is working on
-  const currentStep = wordplaySteps[currentWordplayStep];
+  // Use server's currentWordplay directly as currentStep (for subOperations support)
+  // Falls back to wordplaySteps for legacy/non-server mode
+  const currentStep = serverState?.currentWordplay || wordplaySteps[currentWordplayStep];
 
   // DERIVED FROM SERVER: completedSteps = indices where state.solved is true
   // Server is source of truth for what's solved
@@ -529,6 +531,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           // Store full server state - this is the source of truth
           setServerState({
             clueEntry: response.clueEntry,
+            currentWordplay: response.currentWordplay,  // Server's actual wordplay/subOp
             currentWordplayIndex: response.currentWordplayIndex ?? 0,
             currentPhase: response.currentPhase || 'indicator',
             blocked: response.blocked || false,
@@ -552,6 +555,24 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       });
     }
   }, [phase, clueId]);
+
+  // Sync local wordplaySubPhase from server state - server is source of truth
+  useEffect(() => {
+    if (serverState?.currentPhase) {
+      const serverPhase = serverState.currentPhase;
+      if (serverPhase === 'indicator') {
+        setWordplaySubPhase('indicator');
+      } else if (serverPhase === 'fodder') {
+        setWordplaySubPhase('fodder');
+      } else if (serverPhase === 'result') {
+        setWordplaySubPhase('result');
+      } else if (serverPhase === 'complete') {
+        // All wordplays done - move to solve phase
+        setPhase('solve');
+      }
+      // 'blocked' phase - keep current wordplaySubPhase, show blocked message
+    }
+  }, [serverState?.currentPhase]);
 
   // ---------------------------------------------------------------------------
   // INTERACTION HANDLERS
@@ -764,6 +785,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setServerState(prev => prev ? {
           ...prev,
           clueEntry: response.clueEntry,
+          currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
           currentPhase: response.currentPhase || 'fodder',
         } : null);
@@ -842,6 +864,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setServerState(prev => prev ? {
           ...prev,
           clueEntry: response.clueEntry,
+          currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
           currentPhase: response.currentPhase || 'result',
         } : null);
@@ -962,6 +985,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setServerState(prev => prev ? {
           ...prev,
           clueEntry: response.clueEntry,
+          currentWordplay: response.currentWordplay,  // Next wordplay from server
           currentWordplayIndex: response.currentWordplayIndex ?? -1,
           currentPhase: response.currentPhase || 'complete',
           allSolved: response.allSolved || false,
@@ -1011,6 +1035,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setServerState(prev => prev ? {
           ...prev,
           clueEntry: response.clueEntry,
+          currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
           currentPhase: response.currentPhase || 'indicator',
           allSolved: response.allSolved || false,
@@ -1071,6 +1096,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setServerState(prev => prev ? {
           ...prev,
           clueEntry: response.clueEntry,
+          currentWordplay: response.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex ?? -1,
           currentPhase: response.currentPhase || 'complete',
           allSolved: response.allSolved || false,
@@ -1121,6 +1147,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setServerState(prev => prev ? {
           ...prev,
           clueEntry: response.clueEntry,
+          currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex,
           currentPhase: response.currentPhase || 'indicator',
         } : null);
@@ -1158,6 +1185,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         setServerState(prev => prev ? {
           ...prev,
           clueEntry: response.clueEntry,
+          currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex ?? stepIdx,
           currentPhase: response.currentPhase || 'indicator',
           blocked: response.blocked || false,
@@ -1179,22 +1207,35 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }
   };
 
-  const handleNextIndicator = () => {
+  const handleNextIndicator = async () => {
     // Mark current step as revealed before moving on
     setRevealedIndicatorSteps(prev => [...prev, currentWordplayStep]);
 
-    const nextStep = currentWordplayStep + 1;
+    // In thin client mode, ask server for next state
+    if (clueId) {
+      try {
+        const response = await trainingAction(clueId, 'get_state');
+        if (response.success) {
+          setServerState(prev => prev ? {
+            ...prev,
+            clueEntry: response.clueEntry,
+            currentWordplay: response.currentWordplay,
+            currentWordplayIndex: response.currentWordplayIndex ?? -1,
+            currentPhase: response.currentPhase || 'complete',
+            allSolved: response.allSolved || false,
+          } : null);
 
-    if (nextStep >= wordplaySteps.length) {
-      // All indicators found - move to solve phase
-      setShowWordplayDetail(true);
-      setCurrentWordplayStep(nextStep); // Move past last step to show summary
-    } else {
-      // Move to next indicator
-      setCurrentWordplayStep(nextStep);
-      setSelectedIndicatorIndices([]);
-      setHasCheckedIndicator(false);
-      setIsIndicatorCorrect(false);
+          if (response.allSolved || response.currentPhase === 'complete') {
+            setShowWordplayDetail(true);
+          } else {
+            setSelectedIndicatorIndices([]);
+            setHasCheckedIndicator(false);
+            setIsIndicatorCorrect(false);
+          }
+        }
+      } catch (err) {
+        console.warn('[training] Next indicator failed:', err);
+      }
     }
   };
 

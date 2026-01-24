@@ -41,19 +41,30 @@
               {
                 "id": "1A",
                 "operation": "fodder_selection",
+                "indicator": "busy",
+                "fodder": "lymph too",
+                "result": "LYMPHTOO",
                 "dependencies": [],
+                "blockedHint": "Fodder only has 8 letters, answer needs 10. Find other wordplay steps first.",
                 "state": {
+                  "indicatorFound": false,
+                  "fodderFound": false,
+                  "resultEntered": false,
                   "solved": false
                 }
               },
               {
                 "id": "1B",
                 "operation": "solve_anagram",
-                "dependencies": [
-                  "2",
-                  "3"
-                ],
+                "indicator": "busy",
+                "fodder": "lymph too + EB",
+                "result": "PHLEBOTOMY",
+                "dependencies": ["2", "3"],
+                "blockedHint": "Need to find the missing letters first (solve other wordplays).",
                 "state": {
+                  "indicatorFound": false,
+                  "fodderFound": false,
+                  "resultEntered": false,
                   "solved": false
                 }
               }
@@ -73,11 +84,12 @@
             },
             "result": "(insertion point into anagram)",
             "dependencies": [
+              "1A",
               "3"
             ],
-            "blockedHint": "Cannot insert until we solve the letter selection.",
+            "blockedHint": "Cannot insert until we solve adjacent wordplays.",
             "state": {
-              "indicatorFound": true,
+              "indicatorFound": false,
               "fodderFound": false,
               "resultEntered": false,
               "solved": false

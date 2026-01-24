@@ -41,12 +41,27 @@ This means:
 - Displays what the server tells it to display
 - Sends user actions to the server
 - Renders server responses
+- **Syncs local display state FROM server state** (never the reverse)
 
 This ensures:
 - Single source of truth for ALL logic
 - UI can be completely dumb — just a view layer
 - Easy debugging — check server state directly
 - No divergence between server logic and UI behavior
+
+**Critical Implementation Rule:**
+If the UI maintains any local state for display purposes (like `wordplaySubPhase`), it MUST be synced FROM `serverState` via `useEffect`. The UI must NEVER derive server state from local UI state. Pattern:
+```typescript
+// CORRECT: Sync local state FROM server
+useEffect(() => {
+  if (serverState?.currentPhase === 'fodder') {
+    setWordplaySubPhase('fodder');
+  }
+}, [serverState?.currentPhase]);
+
+// WRONG: Would create out-of-sync states
+// Don't manually setWordplaySubPhase without server driving it
+```
 
 ### 3. Constraint-First Solving (No AI Guessing)
 
@@ -206,7 +221,22 @@ For each wordplay step with dependencies resolved:
 
 1. **INDICATOR** — User taps indicator word(s)
 2. **FODDER** — User taps fodder word(s)
-3. **RESULT** — User enters result of operation
+3. **RESULT** — User enters result of operation (if required by operation type)
+
+#### Operation Types and Phases
+
+Different operations have different phase requirements:
+
+| Operation | Phases | Notes |
+|-----------|--------|-------|
+| `fodder_selection` | indicator → fodder | NO result entry — completes after fodder |
+| `anagram` | indicator → fodder → result | Full flow |
+| `letter_selection` | indicator → fodder → result | Full flow |
+| `container` | indicator → fodder → result | Fodder may be reference |
+| Most others | indicator → fodder → result | Full flow |
+
+**Reference Fodder:**
+When `fodder` is an object with `type: "result"`, the fodder phase is skipped (fodder comes from other wordplays, not user selection).
 
 #### Dependency System
 
@@ -222,38 +252,59 @@ Wordplays use `dependencies` to declare which other wordplays must be solved fir
 
 **Partial Progress with subOperations:**
 
-When a wordplay can be partially solved before blocking, it uses `subOperations`:
+When a wordplay can be partially solved before blocking, it uses `subOperations`. SubOperations are **independent trainable steps** with their OWN fields:
 
 ```json
 {
   "id": "1",
   "operation": "anagram",
-  "dependencies": ["2", "3"],
+  "dependencies": ["2", "3"],       // Top-level deps IGNORED if subOps exist
   "subOperations": [
     {
       "id": "1A",
       "operation": "fodder_selection",
+      "indicator": "busy",          // SubOp has its OWN indicator
+      "fodder": "lymph too",        // SubOp has its OWN fodder
+      "result": "LYMPHTOO",         // For display (not user-entered)
       "dependencies": [],           // Can do immediately
-      "state": { "solved": false }
+      "blockedHint": "Fodder only has 8 letters...",
+      "state": {
+        "indicatorFound": false,
+        "fodderFound": false,
+        "resultEntered": false,
+        "solved": false
+      }
     },
     {
       "id": "1B",
       "operation": "solve_anagram",
+      "indicator": "busy",          // May share indicator with 1A
+      "fodder": "lymph too + EB",   // Descriptive fodder for this step
+      "result": "PHLEBOTOMY",       // User enters this
       "dependencies": ["2", "3"],   // Blocked until 2 and 3 solved
-      "state": { "solved": false }
+      "blockedHint": "Need to find the missing letters first...",
+      "state": {
+        "indicatorFound": false,
+        "fodderFound": false,
+        "resultEntered": false,
+        "solved": false
+      }
     }
   ]
 }
 ```
 
-In this example:
-- User CAN identify indicator ("busy") and fodder ("lymph too") immediately
-- User CANNOT solve the anagram until wordplays "2" and "3" provide the missing letters
-- `blockedHint` explains why: "Fodder only has 8 letters, answer needs 10..."
+**Key SubOperation Rules:**
+- SubOperations have their OWN `indicator`, `fodder`, `result`, `dependencies`, `blockedHint`, `state`
+- They do NOT inherit from parent — they are fully self-contained
+- When a wordplay has subOperations, the parent's dependencies are IGNORED
+- Server serves subOperations individually as training steps
+- `fodder_selection` completes after fodder phase (no result entry needed)
 
 **Blocked State:**
 - When blocked, `blockedHint` is displayed to explain why
 - User sees what they've accomplished and what's still needed
+- **blockedHint is ALWAYS included** in server responses when present (even when not blocked) — for informational display
 
 **blockedHint Rules:**
 - Must be generic — no solve hints for dependent wordplays
@@ -374,6 +425,50 @@ When fodder comes from other wordplays, it's an object:
 | `/clues/bulk` | POST | Bulk import `{items: [...]}` |
 | `/clues/clear` | POST | Clear all clues |
 | `/parser-issues` | GET/POST | Parser issue tracking |
+| `/training/action` | POST | Training flow actions (see below) |
+
+### Training Flow API
+
+The `/training/action` endpoint handles all training flow logic:
+
+**Request:**
+```json
+{
+  "clueId": "user-123-1A",
+  "action": "start|get_state|check_indicator|check_fodder|check_result|select_wordplay",
+  "data": {
+    "wordplayId": "1A",     // For check_* and select_wordplay
+    "selected": "busy",     // For check_indicator, check_fodder
+    "entered": "LYMPHTOO"   // For check_result
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "clueEntry": { ... },           // Full clue data with updated state
+  "currentWordplay": { ... },     // Wordplay user should work on
+  "currentPhase": "indicator|fodder|result|complete|blocked",
+  "blocked": false,
+  "blockedHint": "...",           // ALWAYS included if present on wordplay
+  "isSubOperation": true,
+  "parentWordplay": { ... },      // If isSubOperation=true
+  "currentWordplayIndex": 0,
+  "validation": {                 // For check_* actions
+    "correct": true,
+    "expected": "busy"
+  },
+  "allSolved": false
+}
+```
+
+**Phase Transitions:**
+- After `check_indicator` correct → advance to fodder (stay on SAME wordplay)
+- After `check_fodder` correct → advance to result OR complete (for `fodder_selection`)
+- After `check_result` correct → find NEXT available wordplay
+- Wrong answers keep user on same phase
 
 ### Storage Format
 
@@ -447,3 +542,66 @@ Before saving a clue, verify:
 | **state** | Tracks user progress through each wordplay |
 | **subOperations** | For complex wordplays with multiple parts |
 | **thin client** | UI sends raw data to server, server handles all logic |
+
+---
+
+## Regression Testing
+
+### Golden Clue Tests
+
+Golden clues are well-understood clues with known correct behavior. They serve as regression tests to ensure training flow works correctly.
+
+**Test File:** `cryptic_trainer_bundle/test_training_flow.py`
+
+**Run Tests:**
+```bash
+cd cryptic_trainer_bundle && python3 test_training_flow.py
+python3 test_training_flow.py --verbose        # Detailed output
+python3 test_training_flow.py --test PHLEBOTOMY  # Run specific test
+```
+
+### Current Golden Clues
+
+#### PHLEBOTOMY (Times 2025)
+
+**Clue:** "Drawing blood, lymph too, busy nurses conclude job at last" (10)
+
+**Structure:**
+- Definition: "Drawing blood" (start)
+- Wordplay 1: anagram with subOperations
+  - SubOp 1A: `fodder_selection` (deps: []) — identify indicator + fodder
+  - SubOp 1B: `solve_anagram` (deps: ["2", "3"]) — solve full anagram
+- Wordplay 2: `container` (deps: ["1A", "3"]) — "nurses" indicates insertion
+- Wordplay 3: `letter_selection` (deps: []) — "at last" from "conclude job" = EB
+
+**Test Coverage:**
+
+| Test | Verifies |
+|------|----------|
+| Session start | Fresh session returns correct initial state |
+| Dependency blocking | SubOp 1B blocked, shows blockedHint |
+| Wordplay 3 flow | Full indicator → fodder → result flow |
+| SubOp 1A flow | `fodder_selection` completes after fodder (no result) |
+| Wrong indicator | Incorrect selections rejected |
+| Wrong result | Incorrect entries rejected |
+| Full solve sequence | Dependency chain works correctly |
+| Case-insensitive | Validation ignores case |
+| Session isolation | New session resets all state |
+
+### Adding New Golden Clues
+
+1. Create puzzle file with complete metadata in `Times_Puzzle_Import/solved/`
+2. Import via `/clues/import` endpoint
+3. Add test functions to `test_training_flow.py`:
+   - `test_<clue>_session_start()`
+   - `test_<clue>_dependency_blocking()` (if applicable)
+   - `test_<clue>_full_flow()`
+   - Operation-specific tests
+
+### Test Design Principles
+
+1. **Test against server API** — not internal functions
+2. **One assertion per behavior** — clear failure messages
+3. **Test complete flows** — not just happy path
+4. **Always include blockedHint tests** — verify informational hints present
+5. **Test phase transitions** — same wordplay until solved, then next
