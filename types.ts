@@ -42,7 +42,76 @@ export interface Pattern {
     steps: string[]; // List of StepTemplate IDs
 }
 
-/** Computed wordplay step - ready for UI display */
+// ========== V2 SCHEMA TYPES ==========
+
+/** Valid wordplay operation types */
+export type OperationType =
+    | 'anagram'
+    | 'container'
+    | 'hidden'
+    | 'reversal'
+    | 'deletion'
+    | 'homophone'
+    | 'abbreviation'
+    | 'letter_selection'
+    | 'synonym'
+    | 'charade';
+
+/** State tracking for wordplay progress */
+export interface WordplayState {
+    indicatorFound: boolean;
+    fodderFound: boolean;
+    resultEntered: boolean;
+    solved: boolean;
+}
+
+/** Sub-operation for complex wordplays */
+export interface SubOperation {
+    id: string;
+    operation: string;
+    dependencies: string[];
+    blockedHint?: string;
+    state: { solved: boolean };
+}
+
+/** Fodder reference when fodder comes from other wordplay results */
+export interface FodderReference {
+    type: 'result';
+    fromWordplay: string[];
+}
+
+/** V2 Wordplay with dependencies and state tracking */
+export interface Wordplay {
+    id: string;
+    indicator: string;
+    operation: OperationType;
+    fodder: string | FodderReference;
+    fodderLetterCount?: number;
+    result: string;
+    resultLetterCount?: number;
+    dependencies: string[];
+    blockedHint?: string;
+    state: WordplayState;
+    subOperations?: SubOperation[];
+    explanation: string;
+    // For letter_selection
+    extractionType?: 'first_letter' | 'last_letter' | 'odd_letters' | 'even_letters' | 'middle_letters';
+}
+
+/** V2 Definition structure */
+export interface Definition {
+    text: string;
+    position: 'start' | 'end' | 'entire';
+}
+
+/** V2 Clue type identification */
+export interface ClueTypeId {
+    id: 'standard' | 'double_definition' | 'cryptic_definition' | 'andit';
+}
+
+// ========== LEGACY V1 TYPES (deprecated) ==========
+
+/** @deprecated Use Wordplay instead */
 export interface WordplayStep {
     indicator: string;
     fodder: string;
@@ -75,50 +144,75 @@ export interface DisplayBlock {
     techniques?: string[];    // For setter-hint: list of techniques for tooltip rendering
 }
 
+/** Sequencer metadata for free-form wordplay discovery */
+export interface SequencerMetadata {
+    indicatorToStep: Record<string, number>;  // Word → step index (0-based)
+    fodderToStep: Record<string, number>;     // Word → step index (0-based)
+    definitionWords: string[];                // Definition word list
+    answerLetterCount: number;                // Length of answer
+    totalSteps: number;                       // Number of wordplay steps
+}
+
 export interface PatternInstance {
     id: string;
-    patternId: string;
     clueText: string;
     answer: string;
-    variables: Record<string, string>;
-    stepOverrides?: string[]; // Optional specific step ID list for this instance
-    solveSteps?: string[]; // Step-by-step solve sequence for the battlecard
-    analysis?: Record<string, unknown>; // Full analysis data for partial parsing
-
-    // DATA-DRIVEN UI: Parser returns ordered blocks, UI just renders them
-    solveExplanation?: DisplayBlock[];  // Ordered list of display blocks for UI
-
-    // Word-by-word highlighting (from new puzzle schema)
-    wordHighlights?: WordHighlight[];  // Pre-computed role/color for each word in clue
-
-    // Pre-computed fields for UI (all logic in backend)
-    wordplaySteps?: WordplayStep[];  // Ordered by complexity (easy first), Assembly last
-    isComplete?: boolean;            // True if definition + all wordplay resolved
-    parsingSummary?: string;         // e.g., "MALIGN (slander) → ALIGNM + ENT = ALIGNMENT"
-    definitionText?: string;         // The definition text
-    definitionMatchType?: 'direct' | 'synonym' | 'cryptic' | 'none';
-    definitionExplanation?: string;  // Pre-computed plain English explanation for definition
-    definitionPosition?: 'start' | 'end' | 'entire';  // Where definition appears in clue
-    definitionHint?: string;         // For cryptic definitions, the cryptic twist explanation
-
-    // Teaching fields - help student learn setter techniques
-    techniquesUsed?: string[];       // e.g., ['abbreviation', 'container'] - cryptic vocabulary terms
-    setterHint?: string;             // e.g., "The setter has used **abbreviations** and a **container** here. Can you spot the insertion indicator?"
-
-    // Human-readable solver comments (from new puzzle schema)
-    solverComments?: string[];       // Natural language explanations from the solver
-
-    // Clue metadata for display
+    enumeration?: string;            // e.g., "10", "9,6"
     clueNumber?: string;             // e.g., "1A", "12D"
-    enumeration?: string;            // e.g., "7", "9,6"
 
-    // Publication metadata (from legacy format)
-    publication?: string;            // e.g., "times"
-    puzzleNumber?: number;           // e.g., 29435
+    // V2 Schema - Core structures
+    clueType: ClueTypeId;            // standard, double_definition, cryptic_definition, andit
+    definition: Definition;          // Definition text and position
+    wordplays: Wordplay[];           // V2 wordplays with dependencies and state
+
+    // Metadata
+    publication?: string;            // e.g., "Times Puzzles"
+    puzzleNumber?: number;           // e.g., 2025
     setter?: string;                 // e.g., "Unknown"
+    confidence?: number;             // 0.0 to 1.0
+    comments?: string[];             // Solver comments
 
-    // Answer metadata
-    thesaurusRequired?: boolean;     // True if answer is uncommon (e.g., GRUB KICK) - UI can show "Thesaurus may help"
+    // ========== DEPRECATED V1 FIELDS (for backward compatibility during migration) ==========
+    /** @deprecated Use clueType instead */
+    patternId?: string;
+    /** @deprecated Use wordplays instead */
+    wordplaySteps?: WordplayStep[];
+    /** @deprecated Use definition.text instead */
+    definitionText?: string;
+    /** @deprecated Use definition.position instead */
+    definitionPosition?: 'start' | 'end' | 'entire';
+    /** @deprecated */
+    variables?: Record<string, string>;
+    /** @deprecated */
+    wordHighlights?: WordHighlight[];
+    /** @deprecated */
+    solveExplanation?: DisplayBlock[];
+    /** @deprecated */
+    isComplete?: boolean;
+    /** @deprecated */
+    parsingSummary?: string;
+    /** @deprecated */
+    definitionMatchType?: 'direct' | 'synonym' | 'cryptic' | 'none';
+    /** @deprecated */
+    definitionExplanation?: string;
+    /** @deprecated */
+    definitionHint?: string;
+    /** @deprecated */
+    techniquesUsed?: string[];
+    /** @deprecated */
+    setterHint?: string;
+    /** @deprecated */
+    solverComments?: string[];
+    /** @deprecated */
+    thesaurusRequired?: boolean;
+    /** @deprecated */
+    sequencer?: SequencerMetadata;
+    /** @deprecated */
+    stepOverrides?: string[];
+    /** @deprecated */
+    solveSteps?: string[];
+    /** @deprecated */
+    analysis?: Record<string, unknown>;
 }
 
 // -------------------------------------
@@ -194,19 +288,31 @@ export interface TrainingItem {
   id: string;
   clue: string;
   answer: string;
+  enumeration?: string;           // e.g., "10"
+  clueNumber?: string;            // e.g., "1A"
+
+  // V2 Schema - The primary data structure
+  patternData: PatternInstance;   // V2 engine data with wordplays, dependencies, state
+
+  // Metadata
   setterName: string;
   publicationId?: string;
   puzzleId?: string;
-  clueType?: any;
-  
-  evaluation: ClueEvaluation; // Keep for backward compatibility/display
-  patternData?: PatternInstance; // The Engine Data
-
-  stats: TrainingStats;
   timestamp: number;
-  clueNumber?: string;
+
+  // Progress tracking
+  stats: TrainingStats;
+
+  // ========== DEPRECATED V1 FIELDS ==========
+  /** @deprecated Use patternData.clueType instead */
+  clueType?: any;
+  /** @deprecated No longer used */
+  evaluation?: ClueEvaluation;
+  /** @deprecated */
   clueDirection?: string;
+  /** @deprecated */
   example?: any;
+  /** @deprecated */
   tutorProgress?: {
     stageIndex: number;
     summaryChain: string[];

@@ -376,9 +376,14 @@ export function parseFreeformInput(input: string, defaultPubId?: string): Freefo
 
             patternData = {
                 id: `partial-${Date.now()}`,
-                patternId: 'PARTIAL',
                 clueText,
                 answer: '',
+                // V2 required fields
+                clueType: { id: 'standard' as const },
+                definition: { text: '', position: 'start' as const },
+                wordplays: [],
+                // Deprecated fields for backward compatibility
+                patternId: 'PARTIAL',
                 variables,
                 solveSteps: analysis.solveSteps,
                 // Store the full analysis for UI to use
@@ -551,9 +556,14 @@ function buildPatternFromCoaching(
 
     return {
         id: `freeform-${Date.now()}`,
-        patternId,
         clueText,
         answer,
+        // V2 required fields
+        clueType: { id: 'standard' as const },
+        definition: { text: '', position: 'start' as const },
+        wordplays: [],
+        // Deprecated fields
+        patternId,
         variables
     };
 }

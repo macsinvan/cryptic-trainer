@@ -29,15 +29,24 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
         const placeholders: TrainingItem[] = customClues.map((cc, idx) => ({
             id: `custom-${idx}`,
             clue: cc.text,
-            answer: cc.answer || '', 
+            answer: cc.answer || '',
             setterName: 'Setter Consultant',
-            clueType: { ...STANDARD_CLUE_TYPES[0], name: 'Loading...', description: '', mechanism: '', theTell: [], strategy: '', examples: [] } as any,
-            example: { clue: cc.text, answer: cc.answer || '', parsing: '', level: 'medium' },
-            distractors: [],
             clueNumber: cc.number,
-            clueDirection: cc.direction,
             timestamp: Date.now(),
             stats: { attempts: 0, successes: 0, hintsUsed: 0 },
+            // V2 patternData required
+            patternData: {
+                id: `custom-${idx}`,
+                clueText: cc.text,
+                answer: cc.answer || '',
+                clueType: { id: 'standard' as const },
+                definition: { text: '', position: 'start' as const },
+                wordplays: [],
+            },
+            // Deprecated fields
+            clueType: { ...STANDARD_CLUE_TYPES[0], name: 'Loading...', description: '', mechanism: '', theTell: [], strategy: '', examples: [] } as any,
+            example: { clue: cc.text, answer: cc.answer || '', parsing: '', level: 'medium' },
+            clueDirection: cc.direction,
             evaluation: {
                 id: `custom-${idx}`,
                 clue: cc.text,
@@ -59,8 +68,8 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
     }
 
     const items = getTrainingQueue(publicationId);
-    // Filter to only clues with patternData.definitionText (required for ClueTrainer)
-    const trainableItems = items.filter(item => item.patternData?.definitionText);
+    // Filter to only clues with V2 definition (required for ClueTrainer)
+    const trainableItems = items.filter(item => item.patternData?.definition?.text);
     setQueue(trainableItems);
   }, [publicationId, isCustomMode, customClues]);
 

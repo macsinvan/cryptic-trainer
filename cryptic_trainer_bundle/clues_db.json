@@ -1,651 +1,117 @@
 {
-  "version": 1,
+  "version": 2,
   "training_items": {
-    "user-1768923945280": {
-      "id": "user-1768923945280",
-      "clue": "Drawing blood , lymph too, busy nurses conclude job at last",
-      "answer": "PHLEBOTOMY",
-      "setterName": "Community",
-      "publicationId": "times",
-      "clueType": {
-        "id": "anagram",
-        "label": "Anagram",
-        "name": "Anagram",
-        "icon": "\ud83d\udd04",
-        "description": "Rearranging the letters of one or more words.",
-        "mechanism": "Rearrange fodder letters based on a scramble indicator.",
-        "theTell": [
-          "broken",
-          "mixed",
-          "crazy",
-          "new",
-          "running",
-          "confused",
-          "off",
-          "badly",
-          "cooked",
-          "wild",
-          "strange",
-          "distributed",
-          "pants",
-          "disorder",
-          "working",
-          "roughly",
-          "dancing",
-          "unusual",
-          "development",
-          "frenzied",
-          "scrambled",
-          "changed",
-          "ordered",
-          "upset",
-          "mad",
-          "in disorder",
-          "odd",
-          "out"
-        ],
-        "strategy": "Look for an indicator near a set of letters that matches the count.",
-        "examples": []
-      },
-      "evaluation": {
-        "id": "puzzle-1A-1768923928175",
-        "clue": "Drawing blood , lymph too, busy nurses conclude job at last",
-        "answer": "PHLEBOTOMY",
-        "type": "Anagram",
-        "difficulty": "Medium",
+    "user-1769245327284-1A": {
+      "id": "user-1769245327284-1A",
+      "clueEntry": {
+        "clue": {
+          "number": "1A",
+          "text": "Drawing blood, lymph too, busy nurses conclude job at last",
+          "enumeration": "10",
+          "answer": "PHLEBOTOMY"
+        },
+        "clueType": {
+          "id": "standard"
+        },
         "definition": {
           "text": "Drawing blood",
-          "position": "START"
+          "position": "start"
         },
-        "wordplay": [],
-        "structure": "PHLOTOMY + EB + PHLEBOTOMY = PHLEBOTOMY"
-      },
-      "patternData": {
-        "id": "puzzle-1A-1768923928175",
-        "patternId": "Anagram",
-        "clueText": "Drawing blood , lymph too, busy nurses conclude job at last",
-        "answer": "PHLEBOTOMY",
-        "clueNumber": "1A",
-        "enumeration": "10",
-        "variables": {
-          "def_text": "Drawing blood",
-          "indicator_1_text": "busy",
-          "fodder_1_text": "lymph too",
-          "result_1": "PHLOTOMY",
-          "synonym_1": "PHLOTOMY",
-          "indicator_2_text": "at last",
-          "fodder_2_text": "conclude job",
-          "result_2": "EB",
-          "synonym_2": "EB",
-          "indicator_3_text": "nurses",
-          "fodder_3_text": "PHLOTOMY EB",
-          "result_3": "PHLEBOTOMY",
-          "synonym_3": "PHLEBOTOMY"
-        },
-        "wordHighlights": [
+        "wordplays": [
           {
-            "word": "Drawing",
-            "role": "definition",
-            "stepNumber": null,
-            "colorType": "GREEN"
-          },
-          {
-            "word": "blood",
-            "role": "definition",
-            "stepNumber": null,
-            "colorType": "GREEN"
-          },
-          {
-            "word": "lymph",
-            "role": "fodder",
-            "stepNumber": 1,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "too",
-            "role": "fodder",
-            "stepNumber": 1,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "busy",
-            "role": "indicator",
-            "stepNumber": 1,
-            "colorType": "ORANGE"
-          },
-          {
-            "word": "nurses",
-            "role": "indicator",
-            "stepNumber": 3,
-            "colorType": "ORANGE"
-          },
-          {
-            "word": "conclude",
-            "role": "fodder",
-            "stepNumber": 2,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "job",
-            "role": "fodder",
-            "stepNumber": 2,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "at",
-            "role": "indicator",
-            "stepNumber": 2,
-            "colorType": "ORANGE"
-          },
-          {
-            "word": "last",
-            "role": "indicator",
-            "stepNumber": 2,
-            "colorType": "ORANGE"
-          }
-        ],
-        "wordplaySteps": [
-          {
+            "id": "1",
             "indicator": "busy",
+            "operation": "anagram",
             "fodder": "lymph too",
+            "fodderLetterCount": 8,
             "result": "PHLEBOTOMY",
-            "synonym": "PHLEBOTOMY",
-            "hint": "lymph too",
-            "complexity": 3,
-            "isAssembly": false,
-            "stepType": "anagram",
-            "explanation": "\"lymph too\" + \"EB\" anagrammed (busy) gives PHLEBOTOMY"
+            "resultLetterCount": 10,
+            "dependencies": [
+              "2",
+              "3"
+            ],
+            "blockedHint": "Fodder only has 8 letters, answer needs 10. We need to find 2 more letters.",
+            "state": {
+              "indicatorFound": false,
+              "fodderFound": false,
+              "resultEntered": false,
+              "solved": false
+            },
+            "subOperations": [
+              {
+                "id": "1A",
+                "operation": "fodder_selection",
+                "dependencies": [],
+                "state": {
+                  "solved": false
+                }
+              },
+              {
+                "id": "1B",
+                "operation": "solve_anagram",
+                "dependencies": [
+                  "2",
+                  "3"
+                ],
+                "state": {
+                  "solved": false
+                }
+              }
+            ],
+            "explanation": "The word 'busy' indicates an anagram of 'lymph too', combined with letters from other wordplays to form PHLEBOTOMY."
           },
           {
+            "id": "2",
+            "indicator": "nurses",
+            "operation": "container",
+            "fodder": {
+              "type": "result",
+              "fromWordplay": [
+                "1A",
+                "3"
+              ]
+            },
+            "result": "(insertion point into anagram)",
+            "dependencies": [
+              "1A",
+              "3"
+            ],
+            "blockedHint": "Cannot insert until we solve adjacent wordplays.",
+            "state": {
+              "indicatorFound": false,
+              "fodderFound": false,
+              "resultEntered": false,
+              "solved": false
+            },
+            "explanation": "The word 'nurses' indicates that EB (from 'at last') is inserted into the anagram fodder."
+          },
+          {
+            "id": "3",
             "indicator": "at last",
+            "operation": "letter_selection",
+            "extractionType": "last_letter",
             "fodder": "conclude job",
             "result": "EB",
-            "synonym": "EB",
-            "hint": "conclude job at last",
-            "complexity": 2,
-            "isAssembly": false,
-            "stepType": "letter_selection",
-            "explanation": "conclude job \u2192 EB"
-          },
-          {
-            "indicator": "nurses",
-            "fodder": "lymph too + EB",
-            "result": "PHLEBOTOMY",
-            "synonym": "PHLEBOTOMY",
-            "hint": "nurses",
-            "complexity": 3,
-            "isAssembly": false,
-            "stepType": "container",
-            "explanation": "EB inserted into \"lymph too\" for anagram"
+            "resultLetterCount": 2,
+            "dependencies": [],
+            "state": {
+              "indicatorFound": false,
+              "fodderFound": false,
+              "resultEntered": false,
+              "solved": false
+            },
+            "explanation": "The indicator 'at last' tells us to take the final letters of 'conclude' and 'job', giving EB."
           }
-        ],
-        "definitionText": "Drawing blood",
-        "definitionPosition": "start",
-        "isComplete": true,
-        "parsingSummary": "PHLOTOMY + EB + PHLEBOTOMY = PHLEBOTOMY",
-        "techniquesUsed": [
-          "Anagram",
-          "abbreviation",
-          "Container"
-        ],
-        "solveExplanation": [
-          {
-            "type": "setter-hint",
-            "content": "This clue uses **Anagram, abbreviation, Container**. The definition \"Drawing blood\" appears at the start of the clue.",
-            "techniques": [
-              "Anagram",
-              "abbreviation",
-              "Container"
-            ]
-          },
-          {
-            "type": "explanation",
-            "label": "Definition: Found at the start of the clue",
-            "content": "Drawing blood"
-          },
-          {
-            "type": "explanation",
-            "label": "\"busy\" indicating Anagram",
-            "content": "lymph too \u2192 PHLOTOMY"
-          },
-          {
-            "type": "explanation",
-            "label": "\"at last\" indicating abbreviation",
-            "content": "conclude job \u2192 EB"
-          },
-          {
-            "type": "explanation",
-            "label": "\"nurses\" indicating Container",
-            "content": "PHLOTOMY EB \u2192 PHLEBOTOMY"
-          }
-        ],
-        "solverComments": [
-          "The wordplay uses a container of an anagram. The indicator 'at last' extracts the final letters from 'conclude' and 'job' (EB), which are then 'nursed' (contained) by an anagram of 'lymph too'."
-        ],
-        "publication": "Times Puzzles",
-        "puzzleNumber": 2025,
+        ]
+      },
+      "metadata": {
+        "file": "Times_2025.json",
+        "publisher": "Times",
+        "puzzle_number": "2025",
         "setter": "Unknown"
       },
-      "stats": {
-        "attempts": 0,
-        "successes": 0,
-        "hintsUsed": 0
-      },
-      "timestamp": 1768923945280,
-      "example": {
-        "clue": "Drawing blood , lymph too, busy nurses conclude job at last",
-        "answer": "PHLEBOTOMY",
-        "parsing": "PHLOTOMY + EB + PHLEBOTOMY = PHLEBOTOMY",
-        "level": "medium",
-        "definition": "Drawing blood",
-        "hints": []
-      }
-    },
-    "user-1768924346139": {
-      "id": "user-1768924346139",
-      "clue": "Mums dropping others like hot potatoes",
-      "answer": "MASH",
-      "setterName": "Community",
       "publicationId": "times",
-      "clueType": {
-        "id": "anagram",
-        "label": "Anagram",
-        "name": "Anagram",
-        "icon": "\ud83d\udd04",
-        "description": "Rearranging the letters of one or more words.",
-        "mechanism": "Rearrange fodder letters based on a scramble indicator.",
-        "theTell": [
-          "broken",
-          "mixed",
-          "crazy",
-          "new",
-          "running",
-          "confused",
-          "off",
-          "badly",
-          "cooked",
-          "wild",
-          "strange",
-          "distributed",
-          "pants",
-          "disorder",
-          "working",
-          "roughly",
-          "dancing",
-          "unusual",
-          "development",
-          "frenzied",
-          "scrambled",
-          "changed",
-          "ordered",
-          "upset",
-          "mad",
-          "in disorder",
-          "odd",
-          "out"
-        ],
-        "strategy": "Look for an indicator near a set of letters that matches the count.",
-        "examples": []
-      },
-      "evaluation": {
-        "id": "puzzle-6A-1768924292669",
-        "clue": "Mums dropping others like hot potatoes",
-        "answer": "MASH",
-        "type": "Synonym",
-        "difficulty": "Medium",
-        "definition": {
-          "text": "potatoes",
-          "position": "END"
-        },
-        "wordplay": [],
-        "structure": "MOTHERS + M + AS + H = MASH"
-      },
-      "patternData": {
-        "id": "puzzle-6A-1768924292669",
-        "patternId": "Synonym",
-        "clueText": "Mums dropping others like hot potatoes",
-        "answer": "MASH",
-        "clueNumber": "6A",
-        "enumeration": "4",
-        "variables": {
-          "def_text": "potatoes",
-          "indicator_1_text": "dropping",
-          "fodder_1_text": "Mums",
-          "result_1": "MOTHERS",
-          "synonym_1": "MOTHERS",
-          "indicator_2_text": "dropping",
-          "fodder_2_text": "MOTHERS",
-          "result_2": "M",
-          "synonym_2": "M",
-          "fodder_3_text": "like",
-          "result_3": "AS",
-          "synonym_3": "AS",
-          "fodder_4_text": "hot",
-          "result_4": "H",
-          "synonym_4": "H",
-          "result_5": "MASH",
-          "synonym_5": "MASH"
-        },
-        "wordHighlights": [
-          {
-            "word": "Mums",
-            "role": "fodder",
-            "stepNumber": 1,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "dropping",
-            "role": "indicator",
-            "stepNumber": 2,
-            "colorType": "ORANGE"
-          },
-          {
-            "word": "others",
-            "role": "fodder",
-            "stepNumber": 2,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "like",
-            "role": "fodder",
-            "stepNumber": 3,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "hot",
-            "role": "fodder",
-            "stepNumber": 4,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "potatoes",
-            "role": "definition",
-            "stepNumber": null,
-            "colorType": "GREEN"
-          }
-        ],
-        "wordplaySteps": [
-          {
-            "indicator": "dropping",
-            "fodder": "Mums",
-            "result": "M",
-            "deleteTarget": "others",
-            "impliedOperation": "synonym",
-            "impliedResult": "MOTHERS",
-            "hint": "dropping others from Mums",
-            "complexity": 3,
-            "isAssembly": false,
-            "stepType": "deletion",
-            "explanation": "\"Mums\" \u2192 MOTHERS (synonym), then drop \"others\" \u2192 M"
-          },
-          {
-            "indicator": "",
-            "fodder": "like",
-            "result": "AS",
-            "synonym": "AS",
-            "hint": "like",
-            "complexity": 1,
-            "isAssembly": false,
-            "stepType": "synonym",
-            "explanation": "\"like\" gives AS"
-          },
-          {
-            "indicator": "",
-            "fodder": "hot",
-            "result": "H",
-            "synonym": "H",
-            "hint": "hot",
-            "complexity": 2,
-            "isAssembly": false,
-            "stepType": "unknown",
-            "explanation": "hot \u2192 H"
-          },
-          {
-            "indicator": "",
-            "result": "MASH",
-            "synonym": "MASH",
-            "hint": "Mums dropping others like hot",
-            "complexity": 2,
-            "isAssembly": true,
-            "stepType": "assembly",
-            "explanation": "undefined combined gives MASH"
-          }
-        ],
-        "definitionText": "potatoes",
-        "definitionPosition": "end",
-        "isComplete": true,
-        "parsingSummary": "MOTHERS + M + AS + H = MASH",
-        "techniquesUsed": [
-          "Synonym",
-          "Deletion",
-          "abbreviation",
-          "Charade"
-        ],
-        "solveExplanation": [
-          {
-            "type": "setter-hint",
-            "content": "This clue uses **Synonym, Deletion, abbreviation, Charade**. The definition \"potatoes\" appears at the end of the clue.",
-            "techniques": [
-              "Synonym",
-              "Deletion",
-              "abbreviation",
-              "Charade"
-            ]
-          },
-          {
-            "type": "explanation",
-            "label": "Definition: Found at the end of the clue",
-            "content": "potatoes"
-          },
-          {
-            "type": "explanation",
-            "label": "Synonym",
-            "content": "Mums \u2192 MOTHERS"
-          },
-          {
-            "type": "explanation",
-            "label": "\"dropping\" indicating Deletion",
-            "content": "MOTHERS \u2192 M"
-          },
-          {
-            "type": "explanation",
-            "label": "Synonym",
-            "content": "like \u2192 AS"
-          },
-          {
-            "type": "explanation",
-            "label": "abbreviation",
-            "content": "hot \u2192 H"
-          },
-          {
-            "type": "explanation",
-            "label": "Assembly",
-            "content": "M + AS + H \u2192 MASH"
-          }
-        ],
-        "solverComments": [
-          "The wordplay is a clever subtraction (MOTHERS - OTHERS = M) followed by standard cryptic components (AS for 'like' and H for 'hot').",
-          "MASH is a common UK term for mashed potatoes."
-        ],
-        "publication": "Times Puzzles",
-        "puzzleNumber": 2025,
-        "setter": "Unknown"
-      },
-      "stats": {
-        "attempts": 0,
-        "successes": 0,
-        "hintsUsed": 0
-      },
-      "timestamp": 1768924346139,
-      "example": {
-        "clue": "Mums dropping others like hot potatoes",
-        "answer": "MASH",
-        "parsing": "MOTHERS + M + AS + H = MASH",
-        "level": "medium",
-        "definition": "potatoes",
-        "hints": []
-      }
-    },
-    "user-1768924642955": {
-      "id": "user-1768924642955",
-      "clue": "Terribly valiant Northern European",
-      "answer": "LATVIAN",
-      "setterName": "Community",
-      "publicationId": "times",
-      "clueType": {
-        "id": "anagram",
-        "label": "Anagram",
-        "name": "Anagram",
-        "icon": "\ud83d\udd04",
-        "description": "Rearranging the letters of one or more words.",
-        "mechanism": "Rearrange fodder letters based on a scramble indicator.",
-        "theTell": [
-          "broken",
-          "mixed",
-          "crazy",
-          "new",
-          "running",
-          "confused",
-          "off",
-          "badly",
-          "cooked",
-          "wild",
-          "strange",
-          "distributed",
-          "pants",
-          "disorder",
-          "working",
-          "roughly",
-          "dancing",
-          "unusual",
-          "development",
-          "frenzied",
-          "scrambled",
-          "changed",
-          "ordered",
-          "upset",
-          "mad",
-          "in disorder",
-          "odd",
-          "out"
-        ],
-        "strategy": "Look for an indicator near a set of letters that matches the count.",
-        "examples": []
-      },
-      "evaluation": {
-        "id": "puzzle-9A-1768924640680",
-        "clue": "Terribly valiant Northern European",
-        "answer": "LATVIAN",
-        "type": "Anagram",
-        "difficulty": "Medium",
-        "definition": {
-          "text": "Northern European",
-          "position": "END"
-        },
-        "wordplay": [],
-        "structure": "LATVIAN = LATVIAN"
-      },
-      "patternData": {
-        "id": "puzzle-9A-1768924640680",
-        "patternId": "Anagram",
-        "clueText": "Terribly valiant Northern European",
-        "answer": "LATVIAN",
-        "clueNumber": "9A",
-        "enumeration": "7",
-        "variables": {
-          "def_text": "Northern European",
-          "indicator_1_text": "Terribly",
-          "fodder_1_text": "valiant",
-          "result_1": "LATVIAN",
-          "synonym_1": "LATVIAN"
-        },
-        "wordHighlights": [
-          {
-            "word": "Terribly",
-            "role": "indicator",
-            "stepNumber": 1,
-            "colorType": "ORANGE"
-          },
-          {
-            "word": "valiant",
-            "role": "fodder",
-            "stepNumber": 1,
-            "colorType": "BLUE"
-          },
-          {
-            "word": "Northern",
-            "role": "definition",
-            "stepNumber": null,
-            "colorType": "GREEN"
-          },
-          {
-            "word": "European",
-            "role": "definition",
-            "stepNumber": null,
-            "colorType": "GREEN"
-          }
-        ],
-        "wordplaySteps": [
-          {
-            "indicator": "Terribly",
-            "fodder": "valiant",
-            "result": "LATVIAN",
-            "synonym": "LATVIAN",
-            "hint": "Terribly valiant",
-            "complexity": 3,
-            "isAssembly": false,
-            "stepType": "anagram",
-            "explanation": "\"valiant\" anagrammed (Terribly) gives LATVIAN"
-          }
-        ],
-        "definitionText": "Northern European",
-        "definitionPosition": "end",
-        "isComplete": true,
-        "parsingSummary": "LATVIAN = LATVIAN",
-        "techniquesUsed": [
-          "Anagram"
-        ],
-        "solveExplanation": [
-          {
-            "type": "setter-hint",
-            "content": "This clue uses **Anagram**. The definition \"Northern European\" appears at the end of the clue.",
-            "techniques": [
-              "Anagram"
-            ]
-          },
-          {
-            "type": "explanation",
-            "label": "Definition: Found at the end of the clue",
-            "content": "Northern European"
-          },
-          {
-            "type": "explanation",
-            "label": "\"Terribly\" indicating Anagram",
-            "content": "valiant \u2192 LATVIAN"
-          }
-        ],
-        "solverComments": [
-          "Simple anagram clue where 'terribly' is the indicator and 'valiant' is the fodder.",
-          "The definition 'Northern European' perfectly describes a Latvian."
-        ],
-        "publication": "Times Puzzles",
-        "puzzleNumber": 2025,
-        "setter": "Unknown"
-      },
-      "stats": {
-        "attempts": 0,
-        "successes": 0,
-        "hintsUsed": 0
-      },
-      "timestamp": 1768924642955,
-      "example": {
-        "clue": "Terribly valiant Northern European",
-        "answer": "LATVIAN",
-        "parsing": "LATVIAN = LATVIAN",
-        "level": "medium",
-        "definition": "Northern European",
-        "hints": []
-      }
+      "timestamp": 1769245327284
     }
   },
   "parser_issues": {}

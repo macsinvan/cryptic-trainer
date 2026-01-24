@@ -90,8 +90,7 @@ npm run dev
 
 | Document | Purpose |
 |----------|---------|
-| `cryptic_trainer_bundle/DESIGN_SPEC.md` | Python solver design & training workflow |
-| `INTERACTIVE_SOLVE_FLOW.md` | Solve UI step-by-step specification |
+| `DESIGN_SPEC.md` | Complete system design (architecture, schema, training flow) |
 
 ---
 
@@ -134,8 +133,8 @@ python3 puzzle_tester.py puzzle.json --stop-on-fail
 
 ### Training workflow:
 
-See `cryptic_trainer_bundle/DESIGN_SPEC.md` for the full Times for the Times workflow.
+See `DESIGN_SPEC.md` for the full training flow and metadata schema.
 
 ---
 
-*Last updated: 2026-01-20*
+*Last updated: 2026-01-24*

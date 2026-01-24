@@ -88,17 +88,33 @@ npm run dev
 
 ## Import Flow
 
-1. User uploads puzzle file in UI
-2. UI sends **raw JSON** to server (`POST /clues/import`)
-3. Server stores data directly — no transformation
-4. Server returns success/error response
-5. UI refreshes clue list
+### Import Steps
 
-**Key principle:** The source schema IS the working data structure for training.
+1. **Receive** puzzle JSON from UI (`POST /clues/import`)
+2. **Validate JSON integrity** — valid JSON, has `metadata` and `clues` objects
+3. **Validate each ClueEntry** against full schema:
+   - `clue` — number, text, enumeration, answer (all required)
+   - `clueType` — id (required, one of: standard, double_definition, cryptic_definition, andit)
+   - `definition` — text, position (both required)
+   - `wordplays` — array with all required fields per Wordplay schema
+4. **Reject if validation fails** — return errors in actionable form (clue number, field name, issue)
+5. **Check for duplicates** — skip if clue already exists in database (by normalized text)
+6. **Store valid ClueEntries** exactly as received — no transformation
+7. **Return response**:
+   - Success count (saved, skipped)
+   - Error list with details for each failed clue
 
-- Import stores the schema exactly as-is — no conversion, no manipulation
-- The UI reads directly from this schema to drive the training flow
-- If the schema doesn't fit trainer needs, fix it at source — not in import or UI code
+### UI Display
+
+- Show success count
+- Show error logs with **copy** button for easy fixing at source
+
+### Key Principles
+
+- **Import in full**: All fields must be present at import time — no partial schemas
+- **No transformation**: Store exactly as received — no field renaming, no restructuring
+- **Fail clearly**: Validation errors must identify exactly what to fix
+- **Fix at source**: If schema doesn't fit trainer needs, fix the puzzle file — not import code
 
 ### Live Document Model
 
@@ -134,6 +150,9 @@ The schema is mutated in place — no separate "progress" tracking needed.
     "text": "string",        // Full clue text
     "enumeration": "string", // e.g., "10"
     "answer": "string"       // e.g., "PHLEBOTOMY"
+  },
+  "clueType": {
+    "id": "standard"         // One of: standard, double_definition, cryptic_definition, andit
   },
   "definition": {
     "text": "string",        // e.g., "Drawing blood"

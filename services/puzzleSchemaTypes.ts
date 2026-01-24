@@ -1,12 +1,106 @@
 /**
- * Types for the new puzzle schema format (Times_Puzzles_*.json)
+ * Types for puzzle schemas
  *
- * This schema captures full puzzles with rich solve breakdowns including:
- * - Word-by-word role accounting
- * - Step-by-step solve traces
- * - Verification checks at each step
- * - Human-readable comments
+ * Two schemas are defined:
+ * 1. IMPORT SCHEMA - Times_Puzzles_*.json files (solver output)
+ * 2. V2 STORAGE SCHEMA - clues_db.json format (trainer runtime)
+ *
+ * The converter transforms import schema → V2 storage schema
  */
+
+// ============================================
+// V2 STORAGE SCHEMA (clues_db.json format)
+// ============================================
+
+export type V2ClueTypeId = 'standard' | 'double_definition' | 'cryptic_definition' | 'andit';
+
+export type V2OperationType =
+  | 'anagram'
+  | 'container'
+  | 'hidden'
+  | 'reversal'
+  | 'deletion'
+  | 'homophone'
+  | 'abbreviation'
+  | 'letter_selection'
+  | 'synonym'
+  | 'charade';
+
+export interface V2WordplayState {
+  indicatorFound: boolean;
+  fodderFound: boolean;
+  resultEntered: boolean;
+  solved: boolean;
+}
+
+export interface V2SubOperation {
+  id: string;
+  operation: string;
+  dependencies: string[];
+  blockedHint?: string;
+  state: { solved: boolean };
+}
+
+export interface V2FodderReference {
+  type: 'result';
+  fromWordplay: string[];
+}
+
+export interface V2Wordplay {
+  id: string;
+  indicator: string;
+  operation: V2OperationType;
+  fodder: string | V2FodderReference;
+  fodderLetterCount?: number;
+  result: string;
+  resultLetterCount?: number;
+  dependencies: string[];
+  blockedHint?: string;
+  state: V2WordplayState;
+  subOperations?: V2SubOperation[];
+  explanation: string;
+  extractionType?: 'first_letter' | 'last_letter' | 'odd_letters' | 'even_letters' | 'middle_letters';
+}
+
+export interface V2Definition {
+  text: string;
+  position: 'start' | 'end' | 'entire';
+}
+
+export interface V2ClueType {
+  id: V2ClueTypeId;
+}
+
+export interface V2Clue {
+  number: string;
+  text: string;
+  enumeration: string;
+  answer: string;
+}
+
+export interface V2ClueData {
+  clue: V2Clue;
+  definition: V2Definition;
+  wordplays: V2Wordplay[];
+}
+
+export interface V2PuzzleMetadata {
+  publisher: string;
+  puzzle_number: string;
+  setter: string;
+}
+
+/** V2 Storage format for a single clue (in clues_db.json) */
+export interface V2StoredClue {
+  metadata: V2PuzzleMetadata;
+  clues: V2ClueData;
+  confidence: number;
+  comments: string[];
+}
+
+// ============================================
+// IMPORT SCHEMA (Times_Puzzles_*.json format)
+// ============================================
 
 // ============================================
 // CHECK TYPES (validation at each step)
@@ -119,7 +213,7 @@ export interface Assembly {
 
 export interface Definition {
   text: string;
-  position: 'start' | 'end';
+  position: 'start' | 'end' | 'entire';
   check: DefinitionCheck;
 }
 

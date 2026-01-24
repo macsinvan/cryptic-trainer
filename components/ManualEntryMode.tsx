@@ -7,7 +7,7 @@ import { SolvedClue } from '../services/aiService';
 import { solveCluePython } from '../services/pythonSolverService';
 import { ClueEvaluation, PatternInstance, DisplayBlock } from '../types';
 import { ClueSolver } from './ClueSolver';
-import { loadPuzzleFromJson } from '../services/puzzleConverter';
+import { loadPuzzleFromJson, BlogPuzzleFile } from '../services/puzzleConverter';
 import { PuzzleMetadata, PuzzleFile } from '../services/puzzleSchemaTypes';
 
 interface ManualEntryModeProps {
@@ -32,7 +32,7 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
   const [puzzleClues, setPuzzleClues] = useState<PatternInstance[]>([]);
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
   const [isPuzzleMode, setIsPuzzleMode] = useState(false);
-  const [rawPuzzleData, setRawPuzzleData] = useState<PuzzleFile | null>(null); // Retained for debugging until save
+  const [rawPuzzleData, setRawPuzzleData] = useState<PuzzleFile | BlogPuzzleFile | null>(null); // Retained for debugging until save
   const [alreadyImportedCount, setAlreadyImportedCount] = useState(0); // Track how many clues were already imported
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,40 +81,78 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     setIssueSent(true);
   };
 
-  // Handle puzzle file upload
+  // Import result state for showing summary
+  const [importResult, setImportResult] = useState<{
+    saved: number;
+    skipped: number;
+    issues: Array<{ clueNumber: string; clueText: string; issue: string }>;
+  } | null>(null);
+
+  // Check if a clue has valid V2 metadata for training
+  const isClueValid = (clue: PatternInstance): { valid: boolean; issue?: string } => {
+    if (!clue.definition?.text) {
+      return { valid: false, issue: 'Missing definition text' };
+    }
+    if (!clue.wordplays || clue.wordplays.length === 0) {
+      return { valid: false, issue: 'Missing wordplay data' };
+    }
+    if (!clue.wordplays.some(wp => wp.explanation || wp.fodder)) {
+      return { valid: false, issue: 'Wordplay has no explanation' };
+    }
+    return { valid: true };
+  };
+
+  // Handle puzzle file upload - Send raw JSON to server for import
+  // All import logic lives on the server - UI is a thin client
   const handlePuzzleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Clear any previous state
+    setSolveError(null);
+    setImportResult(null);
+
     try {
+      // Read file content
       const content = await file.text();
-      const { metadata, clues, rawData } = loadPuzzleFromJson(content);
+      const puzzleData = JSON.parse(content);
 
-      setPuzzleMetadata(metadata);
-      setPuzzleClues(clues);
-      setRawPuzzleData(rawData); // Store raw data for debugging
+      // Send to server for import - server handles all conversion/validation
+      const response = await fetch('/api/clues/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          puzzle: puzzleData,
+          publicationId: publicationId
+        })
+      });
 
-      // Count already-imported clues and find first non-imported
-      let importedCount = 0;
-      let firstNewIndex = -1;
-      for (let i = 0; i < clues.length; i++) {
-        if (clueExists(clues[i].clueText)) {
-          importedCount++;
-        } else if (firstNewIndex === -1) {
-          firstNewIndex = i;
-        }
+      const result = await response.json();
+
+      if (!result.success) {
+        setSolveError(result.error || 'Import failed');
+        return;
       }
-      setAlreadyImportedCount(importedCount);
 
-      // Start at first non-imported clue, or first clue if all imported
-      const startIndex = firstNewIndex >= 0 ? firstNewIndex : 0;
-      setCurrentPuzzleIndex(startIndex);
-      setIsPuzzleMode(true);
+      // Update UI with server response
+      setTotalClueCount(getClueCount(publicationId));
 
-      // Load the starting clue into the viewer
-      if (clues.length > 0) {
-        loadPuzzleClue(clues[startIndex]);
+      // Show import result from server
+      setImportResult({
+        saved: result.saved || 0,
+        skipped: result.skipped || 0,
+        issues: result.issues || []
+      });
+
+      // Store metadata for display
+      if (puzzleData.metadata) {
+        setPuzzleMetadata({
+          publisher: puzzleData.metadata.publisher,
+          puzzle_number: puzzleData.metadata.puzzle_number,
+          setter: puzzleData.metadata.setter
+        });
       }
+
     } catch (err) {
       setSolveError(`Failed to load puzzle file: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
@@ -125,29 +163,39 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     }
   };
 
-  // Load a puzzle clue into the review mode
+  // Load a puzzle clue into the review mode - STEP 2: Called when user clicks "Review"
   const loadPuzzleClue = (clue: PatternInstance) => {
-    setActivePatternData(clue);
+    // Clear any previous state
+    setSolveError(null);
 
-    // Build evaluation from puzzle data
-    const evaluation: ClueEvaluation = {
-      id: clue.id,
-      clue: clue.clueText,
-      answer: clue.answer,
-      type: clue.patternId || 'unknown',
-      difficulty: 'Medium',
-      definition: {
-        text: clue.definitionText || '',
-        position: (clue.definitionPosition?.toUpperCase() as 'START' | 'END' | 'ENTIRE') || 'START'
-      },
-      wordplay: [],
-      structure: clue.parsingSummary || ''
-    };
+    try {
+      setActivePatternData(clue);
 
-    setFullAnalysis(evaluation);
-    setIsAccepted(false);
-    setShowSaveFlash(false);
-    setIsTutorMode(true);
+      // Build evaluation from puzzle data (V2 schema with V1 fallbacks)
+      const defText = clue.definition?.text || clue.definitionText || '';
+      const defPosition = clue.definition?.position || clue.definitionPosition || 'start';
+
+      const evaluation: ClueEvaluation = {
+        id: clue.id,
+        clue: clue.clueText,
+        answer: clue.answer,
+        type: clue.clueType?.id || clue.patternId || 'unknown',
+        difficulty: 'Medium',
+        definition: {
+          text: defText,
+          position: defPosition.toUpperCase() as 'START' | 'END' | 'ENTIRE'
+        },
+        wordplay: [],
+        structure: clue.parsingSummary || ''
+      };
+
+      setFullAnalysis(evaluation);
+      setIsAccepted(false);
+      setShowSaveFlash(false);
+      setIsTutorMode(true);
+    } catch (err) {
+      setSolveError(`Failed to load clue: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   // Navigate puzzle clues (skipping already-imported)
@@ -186,17 +234,18 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     }
   };
 
-  // Exit puzzle mode
+  // Exit puzzle/import mode
   const exitPuzzleMode = () => {
     setIsPuzzleMode(false);
     setPuzzleMetadata(null);
     setPuzzleClues([]);
-    setRawPuzzleData(null); // Clear raw data on exit
+    setRawPuzzleData(null);
     setAlreadyImportedCount(0);
     setCurrentPuzzleIndex(0);
     setIsTutorMode(false);
     setFullAnalysis(null);
     setActivePatternData(null);
+    setImportResult(null);
   };
 
   // Preview the battlecard using Python solver
@@ -221,16 +270,19 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
       if (result.patternData) {
         setActivePatternData(result.patternData);
 
-        // Build evaluation from Python solver result
+        // Build evaluation from Python solver result (V2 schema with V1 fallbacks)
+        const defText = result.patternData.definition?.text || result.patternData.definitionText || '';
+        const defPosition = result.patternData.definition?.position || result.patternData.definitionPosition || 'start';
+
         const evaluation: ClueEvaluation = {
           id: result.patternData.id,
           clue: parseResult.clueText,
           answer: result.patternData.answer || parseResult.answer || '',
-          type: result.patternData.patternId || 'unknown',
+          type: result.patternData.clueType?.id || result.patternData.patternId || 'unknown',
           difficulty: 'Medium',
           definition: {
-            text: result.patternData.definitionText || '',
-            position: (result.patternData.definitionPosition?.toUpperCase() as 'START' | 'END' | 'ENTIRE') || 'START'
+            text: defText,
+            position: defPosition.toUpperCase() as 'START' | 'END' | 'ENTIRE'
           },
           wordplay: [],
           structure: result.patternData.parsingSummary || ''
@@ -318,11 +370,19 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
 
     // All logic is computed in the parser - UI just reads pre-computed values
     const wordplaySteps = activePatternData.wordplaySteps || [];
-    const hasMissingInfo = !activePatternData.isComplete;
     const parsingSummary = activePatternData.parsingSummary || '';
 
+    // V2 completeness check: has definition AND has wordplays with explanations
+    const hasV2Definition = activePatternData.definition?.text && activePatternData.definition.text.length > 0;
+    const hasV2Wordplays = activePatternData.wordplays && activePatternData.wordplays.length > 0 &&
+                          activePatternData.wordplays.some(wp => wp.explanation || wp.fodder);
+    const isV2Complete = hasV2Definition && hasV2Wordplays;
+
+    // For V1 data, use isComplete flag. For V2 data (puzzle imports), use V2 check
+    const hasMissingInfo = isPuzzleMode ? !isV2Complete : !activePatternData.isComplete;
+
     // For legacy compatibility, also expose vars for any remaining direct accesses
-    const vars = activePatternData.variables;
+    const vars = activePatternData.variables || {};
 
     return (
       <div className="space-y-6">
@@ -477,75 +537,128 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                 </p>
               </div>
             ) : !hasMissingInfo && !isAccepted ? (
-              // COMPLETE: Data-driven solved battlecard - UI just renders solveExplanation array
+              // COMPLETE: Show V2 data (puzzle imports) or V1 solveExplanation
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="bg-indigo-600 text-white p-1.5 rounded">
                     <Check size={16} />
                   </div>
-                  <h3 className="font-bold text-indigo-900 uppercase tracking-widest text-sm">Solved — What We Learned</h3>
+                  <h3 className="font-bold text-indigo-900 uppercase tracking-widest text-sm">
+                    {isPuzzleMode ? 'Review Clue Data' : 'Solved — What We Learned'}
+                  </h3>
                 </div>
 
-                {/* Data-driven rendering - iterate over solveExplanation blocks */}
-                <div className="space-y-4">
-                  {(activePatternData.solveExplanation || []).map((block: DisplayBlock, i: number) => {
-                    // Render different block types with appropriate styling
-                    switch (block.type) {
-                      case 'setter-hint':
-                        return (
-                          <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                            {block.techniques && block.techniques.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {block.techniques.map((tech, ti) => (
-                                  <span key={ti} className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-medium">
-                                    {tech}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
+                {/* V2 DATA: Render definition and wordplays from puzzle file */}
+                {isV2Complete ? (
+                  <div className="space-y-4">
+                    {/* Definition */}
+                    <div className="bg-white/70 border border-indigo-200 rounded-lg p-4">
+                      <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest block mb-2">Definition</span>
+                      <p className="text-indigo-900 font-medium">"{activePatternData.definition?.text}"</p>
+                      <span className="text-xs text-indigo-500 mt-1 block">
+                        Position: {activePatternData.definition?.position}
+                      </span>
+                    </div>
 
-                      case 'clue-type':
-                        return (
-                          <div key={i} className="flex items-center gap-2">
-                            <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest">{block.label || 'Clue Type'}:</span>
-                            <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-bold">{block.content}</span>
-                          </div>
-                        );
+                    {/* Wordplays */}
+                    <div className="bg-white/70 border border-indigo-200 rounded-lg p-4">
+                      <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest block mb-3">Wordplay</span>
+                      <div className="space-y-3">
+                        {activePatternData.wordplays?.map((wp, i) => {
+                          const fodderText = typeof wp.fodder === 'string' ? wp.fodder : `[result from step ${wp.fodder.fromWordplay.join(', ')}]`;
+                          return (
+                            <div key={wp.id} className="border-l-2 border-indigo-300 pl-3">
+                              {activePatternData.wordplays && activePatternData.wordplays.length > 1 && (
+                                <span className="text-xs font-bold text-indigo-500 block mb-1">Step {i + 1}</span>
+                              )}
+                              <p className="text-sm text-indigo-800">{wp.explanation || fodderText}</p>
+                              {wp.indicator && (
+                                <span className="text-xs text-orange-600 mt-1 block">
+                                  Indicator: "{wp.indicator}"
+                                </span>
+                              )}
+                              {wp.operation && wp.operation !== 'synonym' && (
+                                <span className="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded mt-1 inline-block">
+                                  {wp.operation}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                      case 'parsing':
-                        return (
-                          <div key={i} className="bg-white/70 border border-indigo-200 rounded-lg p-4 font-mono text-sm text-indigo-800">
-                            <span className="text-indigo-400 text-xs font-sans font-bold uppercase tracking-widest block mb-1">{block.label || 'Parsing'}</span>
-                            {block.content}
-                          </div>
-                        );
+                    {/* Clue Type */}
+                    {activePatternData.clueType?.id && activePatternData.clueType.id !== 'standard' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest">Clue Type:</span>
+                        <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-bold">
+                          {activePatternData.clueType.id.replace('_', ' ')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* V1 DATA: Render solveExplanation blocks */
+                  <div className="space-y-4">
+                    {(activePatternData.solveExplanation || []).map((block: DisplayBlock, i: number) => {
+                      switch (block.type) {
+                        case 'setter-hint':
+                          return (
+                            <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                              {block.techniques && block.techniques.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {block.techniques.map((tech, ti) => (
+                                    <span key={ti} className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-medium">
+                                      {tech}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
 
-                      case 'explanation':
-                        return (
-                          <div key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
-                            {block.label && (
-                              <span className="text-indigo-900 text-sm font-bold uppercase tracking-wide block mb-1">{block.label}</span>
-                            )}
-                            <div className="flex gap-3 text-sm text-indigo-700 leading-relaxed">
-                              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
-                              <div className="flex-1">
-                                <p>{block.content}</p>
+                        case 'clue-type':
+                          return (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest">{block.label || 'Clue Type'}:</span>
+                              <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-bold">{block.content}</span>
+                            </div>
+                          );
+
+                        case 'parsing':
+                          return (
+                            <div key={i} className="bg-white/70 border border-indigo-200 rounded-lg p-4 font-mono text-sm text-indigo-800">
+                              <span className="text-indigo-400 text-xs font-sans font-bold uppercase tracking-widest block mb-1">{block.label || 'Parsing'}</span>
+                              {block.content}
+                            </div>
+                          );
+
+                        case 'explanation':
+                          return (
+                            <div key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
+                              {block.label && (
+                                <span className="text-indigo-900 text-sm font-bold uppercase tracking-wide block mb-1">{block.label}</span>
+                              )}
+                              <div className="flex gap-3 text-sm text-indigo-700 leading-relaxed">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>
+                                <div className="flex-1">
+                                  <p>{block.content}</p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
+                          );
 
-                      default:
-                        return (
-                          <div key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
-                            <p className="text-sm text-indigo-900">{block.content}</p>
-                          </div>
-                        );
-                    }
-                  })}
-                </div>
+                        default:
+                          return (
+                            <div key={i} className="bg-white/50 p-3 rounded-lg border border-indigo-100/50">
+                              <p className="text-sm text-indigo-900">{block.content}</p>
+                            </div>
+                          );
+                      }
+                    })}
+                  </div>
+                )}
               </div>
             ) : isAccepted && showSaveFlash ? (
               // SAVED FLASH: Brief confirmation before auto-advance
@@ -1129,7 +1242,99 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
           </div>
         </div>
 
-        {isTutorMode ? renderBattlecardReview() : (
+        {isTutorMode ? renderBattlecardReview() : importResult ? (
+          /* IMPORT RESULT VIEW - After auto-import completes */
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in border border-slate-200">
+            <div className={`p-6 text-white ${importResult.issues.length > 0 ? 'bg-amber-600' : 'bg-green-600'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    {importResult.issues.length > 0 ? (
+                      <AlertCircle size={18} className="text-amber-200" />
+                    ) : (
+                      <Check size={18} className="text-green-200" />
+                    )}
+                    <span className="text-xs font-bold text-white/80 uppercase tracking-widest">
+                      Import {importResult.issues.length > 0 ? 'Partial' : 'Complete'}
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-serif font-bold">
+                    {puzzleMetadata ? `${puzzleMetadata.publisher} #${puzzleMetadata.puzzle_number}` : 'Puzzle Import'}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setImportResult(null);
+                    setPuzzleMetadata(null);
+                    setIsPuzzleMode(false);
+                  }}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Import summary stats */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-green-700">{importResult.saved}</div>
+                  <div className="text-xs text-green-600 font-medium uppercase tracking-wide">Saved</div>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-slate-500">{importResult.skipped}</div>
+                  <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Already Imported</div>
+                </div>
+                <div className={`rounded-lg p-4 text-center ${importResult.issues.length > 0 ? 'bg-red-50 border border-red-200' : 'bg-slate-50 border border-slate-200'}`}>
+                  <div className={`text-2xl font-bold ${importResult.issues.length > 0 ? 'text-red-700' : 'text-slate-400'}`}>{importResult.issues.length}</div>
+                  <div className={`text-xs font-medium uppercase tracking-wide ${importResult.issues.length > 0 ? 'text-red-600' : 'text-slate-400'}`}>Issues</div>
+                </div>
+              </div>
+
+              {/* Issues list - actionable for upstream solver */}
+              {importResult.issues.length > 0 && (
+                <div className="border border-red-200 rounded-lg overflow-hidden">
+                  <div className="bg-red-50 px-4 py-3 border-b border-red-200">
+                    <h3 className="text-sm font-bold text-red-800">Clues with Missing Metadata</h3>
+                    <p className="text-xs text-red-600 mt-1">These clues need fixes in the solver output before importing</p>
+                  </div>
+                  <div className="divide-y divide-red-100 max-h-64 overflow-y-auto">
+                    {importResult.issues.map((issue, idx) => (
+                      <div key={idx} className="px-4 py-3 bg-white">
+                        <div className="flex items-start gap-3">
+                          <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded shrink-0">
+                            {issue.clueNumber}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-700 truncate">{issue.clueText}</p>
+                            <p className="text-xs text-red-600 mt-1 font-medium">
+                              Issue: {issue.issue}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Success message when no issues */}
+              {importResult.issues.length === 0 && importResult.saved > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                  <div className="bg-green-600 text-white p-3 rounded-full inline-flex mb-4">
+                    <Check size={24} />
+                  </div>
+                  <h3 className="font-bold text-green-900 text-lg mb-2">All Clues Imported Successfully</h3>
+                  <p className="text-green-700 text-sm">
+                    {importResult.saved} clue{importResult.saved !== 1 ? 's' : ''} added to your training library.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* FREEFORM INPUT VIEW - Initial state */
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in border border-slate-200">
             <div className="bg-[#0c121e] p-10 text-white relative">
               <div className="absolute top-0 right-0 p-12 opacity-[0.05] pointer-events-none">
@@ -1153,6 +1358,16 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                 accept=".json"
                 className="hidden"
               />
+
+              {/* Error display */}
+              {solveError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={16} />
+                    {solveError}
+                  </div>
+                </div>
+              )}
 
               {/* Load from puzzle file button */}
               <div className="flex gap-3">

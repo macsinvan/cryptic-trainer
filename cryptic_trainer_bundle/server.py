@@ -105,6 +105,8 @@ class SolverHandler(BaseHTTPRequestHandler):
         # Handle clue storage endpoints
         if self.path == '/clues':
             self._handle_save_clue()
+        elif self.path == '/clues/import':
+            self._handle_import_puzzle()
         elif self.path == '/clues/bulk':
             self._handle_bulk_import()
         elif self.path == '/clues/clear':
@@ -168,6 +170,187 @@ class SolverHandler(BaseHTTPRequestHandler):
             _save_db(db)
             self._send_json({'success': True})
         except Exception as e:
+            self._send_json({'success': False, 'error': str(e)}, 500)
+
+    def _validate_clue_entry(self, clue_key, clue_entry):
+        """
+        Validate a ClueEntry against the full schema.
+        Returns list of error strings (empty if valid).
+        """
+        errors = []
+
+        # Validate clue object
+        clue_obj = clue_entry.get('clue')
+        if not clue_obj:
+            errors.append('Missing clue object')
+        else:
+            for field in ['number', 'text', 'enumeration', 'answer']:
+                if not clue_obj.get(field):
+                    errors.append(f'clue.{field} is required')
+
+        # Validate clueType
+        clue_type = clue_entry.get('clueType')
+        if not clue_type:
+            errors.append('Missing clueType object')
+        elif not clue_type.get('id'):
+            errors.append('clueType.id is required')
+        elif clue_type.get('id') not in ['standard', 'double_definition', 'cryptic_definition', 'andit']:
+            errors.append(f"clueType.id must be one of: standard, double_definition, cryptic_definition, andit (got '{clue_type.get('id')}')")
+
+        # Validate definition
+        definition = clue_entry.get('definition')
+        if not definition:
+            errors.append('Missing definition object')
+        else:
+            if not definition.get('text'):
+                errors.append('definition.text is required')
+            if not definition.get('position'):
+                errors.append('definition.position is required')
+            elif definition.get('position') not in ['start', 'end']:
+                errors.append(f"definition.position must be 'start' or 'end' (got '{definition.get('position')}')")
+
+        # Validate wordplays array
+        wordplays = clue_entry.get('wordplays')
+        if not wordplays:
+            errors.append('Missing wordplays array')
+        elif not isinstance(wordplays, list):
+            errors.append('wordplays must be an array')
+        elif len(wordplays) == 0:
+            errors.append('wordplays array cannot be empty')
+        else:
+            for i, wp in enumerate(wordplays):
+                wp_prefix = f'wordplays[{i}]'
+
+                # Required fields for all wordplays
+                if not wp.get('id'):
+                    errors.append(f'{wp_prefix}.id is required')
+                if not wp.get('operation'):
+                    errors.append(f'{wp_prefix}.operation is required')
+                if 'dependencies' not in wp:
+                    errors.append(f'{wp_prefix}.dependencies is required (use [] for none)')
+                elif not isinstance(wp.get('dependencies'), list):
+                    errors.append(f'{wp_prefix}.dependencies must be an array')
+                if not wp.get('state'):
+                    errors.append(f'{wp_prefix}.state is required')
+                else:
+                    state = wp.get('state')
+                    for state_field in ['indicatorFound', 'fodderFound', 'resultEntered', 'solved']:
+                        if state_field not in state:
+                            errors.append(f'{wp_prefix}.state.{state_field} is required')
+
+                # Validate subOperations if present
+                sub_ops = wp.get('subOperations')
+                if sub_ops is not None:
+                    if not isinstance(sub_ops, list):
+                        errors.append(f'{wp_prefix}.subOperations must be an array')
+                    else:
+                        for j, sub in enumerate(sub_ops):
+                            sub_prefix = f'{wp_prefix}.subOperations[{j}]'
+                            if not sub.get('id'):
+                                errors.append(f'{sub_prefix}.id is required')
+                            if not sub.get('operation'):
+                                errors.append(f'{sub_prefix}.operation is required')
+                            if 'dependencies' not in sub:
+                                errors.append(f'{sub_prefix}.dependencies is required')
+                            if not sub.get('state'):
+                                errors.append(f'{sub_prefix}.state is required')
+
+        return errors
+
+    def _handle_import_puzzle(self):
+        """
+        Import a puzzle file. Validates against full schema, stores exactly as received.
+
+        Schema: See DESIGN_SPEC.md for complete ClueEntry and Wordplay schemas.
+        """
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            puzzle_data = data.get('puzzle')
+            publication_id = data.get('publicationId', 'times')
+
+            # Step 2: Validate JSON integrity
+            if not puzzle_data:
+                self._send_json({'success': False, 'error': 'Missing puzzle data'}, 400)
+                return
+
+            if 'metadata' not in puzzle_data:
+                self._send_json({'success': False, 'error': 'Missing metadata object'}, 400)
+                return
+
+            if 'clues' not in puzzle_data:
+                self._send_json({'success': False, 'error': 'Missing clues object'}, 400)
+                return
+
+            metadata = puzzle_data.get('metadata', {})
+            clues_dict = puzzle_data['clues']
+
+            db = _load_db()
+            saved = 0
+            skipped = 0
+            errors = []
+
+            # Step 3-6: Validate and store each ClueEntry
+            for clue_key, clue_entry in clues_dict.items():
+                # Step 3: Validate against full schema
+                validation_errors = self._validate_clue_entry(clue_key, clue_entry)
+
+                if validation_errors:
+                    errors.append({
+                        'clueNumber': clue_key,
+                        'clueText': clue_entry.get('clue', {}).get('text', '(no text)'),
+                        'errors': validation_errors
+                    })
+                    continue
+
+                # Step 5: Check for duplicates
+                clue_text = clue_entry['clue']['text']
+                normalized = re.sub(r'[^a-z0-9]', '', clue_text.lower())
+
+                exists = False
+                for item in db['training_items'].values():
+                    existing_text = item.get('clueEntry', {}).get('clue', {}).get('text', '')
+                    existing_norm = re.sub(r'[^a-z0-9]', '', existing_text.lower())
+                    if existing_norm == normalized:
+                        exists = True
+                        break
+
+                if exists:
+                    skipped += 1
+                    continue
+
+                # Step 6: Store exactly as received - no transformation
+                import time
+                clue_id = f"user-{int(time.time() * 1000)}-{clue_key}"
+
+                training_item = {
+                    'id': clue_id,
+                    'clueEntry': clue_entry,  # Store ClueEntry exactly as received
+                    'metadata': metadata,      # Store puzzle metadata
+                    'publicationId': publication_id,
+                    'timestamp': int(time.time() * 1000)
+                }
+
+                db['training_items'][clue_id] = training_item
+                saved += 1
+
+            _save_db(db)
+
+            # Step 7: Return response
+            self._send_json({
+                'success': len(errors) == 0,
+                'saved': saved,
+                'skipped': skipped,
+                'errors': errors
+            })
+
+        except json.JSONDecodeError as e:
+            self._send_json({'success': False, 'error': f'Invalid JSON: {e}'}, 400)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             self._send_json({'success': False, 'error': str(e)}, 500)
 
     def _handle_save_parser_issue(self):

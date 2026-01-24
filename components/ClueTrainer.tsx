@@ -118,27 +118,6 @@ const renderLearningText = (text: string): React.ReactNode => {
 };
 
 // =============================================================================
-// MOCK DATA (for development - remove when wiring up)
-// =============================================================================
-
-const MOCK_CLUE = {
-  text: "Setter's upset about resistance in maze",
-  answer: "LABYRINTH",
-  enumeration: "9",
-  clueNumber: "12A",
-  definition: {
-    text: "maze",
-    position: 'end' as const,
-    wordIndices: [6]  // "maze" is at index 6
-  },
-  clueType: 'standard' as ClueType,
-  wordplaySteps: [
-    { indicator: "upset", fodder: "Setter's", result: "LABYRS", explanation: "LABYRS is an anagram of 'Setter's'" },
-    { indicator: "about", fodder: "R", result: "LABYRINTH", explanation: "R (resistance) goes inside" }
-  ]
-};
-
-// =============================================================================
 // COMPONENT
 // =============================================================================
 
@@ -203,13 +182,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const gridRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // ---------------------------------------------------------------------------
-  // DERIVED DATA (use mock for now, will use patternData when wired)
+  // DERIVED DATA
   // ---------------------------------------------------------------------------
 
-  const clueText = patternData?.clueText || MOCK_CLUE.text;
-  const answer = patternData?.answer || MOCK_CLUE.answer;
-  const displayEnumeration = enumeration || patternData?.enumeration || MOCK_CLUE.enumeration;
-  const displayClueNumber = clueNumber || patternData?.clueNumber || MOCK_CLUE.clueNumber;
+  const clueText = patternData?.clueText || '';
+  const answer = patternData?.answer || '';
+  const displayEnumeration = enumeration || patternData?.enumeration || '';
+  const displayClueNumber = clueNumber || patternData?.clueNumber || '';
 
   // Tokenize clue into words
   const words = useMemo<Word[]>(() => {
@@ -221,20 +200,24 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   }, [clueText]);
 
   // Expected definition (from data or mock)
+  // V2: Use patternData.definition.text and patternData.definition.position
   const expectedDefinition = useMemo(() => {
-    if (patternData?.definitionText) {
+    const defText = patternData?.definition?.text || patternData?.definitionText;
+    const defPosition = patternData?.definition?.position || patternData?.definitionPosition;
+
+    if (defText) {
       // Find word indices that match the definition text
-      const defWords = patternData.definitionText.toLowerCase().split(/\s+/);
+      const defWords = defText.toLowerCase().split(/\s+/);
       const indices: number[] = [];
 
       // Search from start
-      if (patternData.definitionPosition === 'start') {
+      if (defPosition === 'start') {
         for (let i = 0; i < defWords.length && i < words.length; i++) {
           if (words[i].text === defWords[i]) indices.push(i);
         }
       }
       // Search from end
-      else if (patternData.definitionPosition === 'end') {
+      else if (defPosition === 'end') {
         for (let i = 0; i < defWords.length; i++) {
           const wordIdx = words.length - defWords.length + i;
           if (wordIdx >= 0 && words[wordIdx].text === defWords[i]) {
@@ -244,18 +227,58 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       }
 
       return {
-        text: patternData.definitionText,
-        position: patternData.definitionPosition || 'end',
+        text: defText,
+        position: defPosition || 'end',
         wordIndices: indices
       };
     }
-    return MOCK_CLUE.definition;
+    // No definition found - return empty
+    return {
+      text: '',
+      position: 'end' as const,
+      wordIndices: []
+    };
   }, [patternData, words]);
 
-  // Get wordplay steps (exclude assembly steps only - include indicatorless steps like synonym/abbreviation)
+  // Get wordplay steps from source data
+  // Source format uses `steps` array with `training` sub-object
   const wordplaySteps = useMemo(() => {
+    // Source format: steps array
+    if (patternData?.steps && patternData.steps.length > 0) {
+      return patternData.steps
+        .filter((s: any) => s.operation !== 'charade') // Exclude assembly steps
+        .map((s: any) => ({
+          indicator: s.indicator || '',
+          fodder: typeof s.fodder === 'string' ? s.fodder : '',
+          result: s.result || '',
+          synonym: '',
+          hint: s.training?.explanation || '',
+          complexity: s.training?.complexity || 1,
+          isAssembly: s.operation === 'charade',
+          stepType: s.operation as any,
+          explanation: s.training?.explanation || '',
+          dependsOnSteps: s.training?.dependsOnSteps || [],
+          canSolveIndependently: s.training?.canSolveIndependently ?? true,
+        }));
+    }
+    // Legacy formats
+    if (patternData?.wordplays && patternData.wordplays.length > 0) {
+      return patternData.wordplays
+        .filter((wp: any) => wp.operation !== 'charade')
+        .map((wp: any) => ({
+          indicator: wp.indicator || '',
+          fodder: typeof wp.fodder === 'string' ? wp.fodder : '',
+          result: wp.result || '',
+          synonym: '',
+          hint: wp.blockedHint || '',
+          complexity: 1,
+          isAssembly: wp.operation === 'charade',
+          stepType: wp.operation as any,
+          explanation: wp.explanation || '',
+        }));
+    }
     const steps = patternData?.wordplaySteps || [];
-    return steps.filter(step => !step.isAssembly);
+    return steps.filter((step: any) => !step.isAssembly);
   }, [patternData]);
 
   // Current step the user is working on
@@ -278,7 +301,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     if (!currentStep) return false;
     // Deletion with implied op is NOT dependent - fodder comes from clue
     if (isDeletionWithImpliedOp) return false;
-    const fodder = currentStep.fodder?.toLowerCase() || '';
+    // V2: fodder can be string or FodderReference object
+    const fodderStr = typeof currentStep.fodder === 'string' ? currentStep.fodder : '';
+    const fodder = fodderStr.toLowerCase();
     if (!fodder) return false;
     // Check if fodder words exist in the clue text
     const fodderWords = fodder.split(/\s+/).map(w => w.replace(/[^a-z]/gi, '').toLowerCase());
@@ -307,7 +332,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   }, [answer, accumulatedLetters]);
 
   // For container steps that assemble an anagram + other letters, compute the assembled fodder
-  // e.g., "lymph too" + "EB" -> "lymph EB too" (letters ready for anagram)
+  // e.g., anagram fodder + inserted letters -> combined fodder ready for anagram
   const assembledAnagramFodder = useMemo(() => {
     if (!currentStep || currentStep.stepType !== 'container') return null;
 
@@ -326,8 +351,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     if (completedResults.length === 0) return null;
 
-    // Assemble: fodder + inserted letters
-    // For "nurses" (container), EB goes inside "lymph too" -> "lymph EB too"
+    // Assemble: fodder + inserted letters for container operations
     return `${anagramFodder} ${completedResults.join(' ')}`.trim();
   }, [currentStep, onHoldSteps, completedSteps, wordplaySteps]);
 
@@ -356,7 +380,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const resumedAnagramFodder = useMemo(() => {
     if (!isResumedAnagramWithAssembly || !currentStep) return null;
 
-    const anagramFodder = currentStep.fodder || '';
+    // V2: fodder can be string or FodderReference object
+    const anagramFodder = typeof currentStep.fodder === 'string' ? currentStep.fodder : '';
     // Get results from non-anagram, non-container completed steps
     const otherResults = completedSteps
       .filter(idx => {
@@ -482,7 +507,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         if (!stepHasIndicator) {
           // Check if tapped word matches the expected fodder
           const tappedWord = words[wordIndex].text;
-          const targetFodder = currentStep?.fodder?.toLowerCase().replace(/[.,;!?()'"]/g, '') || '';
+          // V2: fodder can be string or FodderReference object - only use string values
+          const fodderValue = currentStep?.fodder;
+          const targetFodder = (typeof fodderValue === 'string' ? fodderValue : '').toLowerCase().replace(/[.,;!?()'"]/g, '');
 
           if (tappedWord === targetFodder) {
             // Correct - set fodder and auto-advance to decode method
@@ -699,7 +726,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     // Get the selected text
     const selectedText = selectedFodderIndices.map(i => words[i].text).join(' ');
-    const targetFodder = currentStep.fodder.toLowerCase().replace(/[.,;!?()'"]/g, '');
+    // V2: fodder can be string or FodderReference object - only use string values
+    const fodderStr = typeof currentStep.fodder === 'string' ? currentStep.fodder : '';
+    const targetFodder = fodderStr.toLowerCase().replace(/[.,;!?()'"]/g, '');
 
     // Check if it matches (allowing for some flexibility)
     const isMatch = selectedText === targetFodder ||
@@ -735,8 +764,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const handleCheckDecodeMethod = () => {
     if (!currentStep || !selectedDecodeMethod) return;
 
-    const targetResult = currentStep.result.toUpperCase().replace(/[^A-Z]/g, '');
-    const fodderText = currentStep.fodder.toUpperCase().replace(/[^A-Z]/g, '');
+    const targetResult = (currentStep.result || '').toUpperCase().replace(/[^A-Z]/g, '');
+    // V2: fodder can be string or FodderReference object - only use string values
+    const fodderStr = typeof currentStep.fodder === 'string' ? currentStep.fodder : '';
+    const fodderText = fodderStr.toUpperCase().replace(/[^A-Z]/g, '');
     const userInput = decodeMethodInput.toUpperCase().replace(/[^A-Z]/g, '');
 
     let isCorrect = false;
@@ -2194,13 +2225,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         <div className="space-y-3">
                           {/* Show letter count mismatch for anagram steps */}
                           {currentStep.stepType?.toLowerCase() === 'anagram' && (() => {
-                            const fodderLetters = (currentStep.fodder || '').replace(/[^a-zA-Z]/g, '').length;
+                            // V2: fodder can be string or FodderReference object
+                            const fodderStr = typeof currentStep.fodder === 'string' ? currentStep.fodder : '';
+                            const fodderLetters = fodderStr.replace(/[^a-zA-Z]/g, '').length;
                             const answerLetters = answer.replace(/[^a-zA-Z]/g, '').length;
                             if (fodderLetters < answerLetters) {
                               return (
                                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                                   <p className="text-amber-700 font-medium text-sm">
-                                    ⚠️ Not enough letters! "{currentStep.fodder}" has {fodderLetters} letters, but the answer needs {answerLetters}.
+                                    ⚠️ Not enough letters! "{fodderStr}" has {fodderLetters} letters, but the answer needs {answerLetters}.
                                   </p>
                                   <p className="text-amber-600 text-sm mt-1">
                                     You may need to find other wordplay steps first to get the missing letters.
@@ -2375,31 +2408,43 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               </div>
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Solved</h3>
             </div>
-            {patternData?.wordplaySteps && patternData.wordplaySteps.length > 0 && (
+            {/* Technique tags */}
+            {(patternData?.steps?.length || patternData?.wordplays?.length || patternData?.wordplaySteps?.length) ? (
               <div className="flex flex-wrap gap-1">
-                {Array.from(new Set(patternData.wordplaySteps.map(s => getStepTypeLabel(s)))).map((technique, i) => (
+                {Array.from(new Set(
+                  patternData?.steps?.length
+                    ? patternData.steps.map((s: any) => s.operation)
+                    : patternData?.wordplays?.length
+                      ? patternData.wordplays.map((wp: any) => wp.operation)
+                      : patternData?.wordplaySteps?.map((s: any) => getStepTypeLabel(s)) || []
+                )).map((technique, i) => (
                   <span key={i} className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
                     {technique}
                   </span>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Summary with expandable wordplay steps */}
           <div className="space-y-2 mb-4">
-            {patternData?.definitionText && (
+            {(patternData?.definition?.text || patternData?.definitionText) && (
               <div className="flex items-center gap-2 text-base px-3 py-2 bg-slate-50 border border-slate-200 rounded-md">
                 <span className="text-indigo-600 font-bold text-sm uppercase">Def:</span>
-                <span className="text-indigo-600">{patternData.definitionText}</span>
-                <span className="text-slate-400 text-sm">({patternData.definitionPosition})</span>
+                <span className="text-indigo-600">{patternData?.definition?.text || patternData?.definitionText}</span>
+                <span className="text-slate-400 text-sm">({patternData?.definition?.position || patternData?.definitionPosition})</span>
               </div>
             )}
-            {patternData?.wordplaySteps?.map((step, i) => {
-              const stepType = step.stepType?.toLowerCase() || '';
+            {/* Render wordplay steps */}
+            {(patternData?.steps?.length ? patternData.steps : patternData?.wordplays?.length ? patternData.wordplays : patternData?.wordplaySteps || []).map((step: any, i: number) => {
+              // Handle both V1 (stepType) and V2 (operation) formats
+              const stepType = (step.operation || step.stepType || '').toLowerCase();
               const learning = WORDPLAY_LEARNINGS[stepType];
-              const clueSpecific = getClueSpecificLearning(stepType, step.indicator || '', step.fodder);
+              const fodderText = typeof step.fodder === 'string' ? step.fodder : '';
+              const clueSpecific = getClueSpecificLearning(stepType, step.indicator || '', fodderText);
               const isExpanded = expandedCompletedSteps.includes(i);
+              // Skip assembly/charade steps
+              if (stepType === 'charade' || step.isAssembly) return null;
               return (
                 <div key={i} className="bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
                   <button
@@ -2413,8 +2458,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                     className="w-full px-3 py-2 flex items-center gap-2 hover:bg-slate-100 transition-colors text-left"
                   >
                     <Check size={16} className="text-green-600 flex-shrink-0" />
-                    <span className="text-indigo-600 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
-                    <span className="text-slate-600 text-base">{step.fodder} → {step.result}</span>
+                    <span className="text-indigo-600 text-sm font-bold uppercase">{stepType || 'step'}:</span>
+                    <span className="text-slate-600 text-base">{fodderText} → {step.result}</span>
                     {learning && (
                       <ChevronDown
                         size={16}
