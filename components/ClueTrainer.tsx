@@ -325,6 +325,21 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // Keep as empty array for backward compatibility with UI code
   const onHoldSteps: number[] = [];
 
+  // DERIVED: blockedWordplays - which wordplays have unsolved dependencies
+  // Computed from server state for UI display (progress dots)
+  const blockedWordplays = useMemo(() => {
+    const wordplaysSource = serverState?.clueEntry?.wordplays || patternData?.wordplays || [];
+    return wordplaySteps.map((_, idx) => {
+      const wp = wordplaysSource[idx];
+      if (!wp || !wp.dependencies || wp.dependencies.length === 0) return false;
+      // Check if any dependency is unsolved
+      return wp.dependencies.some((depId: string) => {
+        const dep = wordplaysSource.find((w: any) => w.id === depId);
+        return dep && !dep.state?.solved;
+      });
+    });
+  }, [serverState, patternData, wordplaySteps]);
+
   // DERIVED FROM SERVER: Check if current step is blocked
   const isCurrentStepBlocked = serverState?.blocked || false;
 
