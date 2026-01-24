@@ -619,6 +619,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             blocked: response.blocked || false,
             blockedHint: response.blockedHint || '',
             allSolved: response.allSolved || false,
+            render: response.render,  // Include render instructions
           });
 
           // Phase is derived from serverState.currentPhase, no need to set manually
@@ -852,6 +853,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
           currentPhase: response.currentPhase ?? prev.currentPhase,
+          render: response.render,  // Include render instructions
         };
         console.log('[handleCheckIndicator] New state will be:', newState.currentWordplay?.id, newState.currentWordplay?.state);
         return newState;
@@ -927,6 +929,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         currentWordplay: response.currentWordplay ?? prev.currentWordplay,
         currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
         currentPhase: response.currentPhase ?? prev.currentPhase,
+        render: response.render,  // Include render instructions
       } : null);
 
       // Clear selection and feedback after brief delay
@@ -962,6 +965,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         currentWordplay: response.currentWordplay ?? prev.currentWordplay,
         currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
         currentPhase: response.currentPhase ?? prev.currentPhase,
+        render: response.render,  // Include render instructions
       } : null);
 
       // Clear selections for new wordplay
@@ -1140,6 +1144,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           currentWordplayIndex: response.currentWordplayIndex ?? -1,
           currentPhase: response.currentPhase || 'complete',
           allSolved: response.allSolved || false,
+          render: response.render,  // Include render instructions
         } : null);
 
         // Clear feedback after brief delay
@@ -1178,6 +1183,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
           currentPhase: response.currentPhase || 'indicator',
           allSolved: response.allSolved || false,
+          render: response.render,  // Include render instructions
         } : null);
 
         // Reset UI state for next wordplay
@@ -1229,6 +1235,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           currentWordplayIndex: response.currentWordplayIndex ?? -1,
           currentPhase: response.currentPhase || 'complete',
           allSolved: response.allSolved || false,
+          render: response.render,  // Include render instructions
         } : null);
 
         // Check if all done
@@ -1274,6 +1281,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex,
           currentPhase: response.currentPhase || 'indicator',
+          render: response.render,  // Include render instructions
         } : null);
 
         // Reset UI state
@@ -1314,6 +1322,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           currentPhase: response.currentPhase || 'indicator',
           blocked: response.blocked || false,
           blockedHint: response.blockedHint || '',
+          render: response.render,  // Include render instructions
         } : null);
 
         // Reset UI and set phase from server
@@ -1347,6 +1356,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             currentWordplayIndex: response.currentWordplayIndex ?? -1,
             currentPhase: response.currentPhase || 'complete',
             allSolved: response.allSolved || false,
+            render: response.render,  // Include render instructions
           } : null);
 
           if (response.allSolved || response.currentPhase === 'complete') {
