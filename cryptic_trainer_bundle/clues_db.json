@@ -73,12 +73,11 @@
             },
             "result": "(insertion point into anagram)",
             "dependencies": [
-              "1A",
               "3"
             ],
-            "blockedHint": "Cannot insert until we solve adjacent wordplays.",
+            "blockedHint": "Cannot insert until we solve the letter selection.",
             "state": {
-              "indicatorFound": false,
+              "indicatorFound": true,
               "fodderFound": false,
               "resultEntered": false,
               "solved": false
@@ -95,10 +94,10 @@
             "resultLetterCount": 2,
             "dependencies": [],
             "state": {
-              "indicatorFound": false,
-              "fodderFound": false,
-              "resultEntered": false,
-              "solved": false
+              "indicatorFound": true,
+              "fodderFound": true,
+              "resultEntered": true,
+              "solved": true
             },
             "explanation": "The indicator 'at last' tells us to take the final letters of 'conclude' and 'job', giving EB."
           }

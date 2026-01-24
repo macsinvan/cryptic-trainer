@@ -135,25 +135,29 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   difficulty
 }) => {
   // ---------------------------------------------------------------------------
-  // STATE
+  // STATE - Thin Client: Only UI interaction state, no business logic
   // ---------------------------------------------------------------------------
 
+  // Core phase state
   const [phase, setPhase] = useState<TrainingPhase>('choose');
+  const [identifiedType, setIdentifiedType] = useState<ClueType | null>(null);
+
+  // Definition phase UI state
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [discoveredParts, setDiscoveredParts] = useState<DiscoveredPart[]>([]);
-  const [grid, setGrid] = useState<string[]>([]);
   const [isDefinitionCorrect, setIsDefinitionCorrect] = useState(false);
-  const [hasCheckedDefinition, setHasCheckedDefinition] = useState(false);  // User explicitly clicked "Check"
-  const [showWordplayDetail, setShowWordplayDetail] = useState(false);
-  const [currentWordplayStep, setCurrentWordplayStep] = useState(0);
+  const [hasCheckedDefinition, setHasCheckedDefinition] = useState(false);
 
-  // Wordplay step state
-  // Sub-phases: indicator → deleteTarget (for deletion) → fodder → decodeMethod (for indicatorless) → discovery (if implied op) → result
+  // Solve phase UI state
+  const [grid, setGrid] = useState<string[]>([]);
+
+  // Wordplay phase UI state - selection and feedback only
+  const [showWordplayDetail, setShowWordplayDetail] = useState(false);
   type WordplaySubPhase = 'indicator' | 'deleteTarget' | 'fodder' | 'decodeMethod' | 'discovery' | 'assembly' | 'result';
   type DecodeMethod = 'literal' | 'synonym' | 'abbreviation' | null;
   const [wordplaySubPhase, setWordplaySubPhase] = useState<WordplaySubPhase>('indicator');
   const [selectedIndicatorIndices, setSelectedIndicatorIndices] = useState<number[]>([]);
-  const [selectedDeleteTargetIndices, setSelectedDeleteTargetIndices] = useState<number[]>([]); // For deletion: what to delete
+  const [selectedDeleteTargetIndices, setSelectedDeleteTargetIndices] = useState<number[]>([]);
   const [selectedFodderIndices, setSelectedFodderIndices] = useState<number[]>([]);
   const [hasCheckedIndicator, setHasCheckedIndicator] = useState(false);
   const [isIndicatorCorrect, setIsIndicatorCorrect] = useState(false);
@@ -161,24 +165,33 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [isDeleteTargetCorrect, setIsDeleteTargetCorrect] = useState(false);
   const [hasCheckedFodder, setHasCheckedFodder] = useState(false);
   const [isFodderCorrect, setIsFodderCorrect] = useState(false);
-  const [selectedDecodeMethod, setSelectedDecodeMethod] = useState<DecodeMethod>(null); // How user thinks the word decodes
-  const [decodeMethodInput, setDecodeMethodInput] = useState(''); // User's typed synonym/abbreviation
+  const [selectedDecodeMethod, setSelectedDecodeMethod] = useState<DecodeMethod>(null);
+  const [decodeMethodInput, setDecodeMethodInput] = useState('');
   const [hasCheckedDecodeMethod, setHasCheckedDecodeMethod] = useState(false);
   const [isDecodeMethodCorrect, setIsDecodeMethodCorrect] = useState(false);
-  const [impliedResultInput, setImpliedResultInput] = useState(''); // For discovery phase: user types implied result (e.g., MOTHERS)
+  const [impliedResultInput, setImpliedResultInput] = useState('');
   const [hasCheckedImpliedResult, setHasCheckedImpliedResult] = useState(false);
   const [isImpliedResultCorrect, setIsImpliedResultCorrect] = useState(false);
   const [stepResultInput, setStepResultInput] = useState('');
   const [hasCheckedResult, setHasCheckedResult] = useState(false);
   const [isResultCorrect, setIsResultCorrect] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]); // Collapsed steps
-  const [onHoldSteps, setOnHoldSteps] = useState<number[]>([]); // Steps where user found indicator/fodder but skipped result
-  const [expandedCompletedSteps, setExpandedCompletedSteps] = useState<number[]>([]); // Which collapsed steps are expanded to show learnings
+  const [expandedCompletedSteps, setExpandedCompletedSteps] = useState<number[]>([]);
   const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
-  const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], deleteTargetIndices: number[], fodderIndices: number[]}[]>([]); // Persisted wordplay highlights
+  const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], deleteTargetIndices: number[], fodderIndices: number[]}[]>([]);
 
-  // For special clue types
-  const [identifiedType, setIdentifiedType] = useState<ClueType | null>(null);
+  // SERVER STATE - Single source of truth for training progress
+  // Server controls: which wordplay to work on, what phase, what's solved
+  const [serverState, setServerState] = useState<{
+    clueEntry: any;
+    currentWordplayIndex: number;
+    currentPhase: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete';
+    blocked: boolean;
+    blockedHint: string;
+    allSolved: boolean;
+  } | null>(null);
+
+  // Derive currentWordplayStep from server state (fallback to 0 for legacy)
+  const currentWordplayStep = serverState?.currentWordplayIndex ?? 0;
 
 
   // Refs
@@ -293,22 +306,27 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // Current step the user is working on
   const currentStep = wordplaySteps[currentWordplayStep];
 
-  // V2: Check if a wordplay's dependencies are all solved
-  const isWordplayBlocked = (wp: any, allWordplays: any[]): boolean => {
-    if (!wp.dependencies || wp.dependencies.length === 0) return false;
-    return wp.dependencies.some((depId: string) => {
-      const dep = allWordplays.find((w: any) => w.id === depId);
-      return dep && !dep.state?.solved;
+  // DERIVED FROM SERVER: completedSteps = indices where state.solved is true
+  // Server is source of truth for what's solved
+  const completedSteps = useMemo(() => {
+    // Use server's clueEntry if available, otherwise fall back to patternData
+    const wordplaysSource = serverState?.clueEntry?.wordplays || patternData?.wordplays || [];
+    const indices: number[] = [];
+    wordplaysSource.forEach((wp: any, idx: number) => {
+      if (wp.state?.solved) {
+        indices.push(idx);
+      }
     });
-  };
+    return indices;
+  }, [serverState, patternData]);
 
-  // Compute which wordplays are blocked
-  const blockedWordplays = useMemo(() => {
-    return wordplaySteps.map(wp => isWordplayBlocked(wp, wordplaySteps));
-  }, [wordplaySteps]);
+  // DERIVED: onHoldSteps - no longer used in server-driven model
+  // Server handles all dependency logic, so there are no "on-hold" steps
+  // Keep as empty array for backward compatibility with UI code
+  const onHoldSteps: number[] = [];
 
-  // Check if current step is blocked
-  const isCurrentStepBlocked = blockedWordplays[currentWordplayStep] || false;
+  // DERIVED FROM SERVER: Check if current step is blocked
+  const isCurrentStepBlocked = serverState?.blocked || false;
 
   // Check if current step has an indicator (vs indicatorless like synonym/abbreviation)
   // Using direct computation (not useMemo) to avoid any stale value issues
@@ -358,13 +376,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   }, [answer, accumulatedLetters]);
 
   // For container steps that assemble an anagram + other letters, compute the assembled fodder
-  // e.g., anagram fodder + inserted letters -> combined fodder ready for anagram
+  // Server handles dependency logic - this is just for display
   const assembledAnagramFodder = useMemo(() => {
     if (!currentStep || currentStep.stepType !== 'container') return null;
 
-    // Find the on-hold anagram step
-    const anagramStepIdx = onHoldSteps.find(idx => wordplaySteps[idx]?.stepType === 'anagram');
-    if (anagramStepIdx === undefined) return null;
+    // Find anagram step that's not yet solved
+    const anagramStepIdx = wordplaySteps.findIndex((wp: any) =>
+      wp.stepType === 'anagram' && !wp.state?.solved
+    );
+    if (anagramStepIdx === -1) return null;
 
     const anagramStep = wordplaySteps[anagramStepIdx];
     const anagramFodder = anagramStep?.fodder || '';
@@ -379,14 +399,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     // Assemble: fodder + inserted letters for container operations
     return `${anagramFodder} ${completedResults.join(' ')}`.trim();
-  }, [currentStep, onHoldSteps, completedSteps, wordplaySteps]);
+  }, [currentStep, completedSteps, wordplaySteps]);
 
   // Check if current step is a container that assembles letters for a pending anagram
+  // Server handles this logic - check if there's an unsolved anagram with dependencies
   const isContainerAssemblyStep = useMemo(() => {
     if (!currentStep || currentStep.stepType !== 'container') return false;
-    // Check if there's an on-hold anagram step
-    return onHoldSteps.some(idx => wordplaySteps[idx]?.stepType === 'anagram');
-  }, [currentStep, onHoldSteps, wordplaySteps]);
+    // Check if there's an unsolved anagram step
+    return wordplaySteps.some((wp: any) => wp.stepType === 'anagram' && !wp.state?.solved);
+  }, [currentStep, wordplaySteps]);
 
   // Check if current step is an anagram that was resumed after assembly
   // (container step completed, now solving the anagram with assembled letters)
@@ -446,14 +467,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    // Reset state when clue changes
+    // Reset UI state when clue changes
     setPhase('choose');
     setSelectedIndices([]);
     setDiscoveredParts([]);
     setIsDefinitionCorrect(false);
     setHasCheckedDefinition(false);
     setShowWordplayDetail(false);
-    setCurrentWordplayStep(0);
     setIdentifiedType(null);
     setWordplaySubPhase('indicator');
     setSelectedIndicatorIndices([]);
@@ -475,11 +495,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setStepResultInput('');
     setHasCheckedResult(false);
     setIsResultCorrect(false);
-    setCompletedSteps([]);
-    setOnHoldSteps([]);
     setExpandedCompletedSteps([]);
     setRevealedIndicatorSteps([]);
     setConfirmedHighlights([]);
+    setServerState(null); // Reset server state
 
     // Initialize answer grid
     const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
@@ -487,14 +506,30 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   }, [clueText, answer]);
 
   // When entering wordplay phase, ask server for first available wordplay
+  // Server is source of truth for training state
   useEffect(() => {
     if (phase === 'wordplay' && clueId) {
       trainingAction(clueId, 'start').then(response => {
-        if (response.success && response.currentWordplayIndex !== undefined) {
-          setCurrentWordplayStep(response.currentWordplayIndex);
-          // If blocked, show hint (though start should give unblocked)
-          if (response.blocked && response.blockedHint) {
-            console.log('[training] Blocked:', response.blockedHint);
+        if (response.success) {
+          // Store full server state - this is the source of truth
+          setServerState({
+            clueEntry: response.clueEntry,
+            currentWordplayIndex: response.currentWordplayIndex ?? 0,
+            currentPhase: response.currentPhase || 'indicator',
+            blocked: response.blocked || false,
+            blockedHint: response.blockedHint || '',
+            allSolved: response.allSolved || false,
+          });
+
+          // Set initial sub-phase from server
+          if (response.currentPhase === 'indicator') {
+            setWordplaySubPhase('indicator');
+          } else if (response.currentPhase === 'fodder') {
+            setWordplaySubPhase('fodder');
+          } else if (response.currentPhase === 'result') {
+            setWordplaySubPhase('result');
+          } else if (response.currentPhase === 'complete') {
+            setPhase('solve');
           }
         }
       }).catch(err => {
@@ -692,45 +727,51 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }
   };
 
-  const handleCheckIndicator = () => {
-    if (!currentStep) return;
+  const handleCheckIndicator = async () => {
+    if (!currentStep || !clueId) return;
 
-    // Get the selected text
     const selectedText = selectedIndicatorIndices.map(i => words[i].text).join(' ');
-    const targetIndicator = currentStep.indicator.toLowerCase().replace(/[.,;!?()'"]/g, '');
-
-    // Check if it matches (allowing for some flexibility)
-    const isMatch = selectedText === targetIndicator ||
-                    selectedText.includes(targetIndicator) ||
-                    targetIndicator.includes(selectedText);
 
     setHasCheckedIndicator(true);
-    setIsIndicatorCorrect(isMatch);
 
-    if (isMatch) {
-      // Correct - auto-advance after brief success flash
-      setTimeout(() => {
-        if (isDeletionWithImpliedOp) {
-          // Deletion with implied op: go to deleteTarget phase
-          setWordplaySubPhase('deleteTarget');
-        } else if (isContainerAssemblyStep) {
-          // Container assembling for anagram: go to assembly phase (shows assembled letters)
-          setWordplaySubPhase('assembly');
-        } else if (isFodderDependent) {
-          // Dependent fodder: skip to result
-          setWordplaySubPhase('result');
-        } else {
-          // Normal: go to fodder selection
-          setWordplaySubPhase('fodder');
-        }
-      }, 600);
-    } else {
-      // Wrong - auto-clear after brief red flash
-      setTimeout(() => {
-        setSelectedIndicatorIndices([]);
-        setHasCheckedIndicator(false);
-        setIsIndicatorCorrect(false);
-      }, 800);
+    try {
+      // Ask server to validate indicator selection
+      const response = await trainingAction(clueId, 'check_indicator', {
+        wordplayId: currentStep.id,
+        selected: selectedText,
+      });
+
+      const isMatch = response.validation?.correct || false;
+      setIsIndicatorCorrect(isMatch);
+
+      if (isMatch) {
+        // Update server state
+        setServerState(prev => prev ? {
+          ...prev,
+          clueEntry: response.clueEntry,
+          currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
+          currentPhase: response.currentPhase || 'fodder',
+        } : null);
+
+        // Correct - advance to next phase from server
+        setTimeout(() => {
+          if (response.currentPhase === 'fodder') {
+            setWordplaySubPhase('fodder');
+          } else if (response.currentPhase === 'result') {
+            setWordplaySubPhase('result');
+          }
+        }, 600);
+      } else {
+        // Wrong - auto-clear after brief red flash
+        setTimeout(() => {
+          setSelectedIndicatorIndices([]);
+          setHasCheckedIndicator(false);
+          setIsIndicatorCorrect(false);
+        }, 800);
+      }
+    } catch (err) {
+      console.warn('[training] Indicator check failed:', err);
+      setHasCheckedIndicator(false);
     }
   };
 
@@ -764,43 +805,49 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }
   };
 
-  const handleCheckFodder = () => {
-    if (!currentStep) return;
+  const handleCheckFodder = async () => {
+    if (!currentStep || !clueId) return;
 
-    // Get the selected text
     const selectedText = selectedFodderIndices.map(i => words[i].text).join(' ');
-    // V2: fodder can be string or FodderReference object - only use string values
-    const fodderStr = typeof currentStep.fodder === 'string' ? currentStep.fodder : '';
-    const targetFodder = fodderStr.toLowerCase().replace(/[.,;!?()'"]/g, '');
-
-    // Check if it matches (allowing for some flexibility)
-    const isMatch = selectedText === targetFodder ||
-                    selectedText.includes(targetFodder) ||
-                    targetFodder.includes(selectedText);
 
     setHasCheckedFodder(true);
-    setIsFodderCorrect(isMatch);
 
-    if (isMatch) {
-      // Correct - auto-advance after brief success flash
-      setTimeout(() => {
-        if (isDeletionWithImpliedOp) {
-          // Go to discovery phase - user will realize delete target isn't in fodder
-          setWordplaySubPhase('discovery');
-        } else if (!stepHasIndicator) {
-          // Indicatorless step - ask HOW it decodes (literal/synonym/abbreviation)
-          setWordplaySubPhase('decodeMethod');
-        } else {
-          setWordplaySubPhase('result');
-        }
-      }, 600);
-    } else {
-      // Wrong - auto-clear after brief red flash
-      setTimeout(() => {
-        setSelectedFodderIndices([]);
-        setHasCheckedFodder(false);
-        setIsFodderCorrect(false);
-      }, 800);
+    try {
+      // Ask server to validate fodder selection
+      const response = await trainingAction(clueId, 'check_fodder', {
+        wordplayId: currentStep.id,
+        selected: selectedText,
+      });
+
+      const isMatch = response.validation?.correct || false;
+      setIsFodderCorrect(isMatch);
+
+      if (isMatch) {
+        // Update server state
+        setServerState(prev => prev ? {
+          ...prev,
+          clueEntry: response.clueEntry,
+          currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
+          currentPhase: response.currentPhase || 'result',
+        } : null);
+
+        // Correct - advance to next phase from server
+        setTimeout(() => {
+          if (response.currentPhase === 'result') {
+            setWordplaySubPhase('result');
+          }
+        }, 600);
+      } else {
+        // Wrong - auto-clear after brief red flash
+        setTimeout(() => {
+          setSelectedFodderIndices([]);
+          setHasCheckedFodder(false);
+          setIsFodderCorrect(false);
+        }, 800);
+      }
+    } catch (err) {
+      console.warn('[training] Fodder check failed:', err);
+      setHasCheckedFodder(false);
     }
   };
 
@@ -878,23 +925,49 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }
   };
 
-  const handleCheckResult = () => {
-    if (!currentStep) return;
+  const handleCheckResult = async () => {
+    if (!currentStep || !clueId) return;
 
-    const targetResult = currentStep.result.toUpperCase().replace(/[^A-Z]/g, '');
     const userResult = stepResultInput.toUpperCase().replace(/[^A-Z]/g, '');
 
-    const isMatch = userResult === targetResult;
-
     setHasCheckedResult(true);
-    setIsResultCorrect(isMatch);
 
-    if (!isMatch) {
-      // Wrong - reset after flash
-      setTimeout(() => {
-        setHasCheckedResult(false);
-        setIsResultCorrect(false);
-      }, 800);
+    try {
+      // Ask server to validate result
+      const response = await trainingAction(clueId, 'check_result', {
+        wordplayId: currentStep.id,
+        entered: userResult,
+      });
+
+      const isMatch = response.validation?.correct || false;
+      setIsResultCorrect(isMatch);
+
+      if (isMatch) {
+        // Update server state - this marks the wordplay as solved
+        setServerState(prev => prev ? {
+          ...prev,
+          clueEntry: response.clueEntry,
+          currentWordplayIndex: response.currentWordplayIndex ?? -1,
+          currentPhase: response.currentPhase || 'complete',
+          allSolved: response.allSolved || false,
+        } : null);
+
+        // Save confirmed highlights
+        setConfirmedHighlights(prev => [...prev, {
+          indicatorIndices: [...selectedIndicatorIndices],
+          deleteTargetIndices: [...selectedDeleteTargetIndices],
+          fodderIndices: [...selectedFodderIndices]
+        }]);
+      } else {
+        // Wrong - reset after flash
+        setTimeout(() => {
+          setHasCheckedResult(false);
+          setIsResultCorrect(false);
+        }, 800);
+      }
+    } catch (err) {
+      console.warn('[training] Result check failed:', err);
+      setHasCheckedResult(false);
     }
   };
 
@@ -905,8 +978,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setIsResultCorrect(true);
   };
 
-  // Handle assembly step completion - container assembled letters, now go back to anagram
-  const handleAssemblyComplete = () => {
+  // Handle assembly step completion - server controls flow
+  const handleAssemblyComplete = async () => {
+    if (!clueId) return;
+
     // Save confirmed highlights for container step
     setConfirmedHighlights(prev => [...prev, {
       indicatorIndices: [...selectedIndicatorIndices],
@@ -914,172 +989,179 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       fodderIndices: []
     }]);
 
-    // Mark container step as completed
-    setCompletedSteps(prev => [...prev, currentWordplayStep]);
+    // Ask server for next wordplay after assembly
+    try {
+      const response = await trainingAction(clueId, 'get_state');
+      if (response.success) {
+        setServerState(prev => prev ? {
+          ...prev,
+          clueEntry: response.clueEntry,
+          currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
+          currentPhase: response.currentPhase || 'indicator',
+          allSolved: response.allSolved || false,
+        } : null);
 
-    // Find the on-hold anagram step and resume it
-    const anagramStepIdx = onHoldSteps.find(idx => wordplaySteps[idx]?.stepType === 'anagram');
-    if (anagramStepIdx !== undefined) {
-      // Remove from on-hold
-      setOnHoldSteps(prev => prev.filter(i => i !== anagramStepIdx));
+        // Reset UI state for next wordplay
+        resetWordplayUIState();
 
-      // Switch to the anagram step
-      setCurrentWordplayStep(anagramStepIdx);
-
-      // Go directly to result phase - user now has all letters
-      setWordplaySubPhase('result');
-      setStepResultInput('');
-      setHasCheckedResult(false);
-      setIsResultCorrect(false);
-      setSelectedIndicatorIndices([]);
-      setSelectedDeleteTargetIndices([]);
-      setSelectedFodderIndices([]);
-      setHasCheckedIndicator(false);
-      setIsIndicatorCorrect(false);
-      setHasCheckedDeleteTarget(false);
-      setIsDeleteTargetCorrect(false);
-      setHasCheckedFodder(false);
-      setIsFodderCorrect(false);
-    }
-  };
-
-  const handleStepComplete = () => {
-    // Save confirmed highlights before clearing
-    setConfirmedHighlights(prev => [...prev, {
-      indicatorIndices: [...selectedIndicatorIndices],
-      deleteTargetIndices: [...selectedDeleteTargetIndices],
-      fodderIndices: [...selectedFodderIndices]
-    }]);
-
-    // Mark step as completed (collapsed)
-    setCompletedSteps(prev => [...prev, currentWordplayStep]);
-
-    const nextStep = currentWordplayStep + 1;
-
-    if (nextStep >= wordplaySteps.length) {
-      // All steps done - move to solve phase
-      setPhase('solve');
-    } else {
-      // Move to next step
-      setCurrentWordplayStep(nextStep);
-
-      // Check if next step has an indicator to determine starting sub-phase
-      const nextStepData = wordplaySteps[nextStep];
-      const nextStepHasIndicator = nextStepData?.indicator && nextStepData.indicator.trim() !== '';
-
-      // Reset sub-phase state - skip to fodder for indicatorless steps
-      setWordplaySubPhase(nextStepHasIndicator ? 'indicator' : 'fodder');
-      setSelectedIndicatorIndices([]);
-      setSelectedDeleteTargetIndices([]);
-      setSelectedFodderIndices([]);
-      setHasCheckedIndicator(false);
-      setIsIndicatorCorrect(false);
-      setHasCheckedDeleteTarget(false);
-      setIsDeleteTargetCorrect(false);
-      setHasCheckedFodder(false);
-      setIsFodderCorrect(false);
-      setSelectedDecodeMethod(null);
-      setDecodeMethodInput('');
-      setHasCheckedDecodeMethod(false);
-      setIsDecodeMethodCorrect(false);
-      setImpliedResultInput('');
-      setHasCheckedImpliedResult(false);
-      setIsImpliedResultCorrect(false);
-      setStepResultInput('');
-      setHasCheckedResult(false);
-      setIsResultCorrect(false);
-    }
-  };
-
-  // Skip current step and move to next (user can come back later)
-  const handleSkipStep = () => {
-    // Save confirmed highlights before clearing
-    setConfirmedHighlights(prev => [...prev, {
-      indicatorIndices: [...selectedIndicatorIndices],
-      deleteTargetIndices: [...selectedDeleteTargetIndices],
-      fodderIndices: [...selectedFodderIndices]
-    }]);
-
-    // Mark step as on-hold (not completed - result still pending)
-    setOnHoldSteps(prev => [...prev, currentWordplayStep]);
-
-    // Find next step to work on (not completed, not on-hold)
-    const findNextStep = () => {
-      for (let i = currentWordplayStep + 1; i < wordplaySteps.length; i++) {
-        if (!completedSteps.includes(i) && !onHoldSteps.includes(i)) {
-          return i;
+        // Set phase from server
+        if (response.currentPhase === 'indicator') {
+          setWordplaySubPhase('indicator');
+        } else if (response.currentPhase === 'fodder') {
+          setWordplaySubPhase('fodder');
+        } else if (response.currentPhase === 'result') {
+          setWordplaySubPhase('result');
+        } else if (response.currentPhase === 'complete') {
+          setPhase('solve');
         }
       }
-      // Wrap around to find earlier steps
-      for (let i = 0; i < currentWordplayStep; i++) {
-        if (!completedSteps.includes(i) && !onHoldSteps.includes(i)) {
-          return i;
-        }
-      }
-      return -1; // No more steps to work on
-    };
-
-    const nextStep = findNextStep();
-
-    if (nextStep === -1) {
-      // All steps either completed or on-hold - check if we can proceed
-      const allNonHoldCompleted = wordplaySteps.every((_, i) =>
-        completedSteps.includes(i) || onHoldSteps.includes(i)
-      );
-      if (allNonHoldCompleted && onHoldSteps.length > 0) {
-        // Go back to first on-hold step
-        const firstOnHold = onHoldSteps[0];
-        setCurrentWordplayStep(firstOnHold);
-        const stepData = wordplaySteps[firstOnHold];
-        const hasIndicator = stepData?.indicator && stepData.indicator.trim() !== '';
-        // On-hold steps already have indicator/fodder found, so go to result
-        setWordplaySubPhase('result');
-      }
-    } else {
-      // Move to next step
-      setCurrentWordplayStep(nextStep);
-
-      // Check if next step has an indicator to determine starting sub-phase
-      const nextStepData = wordplaySteps[nextStep];
-      const nextStepHasIndicator = nextStepData?.indicator && nextStepData.indicator.trim() !== '';
-
-      // Reset sub-phase state
-      setWordplaySubPhase(nextStepHasIndicator ? 'indicator' : 'fodder');
-      setSelectedIndicatorIndices([]);
-      setSelectedDeleteTargetIndices([]);
-      setSelectedFodderIndices([]);
-      setHasCheckedIndicator(false);
-      setIsIndicatorCorrect(false);
-      setHasCheckedDeleteTarget(false);
-      setIsDeleteTargetCorrect(false);
-      setHasCheckedFodder(false);
-      setIsFodderCorrect(false);
-      setSelectedDecodeMethod(null);
-      setDecodeMethodInput('');
-      setHasCheckedDecodeMethod(false);
-      setIsDecodeMethodCorrect(false);
-      setImpliedResultInput('');
-      setHasCheckedImpliedResult(false);
-      setIsImpliedResultCorrect(false);
-      setStepResultInput('');
-      setHasCheckedResult(false);
-      setIsResultCorrect(false);
+    } catch (err) {
+      console.warn('[training] Assembly complete failed:', err);
     }
   };
 
-  // Resume an on-hold step
-  const handleResumeStep = (stepIdx: number) => {
-    // Remove from on-hold list
-    setOnHoldSteps(prev => prev.filter(i => i !== stepIdx));
-
-    // Switch to that step
-    setCurrentWordplayStep(stepIdx);
-
-    // On-hold steps already have indicator/fodder found, so go to result
-    setWordplaySubPhase('result');
+  // Helper to reset wordplay UI state
+  const resetWordplayUIState = () => {
+    setSelectedIndicatorIndices([]);
+    setSelectedDeleteTargetIndices([]);
+    setSelectedFodderIndices([]);
+    setHasCheckedIndicator(false);
+    setIsIndicatorCorrect(false);
+    setHasCheckedDeleteTarget(false);
+    setIsDeleteTargetCorrect(false);
+    setHasCheckedFodder(false);
+    setIsFodderCorrect(false);
+    setSelectedDecodeMethod(null);
+    setDecodeMethodInput('');
+    setHasCheckedDecodeMethod(false);
+    setIsDecodeMethodCorrect(false);
+    setImpliedResultInput('');
+    setHasCheckedImpliedResult(false);
+    setIsImpliedResultCorrect(false);
     setStepResultInput('');
     setHasCheckedResult(false);
     setIsResultCorrect(false);
+  };
+
+  // Step complete - server already updated state in handleCheckResult
+  // This just moves to next wordplay from server state
+  const handleStepComplete = async () => {
+    if (!clueId) return;
+
+    // Ask server for next available wordplay
+    try {
+      const response = await trainingAction(clueId, 'get_state');
+      if (response.success) {
+        // Update server state
+        setServerState(prev => prev ? {
+          ...prev,
+          clueEntry: response.clueEntry,
+          currentWordplayIndex: response.currentWordplayIndex ?? -1,
+          currentPhase: response.currentPhase || 'complete',
+          allSolved: response.allSolved || false,
+        } : null);
+
+        // Check if all done
+        if (response.allSolved || response.currentPhase === 'complete') {
+          setPhase('solve');
+          return;
+        }
+
+        // Reset UI state for next wordplay
+        resetWordplayUIState();
+
+        // Set phase from server
+        if (response.currentPhase === 'indicator') {
+          setWordplaySubPhase('indicator');
+        } else if (response.currentPhase === 'fodder') {
+          setWordplaySubPhase('fodder');
+        } else if (response.currentPhase === 'result') {
+          setWordplaySubPhase('result');
+        } else if (response.currentPhase === 'blocked') {
+          // All remaining wordplays are blocked - shouldn't happen with proper dependencies
+          console.warn('[training] All remaining wordplays blocked');
+        }
+      }
+    } catch (err) {
+      console.warn('[training] Get next wordplay failed:', err);
+    }
+  };
+
+  // Skip current step - server decides what's next based on dependencies
+  const handleSkipStep = async () => {
+    if (!clueId) return;
+
+    // Save any partial highlights
+    setConfirmedHighlights(prev => [...prev, {
+      indicatorIndices: [...selectedIndicatorIndices],
+      deleteTargetIndices: [...selectedDeleteTargetIndices],
+      fodderIndices: [...selectedFodderIndices]
+    }]);
+
+    // Ask server for next available (unblocked) wordplay
+    // Server will skip to the next unblocked, unsolved wordplay
+    try {
+      const response = await trainingAction(clueId, 'get_state');
+      if (response.success && response.currentWordplayIndex !== undefined) {
+        setServerState(prev => prev ? {
+          ...prev,
+          clueEntry: response.clueEntry,
+          currentWordplayIndex: response.currentWordplayIndex,
+          currentPhase: response.currentPhase || 'indicator',
+        } : null);
+
+        // Reset UI state
+        resetWordplayUIState();
+
+        // Set phase from server
+        if (response.currentPhase === 'indicator') {
+          setWordplaySubPhase('indicator');
+        } else if (response.currentPhase === 'fodder') {
+          setWordplaySubPhase('fodder');
+        } else if (response.currentPhase === 'result') {
+          setWordplaySubPhase('result');
+        }
+      }
+    } catch (err) {
+      console.warn('[training] Skip step failed:', err);
+    }
+  };
+
+  // Resume a step - ask server to select it
+  const handleResumeStep = async (stepIdx: number) => {
+    if (!clueId) return;
+
+    const wp = wordplaySteps[stepIdx];
+    if (!wp?.id) return;
+
+    try {
+      const response = await trainingAction(clueId, 'select_wordplay', {
+        wordplayId: wp.id,
+      });
+
+      if (response.success) {
+        setServerState(prev => prev ? {
+          ...prev,
+          clueEntry: response.clueEntry,
+          currentWordplayIndex: response.currentWordplayIndex ?? stepIdx,
+          currentPhase: response.currentPhase || 'indicator',
+          blocked: response.blocked || false,
+          blockedHint: response.blockedHint || '',
+        } : null);
+
+        // Reset UI and set phase from server
+        resetWordplayUIState();
+        if (response.currentPhase === 'indicator') {
+          setWordplaySubPhase('indicator');
+        } else if (response.currentPhase === 'fodder') {
+          setWordplaySubPhase('fodder');
+        } else if (response.currentPhase === 'result') {
+          setWordplaySubPhase('result');
+        }
+      }
+    } catch (err) {
+      console.warn('[training] Resume step failed:', err);
+    }
   };
 
   const handleNextIndicator = () => {
