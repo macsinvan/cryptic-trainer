@@ -234,18 +234,40 @@ npm run dev
 - **Fail clearly**: Validation errors must identify exactly what to fix
 - **Fix at source**: If schema doesn't fit trainer needs, fix the puzzle file — not import code
 
-### Live Document Model
+### Metadata is READ-ONLY
 
-**The imported clue data structure is ALIVE during training and is the SINGLE SOURCE OF TRUTH.**
+**The imported clue metadata is READ-ONLY and must NEVER be modified.**
 
-The ClueEntry schema (exactly as imported) is the working document:
+The stored ClueEntry in `clues_db.json` is the source of truth for clue structure:
+- Clue text, answer, enumeration
+- Definition text and position
+- Wordplay structure (indicators, fodder, results, dependencies, blockedHint)
+- Initial state (all `false`)
 
-1. **On load**: Server reads ClueEntry from storage — `state` fields start as `false`
-2. **During training**: Server updates `state` fields as user progresses
-3. **UI rendering**: UI receives current state from server and renders it
-4. **All decisions**: Server checks `dependencies`, `state.solved`, `blockedHint` — UI just displays
+**This data is NEVER mutated by the server.**
 
-The ClueEntry is mutated in place by the server — no separate "progress" tracking, no UI-side state.
+### Session-Based Progress Tracking
+
+Training progress is tracked in **session copies**, not in the source metadata:
+
+1. **On session start**: Server creates a deep copy of the ClueEntry for this session
+2. **During training**: Server updates `state` fields in the SESSION COPY only
+3. **UI rendering**: UI receives the session copy with current progress
+4. **Session ends**: Copy is discarded — source metadata remains unchanged
+
+```
+┌─────────────────────────────┐     ┌─────────────────────────────┐
+│  SOURCE (clues_db.json)     │     │  SESSION COPY (in memory)   │
+│  - READ ONLY                │────▶│  - Mutable during training  │
+│  - state fields all false   │     │  - state updated as user    │
+│  - Never modified           │     │    progresses               │
+└─────────────────────────────┘     └─────────────────────────────┘
+```
+
+This ensures:
+- Multiple users can train on same clue simultaneously
+- Restarting training always starts fresh
+- Source data integrity is preserved
 
 ### Source Puzzle File Format (Complete Schema)
 
@@ -765,6 +787,20 @@ Every wordplay test case follows this 3-step format. Expected values are derived
 | **Display** | Show `metadata.result` as read-only text |
 | **State Change** | `resultEntered: true`, `solved: true` (auto-set by server) |
 | **Next Wordplay** | Advance to next available wordplay |
+
+**Teaching Moment (when blockedHint present):**
+
+When a `fodder_selection` operation has a `blockedHint`, the server returns `currentPhase: 'teaching'` after fodder is found (instead of immediately advancing). This creates a learning opportunity:
+
+| Aspect | Expected Behavior |
+|--------|-------------------|
+| **Phase** | `'teaching'` (not result, not immediate advance) |
+| **Display** | Show `metadata.result` as read-only text |
+| **blockedHint** | Display prominently — explains why step can't fully solve |
+| **Button** | "Pass" or "Continue" — acknowledges teaching moment |
+| **On Pass** | Server advances to next available wordplay |
+
+This teaches users that the fodder alone isn't enough to solve the full answer (e.g., "Fodder only has 8 letters, answer needs 10").
 
 **For operations requiring result entry (`anagram`, `letter_selection`, etc.):**
 

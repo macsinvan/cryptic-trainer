@@ -8,20 +8,17 @@ A training app for learning to solve Times-style cryptic crosswords.
 - **Thin client architecture**: All logic on Python server, UI just renders and captures input
 - **Training flow API**: `/training/action` endpoint handles all training state
 - **Dependency system**: Wordplays block/unblock based on `dependencies` array
-- **Golden clue tests**: PHLEBOTOMY clue fully tested (13 test cases pass)
-
-### Known Bug (Next Priority)
-- **SubOp 1A result input**: UI shows result input field for `fodder_selection` operations, but it shouldn't. After fodder phase, `fodder_selection` auto-completes — the UI should show `metadata.result` as read-only text, NOT an input field.
+- **Teaching moments**: `fodder_selection` with `blockedHint` shows learning point + Pass button
+- **Golden clue tests**: PHLEBOTOMY clue fully tested (11 test cases pass)
 
 ### Recent Changes
-1. Added Test Case Design Guidelines to `DESIGN_SPEC.md` — rigorous 3-step format for writing tests
-2. Backend cleanup — removed duplicate code, debug prints, consolidated response building
-3. All tests passing (13/13)
+1. Added teaching moment for `fodder_selection` with `blockedHint` — shows result read-only, blocked hint, and Pass button
+2. Added `'teaching'` phase and `pass_teaching` action to server
+3. Updated DESIGN_SPEC.md with teaching moment documentation
+4. Updated tests for teaching moment flow
 
-### Next Steps
-1. Fix the `fodder_selection` UI bug (result input shouldn't show)
-2. Write rigorous test for SubOp 1A following new test guidelines
-3. Verify UI behavior matches test expectations
+### Known Issues
+- `test_phlebotomy_definition_wrong` test fails (pre-existing, unrelated to teaching moment)
 
 ---
 
@@ -147,13 +144,4 @@ See `cryptic_trainer_bundle/DESIGN_SPEC.md` for the full workflow:
 
 ## Deployment
 
-**Production URL:** https://www.cryptic-trainer.com
-
-The React UI is deployed via Vercel. The Python backend runs separately.
-
-```bash
-# Build for production
-npm run build
-```
-
-Vercel auto-deploys from the `main` branch.
+This app runs locally. See [Quick Start](#quick-start) for setup instructions.

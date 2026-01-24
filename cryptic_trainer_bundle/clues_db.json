@@ -106,10 +106,10 @@
             "resultLetterCount": 2,
             "dependencies": [],
             "state": {
-              "indicatorFound": true,
-              "fodderFound": true,
-              "resultEntered": true,
-              "solved": true
+              "indicatorFound": false,
+              "fodderFound": false,
+              "resultEntered": false,
+              "solved": false
             },
             "explanation": "The indicator 'at last' tells us to take the final letters of 'conclude' and 'job', giving EB."
           }

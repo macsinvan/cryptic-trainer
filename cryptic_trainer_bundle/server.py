@@ -685,14 +685,13 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._cleanup_old_sessions()
 
             # Get or create training session
-            if clue_id not in _training_sessions:
-                # No session exists, create one with reset state
+            if action == 'start' or clue_id not in _training_sessions:
+                # 'start' always creates fresh session with reset state
                 clue_entry = self._reset_wordplay_states(item.get('clueEntry', {}))
                 _training_sessions[clue_id] = {
                     'clueEntry': clue_entry,
                     'startTime': time.time()
                 }
-            # Note: 'start' action no longer resets - session persists with definition state
 
             # Work with session copy
             session = _training_sessions[clue_id]
@@ -798,7 +797,16 @@ class SolverHandler(BaseHTTPRequestHandler):
                 if correct:
                     next_phase = self._get_wordplay_phase(wp)
                     if next_phase == 'complete':
-                        # This step done, find next available
+                        # Check for teaching moment BEFORE advancing
+                        if wp.get('blockedHint'):
+                            # Return teaching phase — stay on current step
+                            self._send_json(self._build_training_response(
+                                clue_entry, wordplays, wp, 'teaching', is_subop, parent_wp,
+                                validation={'correct': correct, 'expected': expected}
+                            ))
+                            return
+
+                        # No blockedHint — advance immediately
                         (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
                         if next_step:
                             next_phase = self._get_wordplay_phase(next_step)
@@ -850,6 +858,26 @@ class SolverHandler(BaseHTTPRequestHandler):
                     clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
                     validation={'correct': correct, 'expected': expected},
                     allSolved=all_solved
+                ))
+
+            elif action == 'pass_teaching':
+                wordplay_id = action_data.get('wordplayId')
+
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                # Advance to next available step
+                (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
+                if next_step:
+                    next_phase = self._get_wordplay_phase(next_step)
+                else:
+                    all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
+                    next_phase = 'complete' if all_solved else 'blocked'
+
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent
                 ))
 
             elif action == 'select_wordplay':

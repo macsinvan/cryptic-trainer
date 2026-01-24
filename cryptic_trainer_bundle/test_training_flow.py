@@ -248,11 +248,11 @@ def test_phlebotomy_wordplay3_flow() -> TestResult:
 
 
 def test_phlebotomy_subop1a_flow() -> TestResult:
-    """Test complete flow through SubOp 1A (fodder_selection, no dependencies).
+    """Test complete flow through SubOp 1A (fodder_selection with blockedHint).
 
-    fodder_selection operations complete after fodder phase - NO result entry needed.
+    fodder_selection with blockedHint shows teaching phase, then advances after pass_teaching.
     """
-    result = TestResult("PHLEBOTOMY: SubOp 1A complete flow (fodder_selection)")
+    result = TestResult("PHLEBOTOMY: SubOp 1A complete flow (fodder_selection with teaching)")
 
     # Start fresh session
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
@@ -292,13 +292,24 @@ def test_phlebotomy_subop1a_flow() -> TestResult:
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Fodder 'lymph too' is correct")
 
-    # fodder_selection operations should complete after fodder - NO result phase
-    result.assert_true(resp.get('currentPhase') != 'result',
-                       "fodder_selection does NOT advance to result phase")
+    # fodder_selection with blockedHint should show TEACHING phase (not result, not immediate advance)
+    result.assert_eq(resp.get('currentPhase'), 'teaching',
+                     "fodder_selection with blockedHint returns teaching phase")
 
-    # Should move to next available wordplay (3 or 1B depending on deps)
+    # Current wordplay should still be 1A (not advanced yet)
+    current_wp = resp.get('currentWordplay', {})
+    result.assert_eq(current_wp.get('id'), '1A', "Still on 1A during teaching phase")
+
+    # blockedHint should be present for display
+    result.assert_true('blockedHint' in resp, "blockedHint present in teaching response")
+
+    # Now pass the teaching moment
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_teaching', {'wordplayId': '1A'})
+    result.assert_true(resp.get('success', False), "pass_teaching succeeds")
+
+    # Should move to next available wordplay
     next_wp = resp.get('currentWordplay', {})
-    result.assert_true(next_wp.get('id') != '1A', "Moved to next wordplay after completing 1A")
+    result.assert_true(next_wp.get('id') != '1A', "Advanced to next wordplay after pass_teaching")
 
     return result
 

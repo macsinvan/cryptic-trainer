@@ -180,7 +180,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     clueEntry: any;
     currentWordplay: any;  // The actual wordplay/subOperation object from server
     currentWordplayIndex: number;
-    currentPhase: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete' | 'deleteTarget' | 'decodeMethod' | 'discovery' | 'assembly';
+    currentPhase: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete' | 'teaching' | 'deleteTarget' | 'decodeMethod' | 'discovery' | 'assembly';
     blocked: boolean;
     blockedHint: string;
     allSolved: boolean;
@@ -943,6 +943,34 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     } catch (err) {
       console.warn('[training] Fodder check failed:', err);
+    }
+  };
+
+  const handlePassTeaching = async () => {
+    if (!currentStep || !clueId) return;
+
+    try {
+      const response = await trainingAction(clueId, 'pass_teaching', {
+        wordplayId: currentStep.id,
+      });
+
+      setServerState(prev => prev ? {
+        ...prev,
+        clueEntry: response.clueEntry,
+        currentWordplay: response.currentWordplay ?? prev.currentWordplay,
+        currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
+        currentPhase: response.currentPhase ?? prev.currentPhase,
+      } : null);
+
+      // Clear selections for new wordplay
+      setSelectedIndicatorIndices([]);
+      setSelectedFodderIndices([]);
+
+      if (response.currentPhase === 'complete') {
+        setPhase('solve');
+      }
+    } catch (err) {
+      console.warn('[training] Pass teaching failed:', err);
     }
   };
 
@@ -2483,6 +2511,40 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* === TEACHING MOMENT SUB-PHASE === */}
+              {currentPhase === 'teaching' && (
+                <div className="space-y-4">
+                  {/* Show indicator + fodder = result (read-only) */}
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <div className="flex items-center gap-1">
+                      <Check size={12} className="text-orange-500" />
+                      <span className="text-orange-600 font-medium">"{currentStep?.indicator}"</span>
+                    </div>
+                    <span className="text-slate-400">+</span>
+                    <div className="flex items-center gap-1">
+                      <Check size={12} className="text-blue-500" />
+                      <span className="text-blue-600 font-medium">"{currentStep?.fodder}"</span>
+                    </div>
+                    <span className="text-slate-400">=</span>
+                    <span className="text-green-700 font-mono font-bold">{currentStep?.result}</span>
+                  </div>
+
+                  {/* Teaching moment — blockedHint */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <p className="text-amber-800 font-medium mb-1">🎓 Learning Point</p>
+                    <p className="text-amber-700 text-sm">{serverState?.blockedHint || currentStep?.blockedHint}</p>
+                  </div>
+
+                  {/* Pass button */}
+                  <button
+                    onClick={handlePassTeaching}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg font-bold transition-colors"
+                  >
+                    Got it — Continue →
+                  </button>
                 </div>
               )}
 
