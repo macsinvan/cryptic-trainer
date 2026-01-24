@@ -338,8 +338,8 @@ export interface TrainingActionResponse {
 
 export const trainingAction = async (
     clueId: string,
-    action: 'start' | 'get_state' | 'check_indicator' | 'check_fodder' | 'check_result' | 'select_wordplay',
-    data?: { wordplayId?: string; selected?: string; entered?: string }
+    action: 'start' | 'get_state' | 'check_definition' | 'check_indicator' | 'check_fodder' | 'check_result' | 'select_wordplay',
+    data?: { wordplayId?: string; selected?: string; entered?: string; selectedIndices?: number[] }
 ): Promise<TrainingActionResponse> => {
     return fetchJson<TrainingActionResponse>('/training/action', {
         method: 'POST',

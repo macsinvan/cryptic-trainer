@@ -14,11 +14,13 @@ Also provides clue storage API:
   POST /parser-issues - Save a parser issue
 """
 
+import copy
 import json
 import os
 import re
 import sys
 import threading
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Ensure we import from the same directory as this script, not cwd
@@ -34,6 +36,7 @@ _db_lock = threading.Lock()
 
 # --- Training Sessions (in-memory working copies) ---
 _training_sessions = {}  # clueId -> { clueEntry: {...}, startTime: timestamp }
+SESSION_TIMEOUT_SECONDS = 3600  # Clean up sessions older than 1 hour
 
 def _load_db():
     """Load the clue database from JSON file."""
@@ -43,7 +46,7 @@ def _load_db():
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
-    return {"version": 1, "training_items": {}, "parser_issues": {}}
+    return {"version": 2, "training_items": {}, "parser_issues": {}}
 
 def _save_db(db):
     """Save the clue database atomically."""
@@ -327,7 +330,6 @@ class SolverHandler(BaseHTTPRequestHandler):
                     continue
 
                 # Step 6: Store exactly as received - no transformation
-                import time
                 clue_id = f"user-{int(time.time() * 1000)}-{clue_key}"
 
                 training_item = {
@@ -473,6 +475,76 @@ class SolverHandler(BaseHTTPRequestHandler):
         """Check if fodder is a reference object (not user-selectable text)."""
         return isinstance(fodder, dict) and fodder.get('type') == 'result'
 
+    def _find_wordplay_by_id(self, wordplays, wordplay_id):
+        """Find a wordplay or subOperation by ID.
+
+        Returns tuple: (wordplay_or_subop, parent_wordplay_or_none, is_subop)
+        - For top-level wordplay: (wordplay, None, False)
+        - For subOperation: (subop, parent_wordplay, True)
+        - If not found: (None, None, False)
+        """
+        # First check top-level wordplays
+        wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
+        if wp:
+            return (wp, None, False)
+
+        # Check subOperations
+        for parent in wordplays:
+            for sub in parent.get('subOperations', []):
+                if sub.get('id') == wordplay_id:
+                    return (sub, parent, True)
+
+        return (None, None, False)
+
+    def _build_training_response(self, clue_entry, wordplays, step, phase, is_subop=False, parent_wp=None, **extra):
+        """Build a consistent training action response.
+
+        Args:
+            clue_entry: The full clue entry with current state
+            wordplays: List of all wordplays (for index lookup)
+            step: The current wordplay/subOp to work on (or None)
+            phase: Current phase string
+            is_subop: Whether step is a subOperation
+            parent_wp: Parent wordplay if step is a subOp
+            **extra: Additional fields (validation, blocked, blockedHint, allSolved, etc.)
+        """
+        response = {
+            'success': True,
+            'clueEntry': clue_entry,
+            'currentWordplay': step,
+            'currentPhase': phase,
+            'isSubOperation': is_subop,
+        }
+
+        # Add index
+        if step:
+            if is_subop and parent_wp:
+                response['parentWordplay'] = parent_wp
+                response['currentWordplayIndex'] = wordplays.index(parent_wp)
+            else:
+                response['currentWordplayIndex'] = wordplays.index(step)
+        else:
+            response['currentWordplayIndex'] = -1
+
+        # Add blockedHint if present on step
+        if step and step.get('blockedHint'):
+            response['blockedHint'] = step.get('blockedHint')
+
+        # Merge any extra fields
+        response.update(extra)
+
+        return response
+
+    def _cleanup_old_sessions(self):
+        """Remove training sessions older than SESSION_TIMEOUT_SECONDS."""
+        now = time.time()
+        expired = [
+            clue_id for clue_id, session in _training_sessions.items()
+            if now - session.get('startTime', 0) > SESSION_TIMEOUT_SECONDS
+        ]
+        for clue_id in expired:
+            del _training_sessions[clue_id]
+
     # Operations that don't require user to type a result
     # (they complete after fodder phase)
     NO_RESULT_OPERATIONS = {'fodder_selection'}
@@ -540,9 +612,7 @@ class SolverHandler(BaseHTTPRequestHandler):
                     if sub.get('state', {}).get('solved', False):
                         continue  # Already solved
                     if not self._check_deps_blocked(sub.get('dependencies', []), wordplays):
-                        # Enrich subOp with parent's training fields if missing
-                        enriched_sub = self._enrich_subop(sub, wp)
-                        return (enriched_sub, wp, True)  # Available subOp
+                        return (sub, wp, True)  # Available subOp
             else:
                 # No subOperations - check wordplay itself
                 if not self._check_deps_blocked(wp.get('dependencies', []), wordplays):
@@ -550,22 +620,14 @@ class SolverHandler(BaseHTTPRequestHandler):
 
         return (None, None, False)
 
-    def _enrich_subop(self, sub, parent):
-        """Return subOperation as-is. SubOps have their OWN fields, not inherited from parent.
-
-        SubOperations are independent trainable steps with their own:
-        - id, operation, dependencies, state
-        - NO indicator/fodder inheritance - they define their own or have none
-
-        If a subOp has dependencies: [], it is available immediately.
-        """
-        # SubOps are self-contained - just return a copy
-        return dict(sub)
-
     def _reset_wordplay_states(self, clue_entry):
         """Reset all wordplay states to initial (unsolved) for a fresh training session."""
-        import copy
         entry = copy.deepcopy(clue_entry)
+        # Initialize clue-level state (definition)
+        entry['state'] = {
+            'definitionFound': False,
+            'definitionIndices': []
+        }
         for wp in entry.get('wordplays', []):
             wp['state'] = {
                 'indicatorFound': False,
@@ -619,23 +681,18 @@ class SolverHandler(BaseHTTPRequestHandler):
                 self._send_json({'success': False, 'error': 'Clue not found'}, 404)
                 return
 
+            # Clean up old sessions periodically
+            self._cleanup_old_sessions()
+
             # Get or create training session
-            if action == 'start':
-                # Always create fresh session on start
-                import time
-                clue_entry = self._reset_wordplay_states(item.get('clueEntry', {}))
-                _training_sessions[clue_id] = {
-                    'clueEntry': clue_entry,
-                    'startTime': time.time()
-                }
-            elif clue_id not in _training_sessions:
+            if clue_id not in _training_sessions:
                 # No session exists, create one with reset state
-                import time
                 clue_entry = self._reset_wordplay_states(item.get('clueEntry', {}))
                 _training_sessions[clue_id] = {
                     'clueEntry': clue_entry,
                     'startTime': time.time()
                 }
+            # Note: 'start' action no longer resets - session persists with definition state
 
             # Work with session copy
             session = _training_sessions[clue_id]
@@ -644,123 +701,73 @@ class SolverHandler(BaseHTTPRequestHandler):
 
             # Handle different actions
             if action == 'get_state' or action == 'start':
-                # Find next available step (wordplay or subOperation)
                 (current_step, parent_wp, is_subop) = self._get_next_available_wordplay(wordplays)
 
                 if not current_step:
-                    # All done or all blocked
                     all_solved = all(wp.get('state', {}).get('solved', False) for wp in wordplays)
-                    self._send_json({
-                        'success': True,
-                        'clueEntry': clue_entry,
-                        'currentWordplay': None,
-                        'currentPhase': 'complete' if all_solved else 'blocked',
-                        'allSolved': all_solved
-                    })
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, None,
+                        'complete' if all_solved else 'blocked',
+                        allSolved=all_solved
+                    ))
                     return
 
-                # Determine phase using helper (handles reference fodder)
                 phase = self._get_wordplay_phase(current_step)
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, current_step, phase,
+                    is_subop, parent_wp, blocked=False
+                ))
 
-                # For subOperations, include parent info
-                response = {
+            elif action == 'check_definition':
+                # Validate definition selection
+                selected = action_data.get('selected', '')
+                selected_indices = action_data.get('selectedIndices', [])
+
+                # Get expected definition from clue entry
+                definition = clue_entry.get('definition', {})
+                expected = definition.get('text', '').lower().strip()
+                selected_norm = selected.lower().strip()
+
+                # Check if selection matches expected definition
+                correct = selected_norm == expected
+
+                if correct:
+                    clue_entry['state']['definitionFound'] = True
+                    clue_entry['state']['definitionIndices'] = selected_indices
+
+                self._send_json({
                     'success': True,
-                    'clueEntry': clue_entry,
-                    'currentWordplay': current_step,
-                    'currentPhase': phase,
-                    'blocked': False,
-                    'isSubOperation': is_subop
-                }
-                # Always include blockedHint if present (informational, even when not blocked)
-                if current_step.get('blockedHint'):
-                    response['blockedHint'] = current_step.get('blockedHint')
-                if is_subop:
-                    response['parentWordplay'] = parent_wp
-                    response['currentWordplayIndex'] = wordplays.index(parent_wp)
-                else:
-                    response['currentWordplayIndex'] = wordplays.index(current_step)
-
-                self._send_json(response)
+                    'validation': {'correct': correct, 'expected': expected},
+                    'clueEntry': clue_entry
+                })
 
             elif action == 'check_indicator':
                 wordplay_id = action_data.get('wordplayId')
                 selected = action_data.get('selected', '')
 
-                # Find wordplay or subOperation by ID
-                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
-                parent_wp = None
-                if not wp:
-                    # Check subOperations
-                    for parent in wordplays:
-                        for sub in parent.get('subOperations', []):
-                            if sub.get('id') == wordplay_id:
-                                wp = sub
-                                parent_wp = parent
-                                break
-                        if wp:
-                            break
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
                 if not wp:
                     self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
                     return
 
                 expected = wp.get('indicator', '').lower().strip()
-                selected_norm = selected.lower().strip()
-                correct = selected_norm == expected
+                correct = selected.lower().strip() == expected
 
                 if correct:
                     wp['state']['indicatorFound'] = True
-                    # Don't persist to DB - session only
+                    wp['state']['indicatorIndices'] = action_data.get('selectedIndices', [])
 
-                # If correct, continue with SAME wordplay (next phase)
-                # If wrong, stay on same wordplay at indicator phase
-                if correct:
-                    next_phase = self._get_wordplay_phase(wp)
-                    next_step = wp
-                    next_is_subop = parent_wp is not None
-                    next_parent = parent_wp
-                else:
-                    next_phase = 'indicator'
-                    next_step = wp
-                    next_is_subop = parent_wp is not None
-                    next_parent = parent_wp
-
-                response = {
-                    'success': True,
-                    'validation': {'correct': correct, 'expected': expected},
-                    'clueEntry': clue_entry,
-                    'currentWordplay': next_step,
-                    'currentPhase': next_phase,
-                    'isSubOperation': next_is_subop
-                }
-                # Always include blockedHint if present
-                if wp.get('blockedHint'):
-                    response['blockedHint'] = wp.get('blockedHint')
-                if next_step:
-                    if next_is_subop:
-                        response['parentWordplay'] = next_parent
-                        response['currentWordplayIndex'] = wordplays.index(next_parent)
-                    else:
-                        response['currentWordplayIndex'] = wordplays.index(next_step)
-                else:
-                    response['currentWordplayIndex'] = -1
-
-                self._send_json(response)
+                next_phase = self._get_wordplay_phase(wp) if correct else 'indicator'
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, wp, next_phase, is_subop, parent_wp,
+                    validation={'correct': correct, 'expected': expected}
+                ))
 
             elif action == 'check_fodder':
                 wordplay_id = action_data.get('wordplayId')
                 selected = action_data.get('selected', '')
 
-                # Find wordplay or subOperation by ID
-                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
-                if not wp:
-                    # Check subOperations
-                    for parent in wordplays:
-                        for sub in parent.get('subOperations', []):
-                            if sub.get('id') == wordplay_id:
-                                wp = sub
-                                break
-                        if wp:
-                            break
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
                 if not wp:
                     self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
                     return
@@ -770,226 +777,105 @@ class SolverHandler(BaseHTTPRequestHandler):
                 # If fodder is a reference, this shouldn't be called - but handle gracefully
                 if self._is_fodder_reference(fodder):
                     wp['state']['fodderFound'] = True
-                    (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
-                    response = {
-                        'success': True,
-                        'validation': {'correct': True, 'expected': '(reference fodder)'},
-                        'clueEntry': clue_entry,
-                        'currentWordplay': next_step,
-                        'currentPhase': 'result',
-                        'isSubOperation': next_is_subop
-                    }
-                    if next_step:
-                        if next_is_subop:
-                            response['parentWordplay'] = next_parent
-                            response['currentWordplayIndex'] = wordplays.index(next_parent)
-                        else:
-                            response['currentWordplayIndex'] = wordplays.index(next_step)
-                    else:
-                        response['currentWordplayIndex'] = -1
-                    self._send_json(response)
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, wp, 'result', is_subop, parent_wp,
+                        validation={'correct': True, 'expected': '(reference fodder)'}
+                    ))
                     return
 
                 expected = fodder.lower().strip()
-                selected_norm = selected.lower().strip()
-                correct = selected_norm == expected
-
-                # Determine parent for subOperation lookup
-                parent_wp = None
-                for parent in wordplays:
-                    for sub in parent.get('subOperations', []):
-                        if sub.get('id') == wordplay_id:
-                            parent_wp = parent
-                            break
-                    if parent_wp:
-                        break
+                correct = selected.lower().strip() == expected
 
                 if correct:
                     wp['state']['fodderFound'] = True
+                    wp['state']['fodderIndices'] = action_data.get('selectedIndices', [])
                     # For fodder_selection operations, completing fodder = solved
-                    operation = wp.get('operation', '')
-                    if operation in self.NO_RESULT_OPERATIONS:
+                    if wp.get('operation', '') in self.NO_RESULT_OPERATIONS:
                         wp['state']['resultEntered'] = True
                         wp['state']['solved'] = True
-                    # Don't persist to DB - session only
 
-                # If correct, continue with SAME wordplay (next phase) or move to next
-                # If wrong, stay on same wordplay at fodder phase
+                # Determine next step/phase
                 if correct:
                     next_phase = self._get_wordplay_phase(wp)
-                    # If this step is now complete, find next available
                     if next_phase == 'complete':
+                        # This step done, find next available
                         (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
                         if next_step:
                             next_phase = self._get_wordplay_phase(next_step)
                         else:
                             all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
                             next_phase = 'complete' if all_solved else 'blocked'
-                    else:
-                        next_step = wp
-                        next_is_subop = parent_wp is not None
-                        next_parent = parent_wp
+                        self._send_json(self._build_training_response(
+                            clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
+                            validation={'correct': correct, 'expected': expected}
+                        ))
+                        return
+                    # Stay on same wordplay for result phase
+                    next_step, next_parent, next_is_subop = wp, parent_wp, is_subop
                 else:
                     next_phase = 'fodder'
-                    next_step = wp
-                    next_is_subop = parent_wp is not None
-                    next_parent = parent_wp
+                    next_step, next_parent, next_is_subop = wp, parent_wp, is_subop
 
-                response = {
-                    'success': True,
-                    'validation': {'correct': correct, 'expected': expected},
-                    'clueEntry': clue_entry,
-                    'currentWordplay': next_step,
-                    'currentPhase': next_phase,
-                    'isSubOperation': next_is_subop
-                }
-                # Always include blockedHint if present on current wordplay
-                if wp.get('blockedHint'):
-                    response['blockedHint'] = wp.get('blockedHint')
-                if next_step:
-                    if next_is_subop:
-                        response['parentWordplay'] = next_parent
-                        response['currentWordplayIndex'] = wordplays.index(next_parent)
-                    else:
-                        response['currentWordplayIndex'] = wordplays.index(next_step)
-                else:
-                    response['currentWordplayIndex'] = -1
-
-                self._send_json(response)
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
+                    validation={'correct': correct, 'expected': expected}
+                ))
 
             elif action == 'check_result':
                 wordplay_id = action_data.get('wordplayId')
                 entered = action_data.get('entered', '')
 
-                # Find wordplay or subOperation by ID
-                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
-                is_subop = False
-                if not wp:
-                    # Check subOperations
-                    for parent in wordplays:
-                        for sub in parent.get('subOperations', []):
-                            if sub.get('id') == wordplay_id:
-                                wp = sub
-                                is_subop = True
-                                break
-                        if wp:
-                            break
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
                 if not wp:
                     self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
                     return
 
                 expected = wp.get('result', '').upper().strip()
-                entered_norm = entered.upper().strip()
-                correct = entered_norm == expected
+                correct = entered.upper().strip() == expected
 
                 if correct:
                     wp['state']['resultEntered'] = True
                     wp['state']['solved'] = True
-                    # Don't persist to DB - session only
 
-                # After solving, find next available
+                # Find next available step
                 (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
                 all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
-
-                if next_step:
-                    # Use phase helper (handles reference fodder)
-                    next_phase = self._get_wordplay_phase(next_step)
-                else:
-                    next_phase = 'complete' if all_solved else 'blocked'
+                next_phase = self._get_wordplay_phase(next_step) if next_step else ('complete' if all_solved else 'blocked')
 
                 # Clean up session when all solved
                 if all_solved and clue_id in _training_sessions:
                     del _training_sessions[clue_id]
 
-                response = {
-                    'success': True,
-                    'validation': {'correct': correct, 'expected': expected},
-                    'clueEntry': clue_entry,
-                    'currentWordplay': next_step,
-                    'currentPhase': next_phase,
-                    'allSolved': all_solved,
-                    'isSubOperation': next_is_subop
-                }
-                if next_step:
-                    if next_is_subop:
-                        response['parentWordplay'] = next_parent
-                        response['currentWordplayIndex'] = wordplays.index(next_parent)
-                    else:
-                        response['currentWordplayIndex'] = wordplays.index(next_step)
-                else:
-                    response['currentWordplayIndex'] = -1
-
-                self._send_json(response)
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
+                    validation={'correct': correct, 'expected': expected},
+                    allSolved=all_solved
+                ))
 
             elif action == 'select_wordplay':
-                # User wants to work on a specific wordplay or subOperation
                 wordplay_id = action_data.get('wordplayId')
 
-                # Find wordplay or subOperation by ID
-                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
-                is_subop = False
-                parent_wp = None
-                if not wp:
-                    # Check subOperations
-                    for parent in wordplays:
-                        for sub in parent.get('subOperations', []):
-                            if sub.get('id') == wordplay_id:
-                                wp = sub
-                                is_subop = True
-                                parent_wp = parent
-                                break
-                        if wp:
-                            break
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
                 if not wp:
                     self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
                     return
 
-                blocked = self._is_wordplay_blocked(wp, wordplays)
-
-                if blocked:
+                if self._is_wordplay_blocked(wp, wordplays):
                     # Find unblocked alternative
                     (alt_step, alt_parent, alt_is_subop) = self._get_next_available_wordplay(wordplays)
                     alt_phase = self._get_wordplay_phase(alt_step) if alt_step else 'blocked'
-                    response = {
-                        'success': True,
-                        'clueEntry': clue_entry,
-                        'currentWordplay': alt_step,
-                        'requestedWordplay': wp,
-                        'blocked': True,
-                        'blockedHint': wp.get('blockedHint', 'Solve dependencies first'),
-                        'currentPhase': alt_phase,
-                        'isSubOperation': alt_is_subop
-                    }
-                    if alt_step:
-                        if alt_is_subop:
-                            response['parentWordplay'] = alt_parent
-                            response['currentWordplayIndex'] = wordplays.index(alt_parent)
-                        else:
-                            response['currentWordplayIndex'] = wordplays.index(alt_step)
-                    else:
-                        response['currentWordplayIndex'] = -1
-                    self._send_json(response)
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, alt_step, alt_phase, alt_is_subop, alt_parent,
+                        blocked=True,
+                        blockedHint=wp.get('blockedHint', 'Solve dependencies first'),
+                        requestedWordplay=wp
+                    ))
                 else:
-                    # Use phase helper (handles reference fodder)
                     phase = self._get_wordplay_phase(wp)
-
-                    response = {
-                        'success': True,
-                        'clueEntry': clue_entry,
-                        'currentWordplay': wp,
-                        'currentPhase': phase,
-                        'blocked': False,
-                        'isSubOperation': is_subop
-                    }
-                    # Always include blockedHint if present (informational)
-                    if wp.get('blockedHint'):
-                        response['blockedHint'] = wp.get('blockedHint')
-                    if is_subop:
-                        response['parentWordplay'] = parent_wp
-                        response['currentWordplayIndex'] = wordplays.index(parent_wp)
-                    else:
-                        response['currentWordplayIndex'] = wordplays.index(wp)
-                    self._send_json(response)
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, wp, phase, is_subop, parent_wp,
+                        blocked=False
+                    ))
 
             else:
                 self._send_json({'success': False, 'error': f'Unknown action: {action}'}, 400)

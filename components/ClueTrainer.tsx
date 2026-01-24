@@ -142,58 +142,150 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const [phase, setPhase] = useState<TrainingPhase>('choose');
   const [identifiedType, setIdentifiedType] = useState<ClueType | null>(null);
 
-  // Definition phase UI state
-  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
-  const [discoveredParts, setDiscoveredParts] = useState<DiscoveredPart[]>([]);
-  const [isDefinitionCorrect, setIsDefinitionCorrect] = useState(false);
-  const [hasCheckedDefinition, setHasCheckedDefinition] = useState(false);
+  // Definition phase UI state - ONLY ephemeral user input (pre-check selection)
+  const [selectedIndices, setSelectedIndices] = useState<number[]>();
 
   // Solve phase UI state
   const [grid, setGrid] = useState<string[]>([]);
 
-  // Wordplay phase UI state - selection and feedback only
+  // Wordplay phase UI state - ONLY ephemeral user input (pre-check selections)
   const [showWordplayDetail, setShowWordplayDetail] = useState(false);
-  type WordplaySubPhase = 'indicator' | 'deleteTarget' | 'fodder' | 'decodeMethod' | 'discovery' | 'assembly' | 'result';
   type DecodeMethod = 'literal' | 'synonym' | 'abbreviation' | null;
-  const [wordplaySubPhase, setWordplaySubPhase] = useState<WordplaySubPhase>('indicator');
   const [selectedIndicatorIndices, setSelectedIndicatorIndices] = useState<number[]>([]);
   const [selectedDeleteTargetIndices, setSelectedDeleteTargetIndices] = useState<number[]>([]);
   const [selectedFodderIndices, setSelectedFodderIndices] = useState<number[]>([]);
-  const [hasCheckedIndicator, setHasCheckedIndicator] = useState(false);
-  const [isIndicatorCorrect, setIsIndicatorCorrect] = useState(false);
-  const [hasCheckedDeleteTarget, setHasCheckedDeleteTarget] = useState(false);
-  const [isDeleteTargetCorrect, setIsDeleteTargetCorrect] = useState(false);
-  const [hasCheckedFodder, setHasCheckedFodder] = useState(false);
-  const [isFodderCorrect, setIsFodderCorrect] = useState(false);
   const [selectedDecodeMethod, setSelectedDecodeMethod] = useState<DecodeMethod>(null);
   const [decodeMethodInput, setDecodeMethodInput] = useState('');
-  const [hasCheckedDecodeMethod, setHasCheckedDecodeMethod] = useState(false);
-  const [isDecodeMethodCorrect, setIsDecodeMethodCorrect] = useState(false);
   const [impliedResultInput, setImpliedResultInput] = useState('');
-  const [hasCheckedImpliedResult, setHasCheckedImpliedResult] = useState(false);
-  const [isImpliedResultCorrect, setIsImpliedResultCorrect] = useState(false);
   const [stepResultInput, setStepResultInput] = useState('');
-  const [hasCheckedResult, setHasCheckedResult] = useState(false);
-  const [isResultCorrect, setIsResultCorrect] = useState(false);
   const [expandedCompletedSteps, setExpandedCompletedSteps] = useState<number[]>([]);
   const [revealedIndicatorSteps, setRevealedIndicatorSteps] = useState<number[]>([]);
-  const [confirmedHighlights, setConfirmedHighlights] = useState<{indicatorIndices: number[], deleteTargetIndices: number[], fodderIndices: number[]}[]>([]);
+
+  // Temporary UI feedback state - for showing brief correct/wrong feedback
+  // This is reset after each check action completes
+  type CheckFeedback = { type: 'indicator' | 'fodder' | 'result' | 'deleteTarget' | 'decodeMethod' | 'impliedResult'; correct: boolean } | null;
+  const [checkFeedback, setCheckFeedback] = useState<CheckFeedback>(null);
+
+  // NOTE: All wordplay phase state is now derived from serverState
+  // - currentPhase replaces wordplaySubPhase
+  // - indicatorFound/fodderFound/resultFound replace hasChecked*/isCorrect* pairs
+  // - allIndicatorIndices/allFodderIndices replace confirmedHighlights
 
   // SERVER STATE - Single source of truth for training progress
   // Server controls: which wordplay to work on, what phase, what's solved
-  const [serverState, setServerState] = useState<{
+  // Note: Server returns phases: indicator, fodder, result, blocked, complete
+  // Legacy UI phases (deleteTarget, decodeMethod, discovery, assembly) are included for compatibility
+  // but not used in the minimal state architecture
+  const [serverState, setServerStateRaw] = useState<{
     clueEntry: any;
     currentWordplay: any;  // The actual wordplay/subOperation object from server
     currentWordplayIndex: number;
-    currentPhase: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete';
+    currentPhase: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete' | 'deleteTarget' | 'decodeMethod' | 'discovery' | 'assembly';
     blocked: boolean;
     blockedHint: string;
     allSolved: boolean;
   } | null>(null);
 
+  // Wrapper to log every serverState change
+  const setServerState = (value: any) => {
+    if (typeof value === 'function') {
+      setServerStateRaw((prev: any) => {
+        const result = value(prev);
+        console.log('[setServerState] UPDATE:', {
+          prevId: prev?.currentWordplay?.id,
+          newId: result?.currentWordplay?.id,
+          newState: result?.currentWordplay?.state,
+          stack: new Error().stack?.split('\n').slice(2, 5).join(' | ')
+        });
+        return result;
+      });
+    } else {
+      console.log('[setServerState] SET:', {
+        newId: value?.currentWordplay?.id,
+        newState: value?.currentWordplay?.state,
+        stack: new Error().stack?.split('\n').slice(2, 5).join(' | ')
+      });
+      setServerStateRaw(value);
+    }
+  };
+
   // Derive currentWordplayStep from server state (fallback to 0 for legacy)
   const currentWordplayStep = serverState?.currentWordplayIndex ?? 0;
 
+  // ---------------------------------------------------------------------------
+  // DERIVED FROM SERVER STATE - NOT state variables
+  // ---------------------------------------------------------------------------
+  // DEBUG: Log when serverState changes
+  console.log('[DERIVED] serverState?.currentWordplay?.id:', serverState?.currentWordplay?.id,
+    'state:', serverState?.currentWordplay?.state);
+
+  const currentPhase = serverState?.currentPhase ?? 'indicator';
+
+  // Definition state (from clueEntry.state)
+  const definitionFound = serverState?.clueEntry?.state?.definitionFound ?? false;
+  const definitionIndices = serverState?.clueEntry?.state?.definitionIndices ?? [];
+
+  // Current wordplay state (for phase logic)
+  const indicatorFound = serverState?.currentWordplay?.state?.indicatorFound ?? false;
+  const fodderFound = serverState?.currentWordplay?.state?.fodderFound ?? false;
+  const resultFound = serverState?.currentWordplay?.state?.resultEntered ?? false;
+
+  // AGGREGATED indices from ALL wordplays - for persistent highlighting
+  // This collects indices from all wordplays (including subOperations) so highlights persist
+  // even when we move to a different wordplay step
+  const { allIndicatorIndices, allFodderIndices } = useMemo(() => {
+    const indicatorIndices: number[] = [];
+    const fodderIndices: number[] = [];
+
+    const wordplays = serverState?.clueEntry?.wordplays ?? [];
+    for (const wp of wordplays) {
+      // Check main wordplay state
+      if (wp.state?.indicatorIndices) {
+        indicatorIndices.push(...wp.state.indicatorIndices);
+      }
+      if (wp.state?.fodderIndices) {
+        fodderIndices.push(...wp.state.fodderIndices);
+      }
+      // Check subOperations
+      for (const sub of wp.subOperations ?? []) {
+        if (sub.state?.indicatorIndices) {
+          indicatorIndices.push(...sub.state.indicatorIndices);
+        }
+        if (sub.state?.fodderIndices) {
+          fodderIndices.push(...sub.state.fodderIndices);
+        }
+      }
+    }
+
+    return { allIndicatorIndices: indicatorIndices, allFodderIndices: fodderIndices };
+  }, [serverState?.clueEntry?.wordplays]);
+
+  // Legacy: single wordplay indices (still used for some logic)
+  const confirmedIndicatorIndices = serverState?.currentWordplay?.state?.indicatorIndices ?? [];
+  const confirmedFodderIndices = serverState?.currentWordplay?.state?.fodderIndices ?? [];
+
+  // Local override for special clue types (DD, TD, CD, &lit) that don't use server definition flow
+  const [specialTypeDefinition, setSpecialTypeDefinition] = useState<DiscoveredPart | null>(null);
+
+  // Derived: discoveredParts from serverState OR special type override
+  const discoveredParts = useMemo<DiscoveredPart[]>(() => {
+    // Special type takes precedence (DD, TD, CD, &lit)
+    if (specialTypeDefinition) {
+      return [specialTypeDefinition];
+    }
+    // Otherwise use server state
+    if (!definitionFound || definitionIndices.length === 0) return [];
+    // Build the definition text from word indices
+    const words = (patternData?.clueText || '').split(/\s+/);
+    const defText = definitionIndices.map((i: number) => words[i] || '').join(' ');
+    return [{
+      role: 'definition' as const,
+      text: defText,
+      wordIndices: definitionIndices,
+      colorType: 'GREEN' as const,
+      explanation: `"${defText}" is the definition`
+    }];
+  }, [definitionFound, definitionIndices, patternData?.clueText, specialTypeDefinition]);
 
   // Refs
   const gridRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -465,14 +557,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     for (const part of discoveredParts) {
       part.wordIndices.forEach(i => used.add(i));
     }
-    // Completed wordplay step words
-    for (const highlight of confirmedHighlights) {
-      highlight.indicatorIndices.forEach(i => used.add(i));
-      highlight.deleteTargetIndices.forEach(i => used.add(i));
-      highlight.fodderIndices.forEach(i => used.add(i));
-    }
+    // Completed wordplay step words (from aggregated server indices)
+    allIndicatorIndices.forEach(i => used.add(i));
+    allFodderIndices.forEach(i => used.add(i));
     return used;
-  }, [discoveredParts, confirmedHighlights]);
+  }, [discoveredParts, allIndicatorIndices, allFodderIndices]);
 
   // Get unused words (not yet highlighted)
   const unusedWords = useMemo(() => {
@@ -487,35 +576,21 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     // Reset UI state when clue changes
     setPhase('choose');
     setSelectedIndices([]);
-    setDiscoveredParts([]);
-    setIsDefinitionCorrect(false);
-    setHasCheckedDefinition(false);
+    setDefinitionCheckFeedback(null);
+    setSpecialTypeDefinition(null);
     setShowWordplayDetail(false);
     setIdentifiedType(null);
-    setWordplaySubPhase('indicator');
+    // Ephemeral selection state
     setSelectedIndicatorIndices([]);
     setSelectedDeleteTargetIndices([]);
     setSelectedFodderIndices([]);
-    setHasCheckedIndicator(false);
-    setIsIndicatorCorrect(false);
-    setHasCheckedDeleteTarget(false);
-    setIsDeleteTargetCorrect(false);
-    setHasCheckedFodder(false);
-    setIsFodderCorrect(false);
     setSelectedDecodeMethod(null);
-    setDecodeMethodInput('');
-    setHasCheckedDecodeMethod(false);
-    setIsDecodeMethodCorrect(false);
-    setImpliedResultInput('');
-    setHasCheckedImpliedResult(false);
-    setIsImpliedResultCorrect(false);
     setStepResultInput('');
-    setHasCheckedResult(false);
-    setIsResultCorrect(false);
     setExpandedCompletedSteps([]);
     setRevealedIndicatorSteps([]);
-    setConfirmedHighlights([]);
-    setServerState(null); // Reset server state
+    setCheckFeedback(null);
+    // Reset server state - this resets all phase/highlighting state
+    setServerState(null);
 
     // Initialize answer grid
     const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
@@ -525,8 +600,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // When entering wordplay phase, ask server for first available wordplay
   // Server is source of truth for training state
   useEffect(() => {
-    if (phase === 'wordplay' && clueId) {
+    console.log('[useEffect wordplay init] phase:', phase, 'clueId:', clueId, 'hasServerState:', !!serverState);
+    // Only call start if we don't already have server state
+    // This prevents resetting state when the effect re-runs
+    if (phase === 'wordplay' && clueId && !serverState) {
+      console.warn('!!!! [useEffect wordplay init] CALLING trainingAction start - no existing serverState !!!!');
       trainingAction(clueId, 'start').then(response => {
+        console.warn('!!!! [useEffect wordplay init] Got response, setting serverState !!!!');
         if (response.success) {
           // Store full server state - this is the source of truth
           setServerState({
@@ -539,14 +619,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             allSolved: response.allSolved || false,
           });
 
-          // Set initial sub-phase from server
-          if (response.currentPhase === 'indicator') {
-            setWordplaySubPhase('indicator');
-          } else if (response.currentPhase === 'fodder') {
-            setWordplaySubPhase('fodder');
-          } else if (response.currentPhase === 'result') {
-            setWordplaySubPhase('result');
-          } else if (response.currentPhase === 'complete') {
+          // Phase is derived from serverState.currentPhase, no need to set manually
+          // Just handle the 'complete' case to transition training phase
+          if (response.currentPhase === 'complete') {
             setPhase('solve');
           }
         }
@@ -556,23 +631,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     }
   }, [phase, clueId]);
 
-  // Sync local wordplaySubPhase from server state - server is source of truth
+  // When currentPhase becomes 'complete', move to solve phase
   useEffect(() => {
-    if (serverState?.currentPhase) {
-      const serverPhase = serverState.currentPhase;
-      if (serverPhase === 'indicator') {
-        setWordplaySubPhase('indicator');
-      } else if (serverPhase === 'fodder') {
-        setWordplaySubPhase('fodder');
-      } else if (serverPhase === 'result') {
-        setWordplaySubPhase('result');
-      } else if (serverPhase === 'complete') {
-        // All wordplays done - move to solve phase
-        setPhase('solve');
-      }
-      // 'blocked' phase - keep current wordplaySubPhase, show blocked message
+    if (currentPhase === 'complete') {
+      setPhase('solve');
     }
-  }, [serverState?.currentPhase]);
+  }, [currentPhase]);
+
+  // NOTE: wordplaySubPhase removed - use currentPhase (derived from serverState) directly
 
   // ---------------------------------------------------------------------------
   // INTERACTION HANDLERS
@@ -581,42 +647,43 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const handleWordTap = (wordIndex: number) => {
     // Definition phase - contiguous selection
     if (phase === 'definition') {
-      // Don't allow changes after successful check (user should click Continue)
-      if (hasCheckedDefinition && isDefinitionCorrect) {
+      // Don't allow changes after successful check (feedback showing)
+      if (definitionCheckFeedback === 'correct') {
         return;
       }
       setSelectedIndices(prev => {
-        if (prev.includes(wordIndex)) {
-          return prev.filter(i => i !== wordIndex);
+        const current = prev ?? [];
+        if (current.includes(wordIndex)) {
+          return current.filter(i => i !== wordIndex);
         }
         // Keep selection contiguous for definition phase
-        if (prev.length > 0) {
-          const min = Math.min(...prev, wordIndex);
-          const max = Math.max(...prev, wordIndex);
+        if (current.length > 0) {
+          const min = Math.min(...current, wordIndex);
+          const max = Math.max(...current, wordIndex);
           return Array.from({ length: max - min + 1 }, (_, i) => min + i);
         }
-        return [...prev, wordIndex].sort((a, b) => a - b);
+        return [...current, wordIndex].sort((a, b) => a - b);
       });
       return;
     }
 
     // Wordplay phase - indicator, deleteTarget, or fodder selection
     if (phase === 'wordplay' && !showWordplayDetail) {
-      if (wordplaySubPhase === 'indicator') {
+      if (currentPhase === 'indicator') {
         setSelectedIndicatorIndices(prev => {
           if (prev.includes(wordIndex)) {
             return prev.filter(i => i !== wordIndex);
           }
           return [...prev, wordIndex].sort((a, b) => a - b);
         });
-      } else if (wordplaySubPhase === 'deleteTarget') {
+      } else if (currentPhase === 'deleteTarget') {
         setSelectedDeleteTargetIndices(prev => {
           if (prev.includes(wordIndex)) {
             return prev.filter(i => i !== wordIndex);
           }
           return [...prev, wordIndex].sort((a, b) => a - b);
         });
-      } else if (wordplaySubPhase === 'fodder') {
+      } else if (currentPhase === 'fodder') {
         // For indicatorless steps, auto-validate on single word tap (no Check button needed)
         if (!stepHasIndicator) {
           // Check if tapped word matches the expected fodder
@@ -628,20 +695,20 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           if (tappedWord === targetFodder) {
             // Correct - set fodder and auto-advance to decode method
             setSelectedFodderIndices([wordIndex]);
-            setHasCheckedFodder(true);
-            setIsFodderCorrect(true);
+            // Legacy: fodder state now from server
+            // Legacy: fodder state now from server
             setTimeout(() => {
-              setWordplaySubPhase('decodeMethod');
+              // Phase controlled by serverState.currentPhase
             }, 300); // Brief highlight before advancing
           } else {
             // Wrong word - brief red flash then clear
             setSelectedFodderIndices([wordIndex]);
-            setHasCheckedFodder(true);
-            setIsFodderCorrect(false);
+            // Legacy: fodder state now from server
+            // Legacy: fodder state now from server
             setTimeout(() => {
               setSelectedFodderIndices([]);
-              setHasCheckedFodder(false);
-              setIsFodderCorrect(false);
+              // Legacy: fodder state now from server
+              // Legacy: fodder state now from server
             }, 600);
           }
         } else {
@@ -663,66 +730,53 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     setPhase('definition');
   };
 
-  // Check if selected words match the expected definition (only in definition phase)
-  useEffect(() => {
-    // Only run this check in definition phase
-    if (phase !== 'definition') {
-      return;
-    }
+  // Temporary feedback state for definition check (for red flash on wrong answer)
+  const [definitionCheckFeedback, setDefinitionCheckFeedback] = useState<'correct' | 'wrong' | null>(null);
 
-    if (selectedIndices.length === 0) {
-      setIsDefinitionCorrect(false);
-      return;
-    }
+  const handleCheckDefinition = async () => {
+    if (!clueId || !selectedIndices || selectedIndices.length === 0) return;
 
     const selectedText = selectedIndices.map(i => words[i].text).join(' ');
-    const expectedText = expectedDefinition.wordIndices.map(i => words[i]?.text || '').join(' ');
 
-    const isMatch = selectedText === expectedText ||
-                    selectedIndices.length === expectedDefinition.wordIndices.length &&
-                    selectedIndices.every((idx, i) => idx === expectedDefinition.wordIndices[i]);
+    try {
+      const response = await trainingAction(clueId, 'check_definition', {
+        selected: selectedText,
+        selectedIndices: selectedIndices,
+      });
 
-    setIsDefinitionCorrect(isMatch);
-  }, [selectedIndices, phase, words, expectedDefinition]);
+      const isCorrect = response.validation?.correct || false;
 
-  const handleCheckDefinition = () => {
-    // User explicitly checks their selection
-    // Check correctness inline to decide if we should auto-reset
-    const selectedText = selectedIndices.map(i => words[i].text).join(' ');
-    const expectedText = expectedDefinition.wordIndices.map(i => words[i]?.text || '').join(' ');
-    const isMatch = selectedText === expectedText ||
-                    selectedIndices.length === expectedDefinition.wordIndices.length &&
-                    selectedIndices.every((idx, i) => idx === expectedDefinition.wordIndices[i]);
+      // Show feedback
+      setDefinitionCheckFeedback(isCorrect ? 'correct' : 'wrong');
 
-    if (isMatch) {
-      // Correct - show success state
-      setHasCheckedDefinition(true);
-    } else {
-      // Wrong - briefly show red, then auto-clear for retry
-      setHasCheckedDefinition(true);
-      setTimeout(() => {
-        setSelectedIndices([]);
-        setHasCheckedDefinition(false);
-      }, 800); // Brief flash of red feedback
+      // Update server state - create new state if none exists
+      setServerState((prev: any) => ({
+        clueEntry: response.clueEntry,
+        currentWordplay: prev?.currentWordplay ?? null,
+        currentWordplayIndex: prev?.currentWordplayIndex ?? 0,
+        currentPhase: prev?.currentPhase ?? 'indicator',
+        blocked: prev?.blocked ?? false,
+        blockedHint: prev?.blockedHint ?? '',
+        allSolved: prev?.allSolved ?? false,
+      }));
+
+      if (isCorrect) {
+        // Clear selection after brief delay, then move to wordplay phase
+        setTimeout(() => {
+          setSelectedIndices([]);
+          setDefinitionCheckFeedback(null);
+          setPhase('wordplay');
+        }, 600);
+      } else {
+        // Wrong - clear selection after brief red flash
+        setTimeout(() => {
+          setSelectedIndices([]);
+          setDefinitionCheckFeedback(null);
+        }, 800);
+      }
+    } catch (err) {
+      console.warn('[training] Definition check failed:', err);
     }
-  };
-
-  const handleDefinitionConfirm = () => {
-    if (!isDefinitionCorrect) return;
-
-    // Add definition to discovered parts
-    const defText = selectedIndices.map(i => words[i].display).join(' ');
-    setDiscoveredParts([{
-      role: 'definition',
-      text: defText,
-      wordIndices: [...selectedIndices],
-      colorType: 'GREEN',
-      explanation: `"${defText}" is the definition`
-    }]);
-
-    setSelectedIndices([]);
-    setHasCheckedDefinition(false);
-    setPhase('wordplay');
   };
 
   const handleSpecialType = (type: ClueType) => {
@@ -730,7 +784,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     if (type === 'double_definition' || type === 'triple_definition') {
       // For DD/TD, the whole clue is definitions - move to solve
-      setDiscoveredParts([{
+      setSpecialTypeDefinition({
         role: 'definition',
         text: clueText,
         wordIndices: words.map((_, i) => i),
@@ -738,27 +792,27 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         explanation: type === 'double_definition'
           ? 'Both parts define the same answer'
           : 'All three parts define the same answer'
-      }]);
+      });
       setPhase('solve');
     } else if (type === 'cryptic_definition') {
       // CD - entire clue is a cryptic definition
-      setDiscoveredParts([{
+      setSpecialTypeDefinition({
         role: 'definition',
         text: clueText,
         wordIndices: words.map((_, i) => i),
         colorType: 'GREEN',
         explanation: 'The entire clue is a cryptic definition with hidden meaning'
-      }]);
+      });
       setPhase('solve');
     } else if (type === 'and_lit') {
       // &lit - entire clue is both definition AND wordplay
-      setDiscoveredParts([{
+      setSpecialTypeDefinition({
         role: 'definition',
         text: clueText,
         wordIndices: words.map((_, i) => i),
         colorType: 'GREEN',
         explanation: 'The entire clue reads as both a definition AND wordplay instructions'
-      }]);
+      });
       setPhase('wordplay');
     }
   };
@@ -768,47 +822,51 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     const selectedText = selectedIndicatorIndices.map(i => words[i].text).join(' ');
 
-    setHasCheckedIndicator(true);
-
     try {
       // Ask server to validate indicator selection
       const response = await trainingAction(clueId, 'check_indicator', {
         wordplayId: currentStep.id,
         selected: selectedText,
+        selectedIndices: selectedIndicatorIndices,  // Send indices for server to store
       });
 
-      const isMatch = response.validation?.correct || false;
-      setIsIndicatorCorrect(isMatch);
+      const isCorrect = response.validation?.correct || false;
 
-      if (isMatch) {
-        // Update server state
-        setServerState(prev => prev ? {
+      // DEBUG: Log the full response to verify indices are returned
+      console.log('[handleCheckIndicator] response:', JSON.stringify(response, null, 2));
+      console.log('[handleCheckIndicator] response.currentWordplay?.state:', response.currentWordplay?.state);
+
+      // Show feedback briefly
+      setCheckFeedback({ type: 'indicator', correct: isCorrect });
+
+      // Update server state - this is the ONLY state change needed
+      console.log('[handleCheckIndicator] About to setServerState, response.currentWordplay:', response.currentWordplay?.id, response.currentWordplay?.state);
+      setServerState(prev => {
+        console.log('[handleCheckIndicator] Inside setServerState, prev:', prev?.currentWordplay?.id, prev?.currentWordplay?.state);
+        if (!prev) return null;
+        const newState = {
           ...prev,
           clueEntry: response.clueEntry,
           currentWordplay: response.currentWordplay ?? prev.currentWordplay,
           currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
-          currentPhase: response.currentPhase || 'fodder',
-        } : null);
+          currentPhase: response.currentPhase ?? prev.currentPhase,
+        };
+        console.log('[handleCheckIndicator] New state will be:', newState.currentWordplay?.id, newState.currentWordplay?.state);
+        return newState;
+      });
 
-        // Correct - advance to next phase from server
-        setTimeout(() => {
-          if (response.currentPhase === 'fodder') {
-            setWordplaySubPhase('fodder');
-          } else if (response.currentPhase === 'result') {
-            setWordplaySubPhase('result');
-          }
-        }, 600);
-      } else {
-        // Wrong - auto-clear after brief red flash
-        setTimeout(() => {
-          setSelectedIndicatorIndices([]);
-          setHasCheckedIndicator(false);
-          setIsIndicatorCorrect(false);
-        }, 800);
-      }
+      // Clear selection and feedback after brief delay
+      setTimeout(() => {
+        setSelectedIndicatorIndices([]);
+        setCheckFeedback(null);
+        // If complete, move to solve phase
+        if (response.currentPhase === 'complete') {
+          setPhase('solve');
+        }
+      }, isCorrect ? 600 : 800);
+
     } catch (err) {
       console.warn('[training] Indicator check failed:', err);
-      setHasCheckedIndicator(false);
     }
   };
 
@@ -824,20 +882,20 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                     selectedText.includes(targetDelete) ||
                     targetDelete.includes(selectedText);
 
-    setHasCheckedDeleteTarget(true);
-    setIsDeleteTargetCorrect(isMatch);
+    // Legacy: deleteTarget state removed
+    // Legacy: deleteTarget state removed
 
     if (isMatch) {
       // Correct - auto-advance to fodder selection
       setTimeout(() => {
-        setWordplaySubPhase('fodder');
+        // Phase controlled by serverState.currentPhase
       }, 600);
     } else {
       // Wrong - auto-clear after brief red flash
       setTimeout(() => {
         setSelectedDeleteTargetIndices([]);
-        setHasCheckedDeleteTarget(false);
-        setIsDeleteTargetCorrect(false);
+        // Legacy: deleteTarget state removed
+        // Legacy: deleteTarget state removed
       }, 800);
     }
   };
@@ -847,45 +905,44 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     const selectedText = selectedFodderIndices.map(i => words[i].text).join(' ');
 
-    setHasCheckedFodder(true);
-
     try {
       // Ask server to validate fodder selection
       const response = await trainingAction(clueId, 'check_fodder', {
         wordplayId: currentStep.id,
         selected: selectedText,
+        selectedIndices: selectedFodderIndices,  // Send indices for server to store
       });
 
-      const isMatch = response.validation?.correct || false;
-      setIsFodderCorrect(isMatch);
+      const isCorrect = response.validation?.correct || false;
 
-      if (isMatch) {
-        // Update server state
-        setServerState(prev => prev ? {
-          ...prev,
-          clueEntry: response.clueEntry,
-          currentWordplay: response.currentWordplay ?? prev.currentWordplay,
-          currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
-          currentPhase: response.currentPhase || 'result',
-        } : null);
+      // Show feedback briefly
+      setCheckFeedback({ type: 'fodder', correct: isCorrect });
 
-        // Correct - advance to next phase from server
-        setTimeout(() => {
-          if (response.currentPhase === 'result') {
-            setWordplaySubPhase('result');
-          }
-        }, 600);
-      } else {
-        // Wrong - auto-clear after brief red flash
-        setTimeout(() => {
-          setSelectedFodderIndices([]);
-          setHasCheckedFodder(false);
-          setIsFodderCorrect(false);
-        }, 800);
-      }
+      // Update server state - this is the ONLY state change needed
+      setServerState(prev => prev ? {
+        ...prev,
+        clueEntry: response.clueEntry,
+        currentWordplay: response.currentWordplay ?? prev.currentWordplay,
+        currentWordplayIndex: response.currentWordplayIndex ?? prev.currentWordplayIndex,
+        currentPhase: response.currentPhase ?? prev.currentPhase,
+      } : null);
+
+      // Clear selection and feedback after brief delay
+      setTimeout(() => {
+        setSelectedFodderIndices([]);
+        setCheckFeedback(null);
+        // If moving to new wordplay, also clear indicator selection
+        if (response.currentPhase === 'indicator') {
+          setSelectedIndicatorIndices([]);
+        }
+        // If complete, move to solve phase
+        if (response.currentPhase === 'complete') {
+          setPhase('solve');
+        }
+      }, isCorrect ? 600 : 800);
+
     } catch (err) {
       console.warn('[training] Fodder check failed:', err);
-      setHasCheckedFodder(false);
     }
   };
 
@@ -908,31 +965,25 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       isCorrect = userInput === targetResult;
     }
 
-    setHasCheckedDecodeMethod(true);
-    setIsDecodeMethodCorrect(isCorrect);
+    // Show feedback
+    setCheckFeedback({ type: 'decodeMethod', correct: isCorrect });
 
     if (isCorrect) {
       // Correct - auto-advance to result phase with result pre-filled
       setTimeout(() => {
+        setCheckFeedback(null);
         if (selectedDecodeMethod === 'literal') {
           // For literal, we already know the result - auto-fill and complete
           setStepResultInput(targetResult);
-          setHasCheckedResult(true);
-          setIsResultCorrect(true);
         } else {
           // For synonym/abbreviation, the user typed the result - auto-fill
           setStepResultInput(userInput);
-          setHasCheckedResult(true);
-          setIsResultCorrect(true);
         }
-        // Transition to result sub-phase to show the "Next Step" button
-        setWordplaySubPhase('result');
       }, 600);
     } else {
-      // Wrong - reset after flash
+      // Wrong - reset feedback after flash
       setTimeout(() => {
-        setHasCheckedDecodeMethod(false);
-        setIsDecodeMethodCorrect(false);
+        setCheckFeedback(null);
         // Don't clear the method selection, just let them try again
       }, 800);
     }
@@ -946,19 +997,18 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     const isMatch = userImplied === targetImplied;
 
-    setHasCheckedImpliedResult(true);
-    setIsImpliedResultCorrect(isMatch);
+    // Show feedback
+    setCheckFeedback({ type: 'impliedResult', correct: isMatch });
 
     if (isMatch) {
-      // Correct - auto-advance to result phase
+      // Correct - clear feedback after brief delay
       setTimeout(() => {
-        setWordplaySubPhase('result');
+        setCheckFeedback(null);
       }, 600);
     } else {
-      // Wrong - reset after flash
+      // Wrong - reset feedback after flash
       setTimeout(() => {
-        setHasCheckedImpliedResult(false);
-        setIsImpliedResultCorrect(false);
+        setCheckFeedback(null);
       }, 800);
     }
   };
@@ -968,8 +1018,6 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
     const userResult = stepResultInput.toUpperCase().replace(/[^A-Z]/g, '');
 
-    setHasCheckedResult(true);
-
     try {
       // Ask server to validate result
       const response = await trainingAction(clueId, 'check_result', {
@@ -978,7 +1026,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       });
 
       const isMatch = response.validation?.correct || false;
-      setIsResultCorrect(isMatch);
+
+      // Show feedback
+      setCheckFeedback({ type: 'result', correct: isMatch });
 
       if (isMatch) {
         // Update server state - this marks the wordplay as solved
@@ -991,42 +1041,30 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           allSolved: response.allSolved || false,
         } : null);
 
-        // Save confirmed highlights
-        setConfirmedHighlights(prev => [...prev, {
-          indicatorIndices: [...selectedIndicatorIndices],
-          deleteTargetIndices: [...selectedDeleteTargetIndices],
-          fodderIndices: [...selectedFodderIndices]
-        }]);
+        // Clear feedback after brief delay
+        setTimeout(() => setCheckFeedback(null), 600);
       } else {
-        // Wrong - reset after flash
+        // Wrong - reset feedback after flash
         setTimeout(() => {
-          setHasCheckedResult(false);
-          setIsResultCorrect(false);
+          setCheckFeedback(null);
         }, 800);
       }
     } catch (err) {
       console.warn('[training] Result check failed:', err);
-      setHasCheckedResult(false);
     }
   };
 
   const handleRevealStepResult = () => {
     if (!currentStep) return;
     setStepResultInput(currentStep.result);
-    setHasCheckedResult(true);
-    setIsResultCorrect(true);
+    // Result correctness now derived from server state after check
   };
 
   // Handle assembly step completion - server controls flow
   const handleAssemblyComplete = async () => {
     if (!clueId) return;
 
-    // Save confirmed highlights for container step
-    setConfirmedHighlights(prev => [...prev, {
-      indicatorIndices: [...selectedIndicatorIndices],
-      deleteTargetIndices: [],
-      fodderIndices: []
-    }]);
+    // Highlights now come from server state
 
     // Ask server for next wordplay after assembly
     try {
@@ -1046,11 +1084,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
         // Set phase from server
         if (response.currentPhase === 'indicator') {
-          setWordplaySubPhase('indicator');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'fodder') {
-          setWordplaySubPhase('fodder');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'result') {
-          setWordplaySubPhase('result');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'complete') {
           setPhase('solve');
         }
@@ -1062,25 +1100,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
   // Helper to reset wordplay UI state
   const resetWordplayUIState = () => {
+    // Clear ephemeral selection state (pre-check user input)
     setSelectedIndicatorIndices([]);
     setSelectedDeleteTargetIndices([]);
     setSelectedFodderIndices([]);
-    setHasCheckedIndicator(false);
-    setIsIndicatorCorrect(false);
-    setHasCheckedDeleteTarget(false);
-    setIsDeleteTargetCorrect(false);
-    setHasCheckedFodder(false);
-    setIsFodderCorrect(false);
     setSelectedDecodeMethod(null);
     setDecodeMethodInput('');
-    setHasCheckedDecodeMethod(false);
-    setIsDecodeMethodCorrect(false);
     setImpliedResultInput('');
-    setHasCheckedImpliedResult(false);
-    setIsImpliedResultCorrect(false);
     setStepResultInput('');
-    setHasCheckedResult(false);
-    setIsResultCorrect(false);
+    // All "checked" and "correct" state now derives from serverState
   };
 
   // Step complete - server already updated state in handleCheckResult
@@ -1113,11 +1141,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
         // Set phase from server
         if (response.currentPhase === 'indicator') {
-          setWordplaySubPhase('indicator');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'fodder') {
-          setWordplaySubPhase('fodder');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'result') {
-          setWordplaySubPhase('result');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'blocked') {
           // All remaining wordplays are blocked - shouldn't happen with proper dependencies
           console.warn('[training] All remaining wordplays blocked');
@@ -1132,12 +1160,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   const handleSkipStep = async () => {
     if (!clueId) return;
 
-    // Save any partial highlights
-    setConfirmedHighlights(prev => [...prev, {
-      indicatorIndices: [...selectedIndicatorIndices],
-      deleteTargetIndices: [...selectedDeleteTargetIndices],
-      fodderIndices: [...selectedFodderIndices]
-    }]);
+    // Highlights now come from server state
 
     // Ask server for next available (unblocked) wordplay
     // Server will skip to the next unblocked, unsolved wordplay
@@ -1157,11 +1180,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
         // Set phase from server
         if (response.currentPhase === 'indicator') {
-          setWordplaySubPhase('indicator');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'fodder') {
-          setWordplaySubPhase('fodder');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'result') {
-          setWordplaySubPhase('result');
+          // Phase controlled by serverState.currentPhase
         }
       }
     } catch (err) {
@@ -1195,11 +1218,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         // Reset UI and set phase from server
         resetWordplayUIState();
         if (response.currentPhase === 'indicator') {
-          setWordplaySubPhase('indicator');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'fodder') {
-          setWordplaySubPhase('fodder');
+          // Phase controlled by serverState.currentPhase
         } else if (response.currentPhase === 'result') {
-          setWordplaySubPhase('result');
+          // Phase controlled by serverState.currentPhase
         }
       }
     } catch (err) {
@@ -1228,9 +1251,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           if (response.allSolved || response.currentPhase === 'complete') {
             setShowWordplayDetail(true);
           } else {
+            // Clear ephemeral selection - checked state derives from serverState
             setSelectedIndicatorIndices([]);
-            setHasCheckedIndicator(false);
-            setIsIndicatorCorrect(false);
           }
         }
       } catch (err) {
@@ -1329,7 +1351,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   };
 
   const getWordStyle = (wordIndex: number): string => {
-    // Check if word is in discovered parts (definition)
+    // DEBUG: Log state for highlighting (only for first word to avoid spam)
+    if (wordIndex === 0) {
+      console.log('[getWordStyle] allIndicatorIndices:', allIndicatorIndices, 'allFodderIndices:', allFodderIndices);
+    }
+    // 1. Definition highlights (from discoveredParts)
     for (const part of discoveredParts) {
       if (part.wordIndices.includes(wordIndex)) {
         const theme = WORKFLOW_COLORS[part.colorType];
@@ -1337,92 +1363,55 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       }
     }
 
-    // Check persisted wordplay highlights from completed steps
-    for (const highlight of confirmedHighlights) {
-      if (highlight.indicatorIndices.includes(wordIndex)) {
-        return 'bg-orange-200 text-orange-800 ring-2 ring-orange-400 font-bold';
-      }
-      if (highlight.deleteTargetIndices.includes(wordIndex)) {
-        return 'bg-purple-200 text-purple-800 ring-2 ring-purple-400 font-bold';
-      }
-      if (highlight.fodderIndices.includes(wordIndex)) {
-        return 'bg-blue-200 text-blue-800 ring-2 ring-blue-400 font-bold';
-      }
+    // 2. Confirmed indicator highlight (from ALL wordplays in clueEntry)
+    // Uses aggregated allIndicatorIndices so highlights persist across wordplay steps
+    if (allIndicatorIndices.includes(wordIndex)) {
+      return 'bg-orange-200 text-orange-800 ring-2 ring-orange-400 font-bold';
     }
 
-    // Definition phase - selected words
-    if (selectedIndices.includes(wordIndex)) {
-      // Only show green after user has checked AND it's correct
-      if (phase === 'definition' && hasCheckedDefinition && isDefinitionCorrect) {
+    // 3. Confirmed fodder highlight (from ALL wordplays in clueEntry)
+    // Uses aggregated allFodderIndices so highlights persist across wordplay steps
+    if (allFodderIndices.includes(wordIndex)) {
+      return 'bg-blue-200 text-blue-800 ring-2 ring-blue-400 font-bold';
+    }
+
+    // 4. Definition phase - selected words with feedback
+    if (selectedIndices?.includes(wordIndex)) {
+      if (phase === 'definition' && definitionCheckFeedback === 'correct') {
         return 'bg-green-200 text-green-800 ring-2 ring-green-400 font-bold';
       }
-      // Show red after user has checked AND it's wrong
-      if (phase === 'definition' && hasCheckedDefinition && !isDefinitionCorrect) {
+      if (phase === 'definition' && definitionCheckFeedback === 'wrong') {
         return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
       }
-      // Normal selection (before checking)
       return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
     }
 
-    // Wordplay phase - indicator selection (persist through all sub-phases once confirmed)
-    if (selectedIndicatorIndices.includes(wordIndex)) {
-      // Confirmed correct indicator - keep orange highlight through fodder and result phases
-      if (phase === 'wordplay' && isIndicatorCorrect) {
-        return 'bg-orange-200 text-orange-800 ring-2 ring-orange-400 font-bold';
-      }
-      // Wrong selection (only during indicator sub-phase)
-      if (phase === 'wordplay' && hasCheckedIndicator && !isIndicatorCorrect) {
-        return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
-      }
-      // Normal selection (before checking, during indicator sub-phase)
-      if (phase === 'wordplay' && wordplaySubPhase === 'indicator') {
-        return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
-      }
+    // 5. Current indicator selection (pre-check, ephemeral)
+    if (phase === 'wordplay' && currentPhase === 'indicator' && selectedIndicatorIndices.includes(wordIndex)) {
+      return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
     }
 
-    // Wordplay phase - fodder selection (persist through result phase once confirmed)
-    if (selectedFodderIndices.includes(wordIndex)) {
-      // Confirmed correct fodder - keep blue highlight through result phase
-      if (phase === 'wordplay' && isFodderCorrect) {
-        return 'bg-blue-200 text-blue-800 ring-2 ring-blue-400 font-bold';
-      }
-      // Wrong selection (only during fodder sub-phase)
-      if (phase === 'wordplay' && hasCheckedFodder && !isFodderCorrect) {
-        return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
-      }
-      // Normal selection (before checking, during fodder sub-phase)
-      if (phase === 'wordplay' && wordplaySubPhase === 'fodder') {
-        return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
-      }
+    // 6. Current fodder selection (pre-check, ephemeral)
+    if (phase === 'wordplay' && currentPhase === 'fodder' && selectedFodderIndices.includes(wordIndex)) {
+      return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
     }
 
-    // Wordplay phase - deleteTarget selection (for deletion steps)
-    if (selectedDeleteTargetIndices.includes(wordIndex)) {
-      // Confirmed correct deleteTarget - keep purple highlight through fodder/discovery phases
-      if (phase === 'wordplay' && isDeleteTargetCorrect) {
-        return 'bg-purple-200 text-purple-800 ring-2 ring-purple-400 font-bold';
-      }
-      // Wrong selection
-      if (phase === 'wordplay' && hasCheckedDeleteTarget && !isDeleteTargetCorrect) {
-        return 'bg-red-200 text-red-800 ring-2 ring-red-400 font-bold';
-      }
-      // Normal selection (before checking, during deleteTarget sub-phase)
-      if (phase === 'wordplay' && wordplaySubPhase === 'deleteTarget') {
-        return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
-      }
+    // 7. Current deleteTarget selection (pre-check, ephemeral)
+    if (phase === 'wordplay' && currentPhase === 'deleteTarget' && selectedDeleteTargetIndices.includes(wordIndex)) {
+      return 'bg-slate-800 text-white ring-2 ring-slate-600 font-bold';
     }
 
-    // Interactive state - definition or wordplay selection phases
+    // Interactive hover states
     if (phase === 'definition') {
       return 'hover:bg-indigo-50 cursor-pointer';
     }
-    if (phase === 'wordplay' && wordplaySubPhase === 'indicator') {
+    if (phase === 'wordplay' && currentPhase === 'indicator') {
       return 'hover:bg-orange-50 cursor-pointer';
     }
-    if (phase === 'wordplay' && wordplaySubPhase === 'deleteTarget') {
+    if (phase === 'wordplay' && currentPhase === 'deleteTarget') {
       return 'hover:bg-purple-50 cursor-pointer';
     }
-    if (phase === 'wordplay' && wordplaySubPhase === 'fodder') {
+    if (phase === 'wordplay' && currentPhase === 'fodder') {
       return 'hover:bg-blue-50 cursor-pointer';
     }
 
@@ -1435,13 +1424,13 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         return "What type of clue is this?";
 
       case 'definition':
-        if (hasCheckedDefinition && isDefinitionCorrect) {
+        if (definitionCheckFeedback === 'correct') {
           return "That's it! The definition is highlighted";
         }
-        if (hasCheckedDefinition && !isDefinitionCorrect) {
+        if (definitionCheckFeedback === 'wrong') {
           return "Not quite — try again";
         }
-        if (selectedIndices.length === 0) {
+        if (!selectedIndices || selectedIndices.length === 0) {
           return "Standard clue — tap the definition words";
         }
         return "Tap Check when ready";
@@ -1450,30 +1439,30 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
         if (currentStep && currentWordplayStep < wordplaySteps.length) {
           // Indicatorless steps (synonym, abbreviation) - Socratic approach
           if (!stepHasIndicator) {
-            if (wordplaySubPhase === 'fodder') {
+            if (currentPhase === 'fodder') {
               return `Select a word to decode`;
             }
-            if (wordplaySubPhase === 'decodeMethod') {
+            if (currentPhase === 'decodeMethod') {
               return `How does "${currentStep.fodder}" decode?`;
             }
-            if (wordplaySubPhase === 'result') {
+            if (currentPhase === 'result') {
               return `What does "${currentStep.fodder}" give you?`;
             }
           } else {
             // Steps with indicator
-            if (wordplaySubPhase === 'indicator') {
+            if (currentPhase === 'indicator') {
               return `Find the ${getStepTypeLabel(currentStep).toLowerCase()} indicator`;
             }
-            if (wordplaySubPhase === 'deleteTarget') {
+            if (currentPhase === 'deleteTarget') {
               return `What should be deleted?`;
             }
-            if (wordplaySubPhase === 'fodder') {
+            if (currentPhase === 'fodder') {
               return `Now find the fodder for "${currentStep.indicator}"`;
             }
-            if (wordplaySubPhase === 'discovery') {
+            if (currentPhase === 'discovery') {
               return `But wait...`;
             }
-            if (wordplaySubPhase === 'result') {
+            if (currentPhase === 'result') {
               return `Work out the result`;
             }
           }
@@ -1541,9 +1530,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
         {/* Prompt - evolves based on phase */}
         {phase !== 'complete' && (() => {
-          const isIndicatorSelection = phase === 'wordplay' && wordplaySubPhase === 'indicator';
-          const isDeleteTargetSelection = phase === 'wordplay' && wordplaySubPhase === 'deleteTarget';
-          const isFodderSelection = phase === 'wordplay' && wordplaySubPhase === 'fodder';
+          const isIndicatorSelection = phase === 'wordplay' && currentPhase === 'indicator';
+          const isDeleteTargetSelection = phase === 'wordplay' && currentPhase === 'deleteTarget';
+          const isFodderSelection = phase === 'wordplay' && currentPhase === 'fodder';
           const isFocusedSelection = isIndicatorSelection || isDeleteTargetSelection || isFodderSelection;
 
           return (
@@ -1558,7 +1547,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               </div>
 
               {/* Check Indicator button - in clue box */}
-              {isIndicatorSelection && selectedIndicatorIndices.length > 0 && !hasCheckedIndicator && (
+              {isIndicatorSelection && selectedIndicatorIndices.length > 0 && !indicatorFound && !checkFeedback && (
                 <div className="mt-3">
                   <button
                     onClick={handleCheckIndicator}
@@ -1571,7 +1560,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* Check Delete Target button - in clue box */}
-              {isDeleteTargetSelection && selectedDeleteTargetIndices.length > 0 && !hasCheckedDeleteTarget && (
+              {isDeleteTargetSelection && selectedDeleteTargetIndices.length > 0 && !checkFeedback && (
                 <div className="mt-3">
                   <button
                     onClick={handleCheckDeleteTarget}
@@ -1584,7 +1573,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* Check Fodder button - in clue box (only for steps WITH indicators) */}
-              {isFodderSelection && selectedFodderIndices.length > 0 && !hasCheckedFodder && stepHasIndicator && (
+              {isFodderSelection && selectedFodderIndices.length > 0 && !fodderFound && !checkFeedback && stepHasIndicator && (
                 <div className="mt-3">
                   <button
                     onClick={handleCheckFodder}
@@ -1597,7 +1586,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* Check Definition button - in clue box */}
-              {phase === 'definition' && selectedIndices.length > 0 && !hasCheckedDefinition && (
+              {phase === 'definition' && selectedIndices && selectedIndices.length > 0 && !definitionCheckFeedback && (
                 <div className="mt-3">
                   <button
                     onClick={handleCheckDefinition}
@@ -1615,7 +1604,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
       {/* ANSWER GRID - Hidden during indicator/fodder selection for focus */}
       {(() => {
-        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'deleteTarget' || wordplaySubPhase === 'fodder');
+        const isFocusedSelection = phase === 'wordplay' && (currentPhase === 'indicator' || currentPhase === 'deleteTarget' || currentPhase === 'fodder');
         return (
           <div className={`flex justify-center gap-1.5 md:gap-2 transition-all duration-300 ${
             isFocusedSelection ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'
@@ -1646,7 +1635,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
       {/* DISCOVERED PARTS - Hidden during indicator/fodder selection for focus */}
       {(() => {
-        const isFocusedSelection = phase === 'wordplay' && (wordplaySubPhase === 'indicator' || wordplaySubPhase === 'deleteTarget' || wordplaySubPhase === 'fodder');
+        const isFocusedSelection = phase === 'wordplay' && (currentPhase === 'indicator' || currentPhase === 'deleteTarget' || currentPhase === 'fodder');
         const shouldShow = discoveredParts.length > 0 && phase !== 'complete';
 
         if (!shouldShow) return null;
@@ -1735,7 +1724,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
           </div>
 
           {/* Instruction card - hide once definition is correct */}
-          {!(hasCheckedDefinition && isDefinitionCorrect) && (
+          {definitionCheckFeedback !== 'correct' && (
             <div className="bg-slate-50 rounded-md p-3 border border-slate-200 mb-3">
               <p className="text-slate-600 text-sm">
                 Tap the definition words above. It's always at the <strong>start</strong> or <strong>end</strong> of the clue.
@@ -1745,20 +1734,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
           {/* Check button moved to clue box above */}
 
-          {/* Result after checking - with key learning */}
-          {hasCheckedDefinition && isDefinitionCorrect && (
+          {/* Result after checking - with key learning (brief flash before auto-advancing) */}
+          {definitionCheckFeedback === 'correct' && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="bg-green-50 border border-green-200 rounded-md px-3 py-2 text-green-700 font-bold text-sm flex items-center gap-2">
                   <Check size={14} className="text-green-600" />
                   Nice split!
                 </div>
-                <button
-                  onClick={handleDefinitionConfirm}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shadow-sm flex items-center gap-1"
-                >
-                  Continue <ChevronRight size={16} />
-                </button>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
                 <p className="text-amber-800 text-sm leading-relaxed">
@@ -1768,14 +1751,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             </div>
           )}
 
-          {hasCheckedDefinition && !isDefinitionCorrect && (
+          {definitionCheckFeedback === 'wrong' && (
             <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2 text-red-700 font-medium text-sm animate-in fade-in">
               ✗ Not quite — try again
             </div>
           )}
 
-          {/* Back to choose - only when nothing selected and not checked */}
-          {selectedIndices.length === 0 && !hasCheckedDefinition && (
+          {/* Back to choose - only when nothing selected and not checking */}
+          {(!selectedIndices || selectedIndices.length === 0) && !definitionCheckFeedback && (
             <button
               onClick={() => setPhase('choose')}
               className="text-slate-400 hover:text-slate-600 text-xs font-medium"
@@ -1920,11 +1903,11 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                 </div>
               )}
 
-              {/* Clear instruction - hide once result is correct */}
-              {!(hasCheckedResult && isResultCorrect) && wordplaySubPhase !== 'discovery' && (
+              {/* Clear instruction - hide once result is confirmed by server */}
+              {!resultFound && currentPhase !== 'discovery' && (
                 <div className="bg-white rounded-lg p-3 border border-slate-200">
                   {/* Indicatorless steps: Socratic approach */}
-                  {!stepHasIndicator && wordplaySubPhase === 'fodder' && (
+                  {!stepHasIndicator && currentPhase === 'fodder' && (
                     <>
                       {/* Letter boxes: accumulated + blanks for remaining */}
                       <div className="flex items-center gap-1 mb-3">
@@ -1950,22 +1933,22 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   {stepHasIndicator && (
                     <>
                       <p className="text-slate-800 font-medium text-base">
-                        {wordplaySubPhase === 'indicator' && `Tap the ${getStepTypeLabel(currentStep).toLowerCase()} indicator in the clue above`}
-                        {wordplaySubPhase === 'deleteTarget' && `Now tap what should be deleted`}
-                        {wordplaySubPhase === 'fodder' && `Now tap the fodder words in the clue above`}
-                        {wordplaySubPhase === 'result' && `Type the result of this wordplay step`}
+                        {currentPhase === 'indicator' && `Tap the ${getStepTypeLabel(currentStep).toLowerCase()} indicator in the clue above`}
+                        {currentPhase === 'deleteTarget' && `Now tap what should be deleted`}
+                        {currentPhase === 'fodder' && `Now tap the fodder words in the clue above`}
+                        {currentPhase === 'result' && `Type the result of this wordplay step`}
                       </p>
                       <p className="text-slate-500 text-sm mt-1">
-                        {wordplaySubPhase === 'indicator' && `Look for a word that signals letters should be rearranged, selected, or transformed`}
-                        {wordplaySubPhase === 'deleteTarget' && `The indicator tells you to remove something`}
-                        {wordplaySubPhase === 'fodder' && `The fodder is adjacent to the indicator in the clue`}
-                        {wordplaySubPhase === 'result' && isFodderDependent && `This step combines your previous results`}
-                        {wordplaySubPhase === 'result' && !isFodderDependent && `Apply the operation to the fodder`}
+                        {currentPhase === 'indicator' && `Look for a word that signals letters should be rearranged, selected, or transformed`}
+                        {currentPhase === 'deleteTarget' && `The indicator tells you to remove something`}
+                        {currentPhase === 'fodder' && `The fodder is adjacent to the indicator in the clue`}
+                        {currentPhase === 'result' && isFodderDependent && `This step combines your previous results`}
+                        {currentPhase === 'result' && !isFodderDependent && `Apply the operation to the fodder`}
                       </p>
                     </>
                   )}
                   {/* Indicatorless decode method phase - how does this word contribute? */}
-                  {!stepHasIndicator && wordplaySubPhase === 'decodeMethod' && (
+                  {!stepHasIndicator && currentPhase === 'decodeMethod' && (
                     <div className="space-y-3">
                       <p className="text-slate-700 font-medium text-sm mb-2">
                         You selected "<span className="font-bold">{currentStep.fodder}</span>". How does it decode?
@@ -1982,7 +1965,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                             type="radio"
                             name="decodeMethod"
                             checked={selectedDecodeMethod === 'literal'}
-                            onChange={() => { setSelectedDecodeMethod('literal'); setDecodeMethodInput(''); setHasCheckedDecodeMethod(false); }}
+                            onChange={() => { setSelectedDecodeMethod('literal'); setDecodeMethodInput(''); }}
                             className="sr-only"
                           />
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
@@ -2004,7 +1987,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                             type="radio"
                             name="decodeMethod"
                             checked={selectedDecodeMethod === 'synonym'}
-                            onChange={() => { setSelectedDecodeMethod('synonym'); setDecodeMethodInput(''); setHasCheckedDecodeMethod(false); }}
+                            onChange={() => { setSelectedDecodeMethod('synonym'); setDecodeMethodInput(''); }}
                             className="sr-only"
                           />
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 ${
@@ -2020,7 +2003,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                               <input
                                 type="text"
                                 value={decodeMethodInput}
-                                onChange={(e) => { setDecodeMethodInput(e.target.value.toUpperCase()); setHasCheckedDecodeMethod(false); }}
+                                onChange={(e) => { setDecodeMethodInput(e.target.value.toUpperCase()); }}
                                 placeholder="Type the synonym..."
                                 className="mt-2 w-full px-3 py-2 rounded-md border border-slate-200 font-mono text-sm uppercase focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                                 autoFocus
@@ -2038,7 +2021,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                             type="radio"
                             name="decodeMethod"
                             checked={selectedDecodeMethod === 'abbreviation'}
-                            onChange={() => { setSelectedDecodeMethod('abbreviation'); setDecodeMethodInput(''); setHasCheckedDecodeMethod(false); }}
+                            onChange={() => { setSelectedDecodeMethod('abbreviation'); setDecodeMethodInput(''); }}
                             className="sr-only"
                           />
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 ${
@@ -2054,7 +2037,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                               <input
                                 type="text"
                                 value={decodeMethodInput}
-                                onChange={(e) => { setDecodeMethodInput(e.target.value.toUpperCase()); setHasCheckedDecodeMethod(false); }}
+                                onChange={(e) => { setDecodeMethodInput(e.target.value.toUpperCase()); }}
                                 placeholder="Type the abbreviation..."
                                 className="mt-2 w-full px-3 py-2 rounded-md border border-slate-200 font-mono text-sm uppercase focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                                 autoFocus
@@ -2064,8 +2047,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         </label>
                       </div>
 
-                      {/* Check button */}
-                      {selectedDecodeMethod && (selectedDecodeMethod === 'literal' || decodeMethodInput.length > 0) && !hasCheckedDecodeMethod && (
+                      {/* Check button - hide while showing feedback */}
+                      {selectedDecodeMethod && (selectedDecodeMethod === 'literal' || decodeMethodInput.length > 0) && !checkFeedback && (
                         <button
                           onClick={handleCheckDecodeMethod}
                           className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
@@ -2075,8 +2058,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                         </button>
                       )}
 
-                      {/* Feedback */}
-                      {hasCheckedDecodeMethod && !isDecodeMethodCorrect && (
+                      {/* Feedback - incorrect decode method */}
+                      {checkFeedback?.type === 'decodeMethod' && !checkFeedback.correct && (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-red-700 font-medium text-sm animate-in fade-in">
                           ✗ Not quite — try again
                         </div>
@@ -2087,12 +2070,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* === INDICATOR SUB-PHASE === */}
-              {wordplaySubPhase === 'indicator' && (
+              {currentPhase === 'indicator' && (
                 <div className="space-y-3">
-                  {/* Check button moved to clue box above */}
-
-                  {/* Correct indicator - auto-advances */}
-                  {hasCheckedIndicator && isIndicatorCorrect && (
+                  {/* Correct indicator - shows briefly before auto-advancing */}
+                  {checkFeedback?.type === 'indicator' && checkFeedback.correct && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
                       <Check size={14} className="text-green-600" />
                       "{currentStep.indicator}" — correct!
@@ -2100,7 +2081,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   )}
 
                   {/* Wrong indicator */}
-                  {hasCheckedIndicator && !isIndicatorCorrect && (
+                  {checkFeedback?.type === 'indicator' && !checkFeedback.correct && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 font-medium text-sm animate-in fade-in">
                       ✗ Not quite — try again
                     </div>
@@ -2109,7 +2090,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* === DELETE TARGET SUB-PHASE (for deletion with implied op) === */}
-              {wordplaySubPhase === 'deleteTarget' && (
+              {currentPhase === 'deleteTarget' && (
                 <div className="space-y-3">
                   {/* Show confirmed indicator */}
                   <div className="flex items-center gap-2 text-sm">
@@ -2117,10 +2098,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                     <span className="text-orange-600 font-medium">Indicator: "{currentStep.indicator}"</span>
                   </div>
 
-                  {/* Check button is in clue box above */}
-
                   {/* Correct delete target - auto-advances */}
-                  {hasCheckedDeleteTarget && isDeleteTargetCorrect && (
+                  {checkFeedback?.type === 'deleteTarget' && checkFeedback.correct && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
                       <Check size={14} className="text-green-600" />
                       Delete "{currentStep.deleteTarget}" — correct!
@@ -2128,7 +2107,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   )}
 
                   {/* Wrong delete target */}
-                  {hasCheckedDeleteTarget && !isDeleteTargetCorrect && (
+                  {checkFeedback?.type === 'deleteTarget' && !checkFeedback.correct && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 font-medium text-sm animate-in fade-in">
                       ✗ Not quite — try again
                     </div>
@@ -2137,7 +2116,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* === FODDER SUB-PHASE === */}
-              {wordplaySubPhase === 'fodder' && (
+              {currentPhase === 'fodder' && (
                 <div className="space-y-3">
                   {/* Show confirmed indicator (only for steps with indicators) */}
                   {stepHasIndicator && !isDeletionWithImpliedOp && (
@@ -2164,7 +2143,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   {/* Check button moved to clue box above */}
 
                   {/* Correct fodder - auto-advances */}
-                  {hasCheckedFodder && isFodderCorrect && (
+                  {checkFeedback?.type === 'fodder' && checkFeedback.correct && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
                       <Check size={14} className="text-green-600" />
                       "{currentStep.fodder}" — correct!
@@ -2172,7 +2151,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   )}
 
                   {/* Wrong fodder */}
-                  {hasCheckedFodder && !isFodderCorrect && (
+                  {checkFeedback?.type === 'fodder' && !checkFeedback.correct && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 font-medium text-sm animate-in fade-in">
                       ✗ Not quite — try again
                     </div>
@@ -2181,7 +2160,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* === DISCOVERY SUB-PHASE (aha moment for deletion with implied op) === */}
-              {wordplaySubPhase === 'discovery' && isDeletionWithImpliedOp && (
+              {currentPhase === 'discovery' && isDeletionWithImpliedOp && (
                 <div className="space-y-3">
                   {/* Show what we have so far */}
                   <div className="flex items-center gap-2 text-sm flex-wrap">
@@ -2222,15 +2201,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                       onChange={(e) => setImpliedResultInput(e.target.value.toUpperCase())}
                       placeholder={`${currentStep.impliedOperation === 'anagram' ? 'Anagram' : 'Synonym'} of "${currentStep.fodder}"...`}
                       className={`flex-1 px-4 py-2.5 rounded-lg border-2 font-mono text-lg uppercase tracking-wider transition-colors
-                        ${hasCheckedImpliedResult && isImpliedResultCorrect
+                        ${checkFeedback?.type === 'impliedResult' && checkFeedback.correct
                           ? 'bg-green-50 border-green-200 text-green-700'
-                          : hasCheckedImpliedResult && !isImpliedResultCorrect
+                          : checkFeedback?.type === 'impliedResult' && !checkFeedback.correct
                           ? 'bg-red-50 border-red-200 text-red-700'
                           : 'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
                         }`}
-                      disabled={hasCheckedImpliedResult && isImpliedResultCorrect}
+                      disabled={checkFeedback?.type === 'impliedResult' && checkFeedback.correct}
                     />
-                    {!hasCheckedImpliedResult && impliedResultInput.length > 0 && (
+                    {!(checkFeedback?.type === 'impliedResult') && impliedResultInput.length > 0 && (
                       <button
                         onClick={handleCheckImpliedResult}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
@@ -2241,14 +2220,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                   </div>
 
                   {/* Wrong implied result feedback */}
-                  {hasCheckedImpliedResult && !isImpliedResultCorrect && (
+                  {checkFeedback?.type === 'impliedResult' && !checkFeedback.correct && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-red-700 font-medium text-sm animate-in fade-in">
                       ✗ Not quite — try again
                     </div>
                   )}
 
                   {/* Correct implied result - auto-advances */}
-                  {hasCheckedImpliedResult && isImpliedResultCorrect && (
+                  {checkFeedback?.type === 'impliedResult' && checkFeedback.correct && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-sm flex items-center gap-2">
                       <Check size={14} className="text-green-600" />
                       "{currentStep.fodder}" → {currentStep.impliedResult} — now we can delete "{currentStep.deleteTarget}"!
@@ -2258,7 +2237,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* === ASSEMBLY SUB-PHASE (container assembles letters for pending anagram) === */}
-              {wordplaySubPhase === 'assembly' && isContainerAssemblyStep && (
+              {currentPhase === 'assembly' && isContainerAssemblyStep && (
                 <div className="space-y-3">
                   {/* Show what we're assembling */}
                   <div className="flex items-center gap-2 text-sm flex-wrap">
@@ -2293,7 +2272,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               )}
 
               {/* === RESULT SUB-PHASE === */}
-                  {wordplaySubPhase === 'result' && (
+                  {currentPhase === 'result' && (
                     <div className="space-y-3">
                       {/* Show confirmed parts - different display for deletion with implied op */}
                       {isDeletionWithImpliedOp ? (
@@ -2396,15 +2375,15 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                           onChange={(e) => setStepResultInput(e.target.value.toUpperCase())}
                           placeholder="Type result..."
                           className={`flex-1 px-4 py-2.5 rounded-lg border-2 font-mono text-lg uppercase tracking-wider transition-colors
-                            ${hasCheckedResult && isResultCorrect
+                            ${resultFound
                               ? 'bg-green-50 border-green-200 text-green-700'
-                              : hasCheckedResult && !isResultCorrect
+                              : checkFeedback?.type === 'result' && !checkFeedback.correct
                               ? 'bg-red-50 border-red-200 text-red-700'
                               : 'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
                             }`}
-                          disabled={hasCheckedResult && isResultCorrect}
+                          disabled={resultFound}
                         />
-                        {!hasCheckedResult && stepResultInput.length > 0 && (
+                        {!resultFound && !checkFeedback && stepResultInput.length > 0 && (
                           <button
                             onClick={handleCheckResult}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
@@ -2415,7 +2394,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                       </div>
 
                       {/* Letter count hint and Skip button */}
-                      {!isResultCorrect && (
+                      {!resultFound && (
                         <div className="space-y-3">
                           {/* Show letter count mismatch for anagram steps */}
                           {currentStep.stepType?.toLowerCase() === 'anagram' && (() => {
@@ -2458,14 +2437,14 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                       )}
 
                       {/* Wrong result feedback */}
-                      {hasCheckedResult && !isResultCorrect && (
+                      {checkFeedback?.type === 'result' && !checkFeedback.correct && (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-red-700 font-medium text-sm animate-in fade-in">
                           ✗ Not quite — try again
                         </div>
                       )}
 
                       {/* Correct result - complete step with key learning */}
-                      {hasCheckedResult && isResultCorrect && (
+                      {resultFound && (
                         <div className="space-y-3">
                           <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 font-medium text-base flex items-center gap-2">
                             <Check size={16} className="text-green-600" />

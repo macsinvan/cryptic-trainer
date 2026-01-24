@@ -69,6 +69,8 @@ class TestResult:
         else:
             self.passed = False
             self.assertions.append(f"✗ {message}: expected {expected!r}, got {actual!r}")
+            # Actually fail the test!
+            assert actual == expected, f"{message}: expected {expected!r}, got {actual!r}"
 
     def assert_true(self, condition: bool, message: str):
         """Assert condition is true."""
@@ -77,6 +79,8 @@ class TestResult:
         else:
             self.passed = False
             self.assertions.append(f"✗ {message}")
+            # Actually fail the test!
+            assert condition, message
 
     def assert_in(self, item, container, message: str):
         """Assert item in container."""
@@ -85,11 +89,15 @@ class TestResult:
         else:
             self.passed = False
             self.assertions.append(f"✗ {message}: {item!r} not in {container!r}")
+            # Actually fail the test!
+            assert item in container, f"{message}: {item!r} not in {container!r}"
 
     def error(self, message: str):
         """Record an error."""
         self.passed = False
         self.errors.append(message)
+        # Actually fail the test!
+        assert False, message
 
     def print_result(self, verbose: bool = False):
         """Print test result."""
@@ -447,6 +455,55 @@ def test_phlebotomy_case_insensitive() -> TestResult:
     return result
 
 
+def test_phlebotomy_indices_stored() -> TestResult:
+    """Test that selectedIndices are stored and returned by server.
+
+    This is critical for UI highlighting - the server must store the word indices
+    when indicator/fodder are checked, so the UI can highlight them.
+    """
+    result = TestResult("PHLEBOTOMY: Indices stored and returned")
+
+    # Start fresh session
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
+    if not resp.get('success'):
+        result.error(f"Failed to start session: {resp.get('error')}")
+        return result
+
+    # Select wordplay 3
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
+    result.assert_true(resp.get('success', False), "Select wordplay 3 succeeds")
+
+    # Check indicator with indices [8, 9] for "at last"
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {
+        'wordplayId': '3',
+        'selected': 'at last',
+        'selectedIndices': [8, 9]  # Word indices for "at" and "last"
+    })
+    result.assert_true(resp.get('success', False), "check_indicator succeeds")
+
+    current_wp = resp.get('currentWordplay', {})
+    state = current_wp.get('state', {})
+    result.assert_true(state.get('indicatorFound', False), "indicatorFound is True")
+    result.assert_eq(state.get('indicatorIndices'), [8, 9], "indicatorIndices stored correctly")
+
+    # Check fodder with indices [6, 7] for "conclude job"
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {
+        'wordplayId': '3',
+        'selected': 'conclude job',
+        'selectedIndices': [6, 7]  # Word indices for "conclude" and "job"
+    })
+    result.assert_true(resp.get('success', False), "check_fodder succeeds")
+
+    current_wp = resp.get('currentWordplay', {})
+    state = current_wp.get('state', {})
+    result.assert_true(state.get('fodderFound', False), "fodderFound is True")
+    result.assert_eq(state.get('fodderIndices'), [6, 7], "fodderIndices stored correctly")
+    # Indicator indices should still be present
+    result.assert_eq(state.get('indicatorIndices'), [8, 9], "indicatorIndices persists after fodder check")
+
+    return result
+
+
 def test_phlebotomy_session_isolation() -> TestResult:
     """Test that starting a new session resets all state."""
     result = TestResult("PHLEBOTOMY: Session isolation")
@@ -486,6 +543,7 @@ ALL_TESTS = [
     test_phlebotomy_wrong_result,
     test_phlebotomy_full_solve,
     test_phlebotomy_case_insensitive,
+    test_phlebotomy_indices_stored,
     test_phlebotomy_session_isolation,
 ]
 
