@@ -496,6 +496,32 @@ class SolverHandler(BaseHTTPRequestHandler):
 
         return (None, None, False)
 
+    def _update_parent_solved_if_all_subops_done(self, parent_wp):
+        """Check if all subOperations of a parent are solved, and if so, mark parent as solved.
+
+        This is needed because the all_solved check only looks at top-level wordplay states.
+        When a subOperation is marked solved, we need to propagate that up to the parent
+        if ALL subOperations are now complete.
+        """
+        if not parent_wp:
+            return
+
+        subops = parent_wp.get('subOperations', [])
+        if not subops:
+            return
+
+        # Check if ALL subOperations are solved
+        all_subops_solved = all(sub.get('state', {}).get('solved', False) for sub in subops)
+
+        if all_subops_solved:
+            # Mark parent as solved too
+            if 'state' not in parent_wp:
+                parent_wp['state'] = {}
+            parent_wp['state']['solved'] = True
+            parent_wp['state']['indicatorFound'] = True
+            parent_wp['state']['fodderFound'] = True
+            parent_wp['state']['resultEntered'] = True
+
     def _build_training_response(self, clue_entry, wordplays, step, phase, is_subop=False, parent_wp=None, **extra):
         """Build a consistent training action response.
 
@@ -998,6 +1024,9 @@ class SolverHandler(BaseHTTPRequestHandler):
                     if wp.get('operation', '') in self.NO_RESULT_OPERATIONS:
                         wp['state']['resultEntered'] = True
                         wp['state']['solved'] = True
+                        # If this is a subOperation, check if parent should be marked solved
+                        if is_subop and parent_wp:
+                            self._update_parent_solved_if_all_subops_done(parent_wp)
 
                 # Determine next step/phase
                 if correct:
@@ -1050,6 +1079,9 @@ class SolverHandler(BaseHTTPRequestHandler):
                 if correct:
                     wp['state']['resultEntered'] = True
                     wp['state']['solved'] = True
+                    # If this is a subOperation, check if parent should be marked solved
+                    if is_subop and parent_wp:
+                        self._update_parent_solved_if_all_subops_done(parent_wp)
 
                 # Find next available step
                 (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
