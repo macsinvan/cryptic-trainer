@@ -153,6 +153,7 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
           <ClueTrainer
             key={currentItem.id}
+            clueId={currentItem.id}
             patternData={currentItem.patternData}
             onCorrect={handleCorrect}
             onNext={nextClue}

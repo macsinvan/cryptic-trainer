@@ -321,6 +321,32 @@ export const searchClues = (q: string) => {
 };
 export const mapToValidClueType = (s: string, p?: string) => (STANDARD_CLUE_TYPES[0] as any);
 
+// --- Training Flow API ---
+
+export interface TrainingActionResponse {
+    success: boolean;
+    clueEntry?: any;
+    currentWordplay?: any;
+    currentWordplayIndex?: number;
+    currentPhase?: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete';
+    blocked?: boolean;
+    blockedHint?: string;
+    validation?: { correct: boolean; expected: string };
+    allSolved?: boolean;
+    error?: string;
+}
+
+export const trainingAction = async (
+    clueId: string,
+    action: 'start' | 'get_state' | 'check_indicator' | 'check_fodder' | 'check_result' | 'select_wordplay',
+    data?: { wordplayId?: string; selected?: string; entered?: string }
+): Promise<TrainingActionResponse> => {
+    return fetchJson<TrainingActionResponse>('/training/action', {
+        method: 'POST',
+        body: JSON.stringify({ clueId, action, data })
+    });
+};
+
 /**
  * Check if a clue already exists in the library (by normalized text)
  */

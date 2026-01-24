@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronRight, ChevronDown, Check, HelpCircle, Lightbulb, Zap, BookOpen } from 'lucide-react';
 import { PatternInstance, WordHighlight } from '../types';
 import { WORKFLOW_COLORS } from '../data/designTemplates';
+import { trainingAction } from '../services/clueManager';
 
 // =============================================================================
 // TYPES
@@ -36,7 +37,8 @@ interface DiscoveredPart {
 // =============================================================================
 
 interface ClueTrainerProps {
-  // Core data - will be wired up later
+  // Core data
+  clueId?: string;
   patternData?: PatternInstance;
 
   // Callbacks
@@ -122,6 +124,7 @@ const renderLearningText = (text: string): React.ReactNode => {
 // =============================================================================
 
 export const ClueTrainer: React.FC<ClueTrainerProps> = ({
+  clueId,
   patternData,
   onCorrect,
   onNext,
@@ -482,6 +485,23 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
     setGrid(new Array(cleanAnswer.length).fill(''));
   }, [clueText, answer]);
+
+  // When entering wordplay phase, ask server for first available wordplay
+  useEffect(() => {
+    if (phase === 'wordplay' && clueId) {
+      trainingAction(clueId, 'start').then(response => {
+        if (response.success && response.currentWordplayIndex !== undefined) {
+          setCurrentWordplayStep(response.currentWordplayIndex);
+          // If blocked, show hint (though start should give unblocked)
+          if (response.blocked && response.blockedHint) {
+            console.log('[training] Blocked:', response.blockedHint);
+          }
+        }
+      }).catch(err => {
+        console.warn('[training] Could not get initial wordplay:', err);
+      });
+    }
+  }, [phase, clueId]);
 
   // ---------------------------------------------------------------------------
   // INTERACTION HANDLERS

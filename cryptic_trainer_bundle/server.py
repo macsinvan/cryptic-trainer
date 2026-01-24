@@ -113,6 +113,8 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._handle_clear()
         elif self.path == '/parser-issues':
             self._handle_save_parser_issue()
+        elif self.path == '/training/action':
+            self._handle_training_action()
         else:
             self.send_error(404)
 
@@ -407,6 +409,253 @@ class SolverHandler(BaseHTTPRequestHandler):
             import traceback
             traceback.print_exc()
             self._send_json({'error': str(e)}, 500)
+
+    def _is_wordplay_blocked(self, wordplay, all_wordplays):
+        """Check if a wordplay's dependencies are all solved."""
+        deps = wordplay.get('dependencies', [])
+        if not deps:
+            return False
+        for dep_id in deps:
+            # Find the dependency wordplay
+            dep = next((wp for wp in all_wordplays if wp.get('id') == dep_id), None)
+            if dep and not dep.get('state', {}).get('solved', False):
+                return True
+        return False
+
+    def _get_next_available_wordplay(self, wordplays):
+        """Find the first unblocked, unsolved wordplay."""
+        for wp in wordplays:
+            if wp.get('state', {}).get('solved', False):
+                continue  # Already solved
+            if not self._is_wordplay_blocked(wp, wordplays):
+                return wp
+        return None
+
+    def _handle_training_action(self):
+        """
+        Handle training actions. Server decides what's available.
+
+        Request: { clueId, action, data }
+        - action: "start" | "check_indicator" | "check_fodder" | "check_result" | "get_state"
+
+        Response: {
+            clueEntry: <full clue data with updated state>,
+            currentWordplay: <wordplay user should work on>,
+            currentPhase: "indicator" | "fodder" | "result" | "blocked",
+            blocked: true/false,
+            blockedHint: "..." if blocked,
+            validation: { correct: true/false, expected: "..." } if checking
+        }
+        """
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            clue_id = data.get('clueId')
+            action = data.get('action', 'get_state')
+            action_data = data.get('data', {})
+
+            if not clue_id:
+                self._send_json({'success': False, 'error': 'Missing clueId'}, 400)
+                return
+
+            db = _load_db()
+            item = db['training_items'].get(clue_id)
+            if not item:
+                self._send_json({'success': False, 'error': 'Clue not found'}, 404)
+                return
+
+            clue_entry = item.get('clueEntry', {})
+            wordplays = clue_entry.get('wordplays', [])
+
+            # Handle different actions
+            if action == 'get_state' or action == 'start':
+                # Find next available wordplay
+                current_wp = self._get_next_available_wordplay(wordplays)
+
+                if not current_wp:
+                    # All done or all blocked
+                    all_solved = all(wp.get('state', {}).get('solved', False) for wp in wordplays)
+                    self._send_json({
+                        'success': True,
+                        'clueEntry': clue_entry,
+                        'currentWordplay': None,
+                        'currentPhase': 'complete' if all_solved else 'blocked',
+                        'allSolved': all_solved
+                    })
+                    return
+
+                # Determine phase based on state
+                state = current_wp.get('state', {})
+                if not state.get('indicatorFound', False):
+                    phase = 'indicator'
+                elif not state.get('fodderFound', False):
+                    phase = 'fodder'
+                else:
+                    phase = 'result'
+
+                self._send_json({
+                    'success': True,
+                    'clueEntry': clue_entry,
+                    'currentWordplay': current_wp,
+                    'currentWordplayIndex': wordplays.index(current_wp),
+                    'currentPhase': phase,
+                    'blocked': False
+                })
+
+            elif action == 'check_indicator':
+                wordplay_id = action_data.get('wordplayId')
+                selected = action_data.get('selected', '')
+
+                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                expected = wp.get('indicator', '').lower().strip()
+                selected_norm = selected.lower().strip()
+                correct = selected_norm == expected
+
+                if correct:
+                    wp['state']['indicatorFound'] = True
+                    _save_db(db)
+
+                # Get next phase
+                next_wp = self._get_next_available_wordplay(wordplays)
+                next_phase = 'fodder' if correct else 'indicator'
+
+                self._send_json({
+                    'success': True,
+                    'validation': {'correct': correct, 'expected': expected},
+                    'clueEntry': clue_entry,
+                    'currentWordplay': next_wp,
+                    'currentWordplayIndex': wordplays.index(next_wp) if next_wp else -1,
+                    'currentPhase': next_phase
+                })
+
+            elif action == 'check_fodder':
+                wordplay_id = action_data.get('wordplayId')
+                selected = action_data.get('selected', '')
+
+                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                fodder = wp.get('fodder', '')
+                expected = fodder.lower().strip() if isinstance(fodder, str) else ''
+                selected_norm = selected.lower().strip()
+                correct = selected_norm == expected
+
+                if correct:
+                    wp['state']['fodderFound'] = True
+                    _save_db(db)
+
+                next_wp = self._get_next_available_wordplay(wordplays)
+                next_phase = 'result' if correct else 'fodder'
+
+                self._send_json({
+                    'success': True,
+                    'validation': {'correct': correct, 'expected': expected},
+                    'clueEntry': clue_entry,
+                    'currentWordplay': next_wp,
+                    'currentWordplayIndex': wordplays.index(next_wp) if next_wp else -1,
+                    'currentPhase': next_phase
+                })
+
+            elif action == 'check_result':
+                wordplay_id = action_data.get('wordplayId')
+                entered = action_data.get('entered', '')
+
+                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                expected = wp.get('result', '').upper().strip()
+                entered_norm = entered.upper().strip()
+                correct = entered_norm == expected
+
+                if correct:
+                    wp['state']['resultEntered'] = True
+                    wp['state']['solved'] = True
+                    _save_db(db)
+
+                # After solving, find next available
+                next_wp = self._get_next_available_wordplay(wordplays)
+                all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
+
+                if next_wp:
+                    state = next_wp.get('state', {})
+                    if not state.get('indicatorFound', False):
+                        next_phase = 'indicator'
+                    elif not state.get('fodderFound', False):
+                        next_phase = 'fodder'
+                    else:
+                        next_phase = 'result'
+                else:
+                    next_phase = 'complete' if all_solved else 'blocked'
+
+                self._send_json({
+                    'success': True,
+                    'validation': {'correct': correct, 'expected': expected},
+                    'clueEntry': clue_entry,
+                    'currentWordplay': next_wp,
+                    'currentWordplayIndex': wordplays.index(next_wp) if next_wp else -1,
+                    'currentPhase': next_phase,
+                    'allSolved': all_solved
+                })
+
+            elif action == 'select_wordplay':
+                # User wants to work on a specific wordplay
+                wordplay_id = action_data.get('wordplayId')
+
+                wp = next((w for w in wordplays if w.get('id') == wordplay_id), None)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                blocked = self._is_wordplay_blocked(wp, wordplays)
+
+                if blocked:
+                    # Find unblocked alternative
+                    alt_wp = self._get_next_available_wordplay(wordplays)
+                    self._send_json({
+                        'success': True,
+                        'clueEntry': clue_entry,
+                        'currentWordplay': alt_wp,
+                        'currentWordplayIndex': wordplays.index(alt_wp) if alt_wp else -1,
+                        'requestedWordplay': wp,
+                        'blocked': True,
+                        'blockedHint': wp.get('blockedHint', 'Solve dependencies first'),
+                        'currentPhase': 'indicator' if alt_wp else 'blocked'
+                    })
+                else:
+                    state = wp.get('state', {})
+                    if not state.get('indicatorFound', False):
+                        phase = 'indicator'
+                    elif not state.get('fodderFound', False):
+                        phase = 'fodder'
+                    else:
+                        phase = 'result'
+
+                    self._send_json({
+                        'success': True,
+                        'clueEntry': clue_entry,
+                        'currentWordplay': wp,
+                        'currentWordplayIndex': wordplays.index(wp),
+                        'currentPhase': phase,
+                        'blocked': False
+                    })
+
+            else:
+                self._send_json({'success': False, 'error': f'Unknown action: {action}'}, 400)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._send_json({'success': False, 'error': str(e)}, 500)
 
     def log_message(self, format, *args):
         print(f"[solver] {args[0]}")
