@@ -395,18 +395,25 @@ export const trainingAction = async (
 // NEW TEMPLATE-BASED TRAINING API
 // =============================================================================
 
+/** Multiple choice option for container steps */
+export interface MultipleChoiceOption {
+    label: string;
+    correct: boolean;
+}
+
 /** Response from new template-based training endpoints */
 export interface NewTrainingRender {
     stepIndex: number;
     phaseIndex: number;
     stepType: string;
     phaseId: string;
-    inputMode: 'tap_words' | 'text' | 'none';
+    inputMode: 'tap_words' | 'text' | 'multiple_choice' | 'none';
     highlights: Array<{ indices: number[]; color: string; role: string }>;
     intro?: { title: string; text: string; example: string };
     panel?: { title: string; instruction: string };
     button?: { label: string; action: string };
     expected?: number[] | string;
+    options?: MultipleChoiceOption[];  // For multiple_choice inputMode
     complete?: boolean;
 }
 
@@ -502,8 +509,8 @@ export const trainingStart = async (clueId: string): Promise<NewTrainingResponse
     });
 };
 
-/** Submit user input (tap indices or text) */
-export const trainingInput = async (clueId: string, value: number[] | string): Promise<NewTrainingResponse> => {
+/** Submit user input (tap indices, text, or multiple choice index) */
+export const trainingInput = async (clueId: string, value: number[] | string | number): Promise<NewTrainingResponse> => {
     return fetchJson<NewTrainingResponse>('/training/input', {
         method: 'POST',
         body: JSON.stringify({ clueId, value })

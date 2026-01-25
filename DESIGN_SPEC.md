@@ -475,10 +475,78 @@ Replace complex per-clue metadata with **predefined step templates**. Each templ
 ```json
 {
     "type": "anagram_solve",
-    "fodder": "LYMPHTOO + EB",
+    "fodder": "LYMPHEBTOO",
     "result": "PHLEBOTOMY",
     "letterCount": 10,
     "definition": "drawing blood"
+}
+```
+
+#### container
+
+```python
+"container": {
+    "phases": [
+        {
+            "id": "indicator",
+            "intro": {
+                "title": "Container",
+                "text": "A container indicator tells you one thing goes inside another.",
+                "example": "\"nurses\", \"holds\", \"contains\", \"swallows\" all suggest insertion"
+            },
+            "panel": {
+                "title": "FIND INDICATOR",
+                "instruction": "Tap the container indicator - a word suggesting something goes inside something else."
+            },
+            "inputMode": "tap_words",
+            "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+            "onWrong": {"message": "Look for a word meaning 'holds' or 'contains'"}
+        },
+        {
+            "id": "order",
+            "panel": {
+                "title": "WHAT GOES WHERE?",
+                "instruction": "Which element goes inside which?"
+            },
+            "inputMode": "multiple_choice",
+            "onCorrect": {"message": "Correct!"},
+            "onWrong": {"message": "Think about what '{indicator}' means - who is doing the holding?"}
+        },
+        {
+            "id": "result",
+            "panel": {
+                "title": "SHOW INSERTION",
+                "instruction": "Type the result of inserting {inner} into {outer}."
+            },
+            "inputMode": "text",
+            "onCorrect": {"message": "Correct!"},
+            "onWrong": {"message": "Insert {inner} into {outer}"}
+        },
+        {
+            "id": "teaching",
+            "panel": {
+                "title": "Container Complete",
+                "instruction": "'{indicator}' tells us {inner} goes inside {outer} → {result}"
+            },
+            "inputMode": "none",
+            "button": {"label": "Continue →", "action": "next_step"}
+        }
+    ]
+}
+```
+
+**Clue data:**
+```json
+{
+    "type": "container",
+    "indicator": {"indices": [5], "text": "nurses"},
+    "inner": "EB",
+    "outer": "LYMPHTOO",
+    "options": [
+        {"label": "EB goes inside LYMPHTOO", "correct": true},
+        {"label": "LYMPHTOO goes inside EB", "correct": false}
+    ],
+    "result": "LYMPH EB TOO"
 }
 ```
 
@@ -505,18 +573,30 @@ Replace complex per-clue metadata with **predefined step templates**. Each templ
             "type": "anagram_find",
             "indicator": {"indices": [4], "text": "busy"},
             "fodder": {"indices": [2, 3], "text": "lymph too"},
-            "result": "LYMPHTOO"
+            "result": "LYMPHTOO",
+            "letterCount": 8
         },
         {
             "type": "letter_selection",
-            "indicator": {"indices": [7, 8], "text": "at last"},
-            "fodder": {"indices": [5, 6], "text": "conclude job"},
+            "indicator": {"indices": [8, 9], "text": "at last"},
+            "fodder": {"indices": [6, 7], "text": "conclude job"},
             "extractionType": "last letter",
             "result": "EB"
         },
         {
+            "type": "container",
+            "indicator": {"indices": [5], "text": "nurses"},
+            "inner": "EB",
+            "outer": "LYMPHTOO",
+            "options": [
+                {"label": "EB goes inside LYMPHTOO", "correct": true},
+                {"label": "LYMPHTOO goes inside EB", "correct": false}
+            ],
+            "result": "LYMPH EB TOO"
+        },
+        {
             "type": "anagram_solve",
-            "fodder": "LYMPHTOO + EB",
+            "fodder": "LYMPHEBTOO",
             "result": "PHLEBOTOMY",
             "letterCount": 10,
             "definition": "drawing blood"

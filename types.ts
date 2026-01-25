@@ -433,7 +433,13 @@ export interface HighlightInstruction {
 export type PanelType = 'active' | 'teaching' | 'complete' | 'blocked';
 
 /** Input modes */
-export type InputMode = 'tap_words' | 'enter_text' | 'none';
+export type InputMode = 'tap_words' | 'enter_text' | 'multiple_choice' | 'none';
+
+/** Multiple choice option */
+export interface MultipleChoiceOption {
+  label: string;
+  correct: boolean;
+}
 
 /** Server-driven render instructions - UI renders exactly what this says */
 export interface RenderInstructions {
@@ -463,6 +469,9 @@ export interface RenderInstructions {
   // Optional content
   resultDisplay?: string | null;
   blockedHint?: string | null;
+
+  // Multiple choice options (for inputMode: 'multiple_choice')
+  options?: MultipleChoiceOption[];
 }
 
 /** Training action response from server */

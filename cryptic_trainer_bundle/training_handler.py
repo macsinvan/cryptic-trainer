@@ -155,6 +155,45 @@ STEP_TEMPLATES = {
                 "button": {"label": "Complete →", "action": "complete"}
             }
         ]
+    },
+
+    "container": {
+        "phases": [
+            {
+                "id": "indicator",
+                "intro": {
+                    "title": "Container",
+                    "text": "A container indicator tells you one thing goes inside another.",
+                    "example": '"nurses", "holds", "contains", "swallows" all suggest insertion'
+                },
+                "panel": {
+                    "title": "FIND INDICATOR",
+                    "instruction": "Tap the container indicator - a word suggesting something goes inside something else."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Look for a word meaning 'holds' or 'contains'"}
+            },
+            {
+                "id": "order",
+                "panel": {
+                    "title": "WHAT GOES WHERE?",
+                    "instruction": "Which element goes inside which?"
+                },
+                "inputMode": "multiple_choice",
+                "onCorrect": {"message": "Correct!"},
+                "onWrong": {"message": "Think about what '{indicator}' means - who is doing the holding?"}
+            },
+            {
+                "id": "teaching",
+                "panel": {
+                    "title": "Container Complete",
+                    "instruction": "'{indicator}' tells us {inner} goes inside {outer} → {result}"
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
     }
 }
 
@@ -195,7 +234,7 @@ def substitute_variables(text, step, session):
         subs["result"] = step["expected"].get("text", "")
 
     # Direct fields
-    for key in ["position", "result", "fodder", "indicator", "extractionType", "letterCount", "definition"]:
+    for key in ["position", "result", "fodder", "indicator", "extractionType", "letterCount", "definition", "inner", "outer"]:
         if key in step:
             val = step[key]
             # Handle dict with text field
@@ -277,6 +316,10 @@ def get_render(clue_id, clue):
     elif phase.get("inputMode") == "text":
         if "result" in step:
             render["expected"] = step["result"]
+    elif phase.get("inputMode") == "multiple_choice":
+        # Send options to UI for rendering
+        if "options" in step:
+            render["options"] = step["options"]
 
     return render
 
@@ -309,6 +352,13 @@ def handle_input(clue_id, clue, value):
     elif phase.get("inputMode") == "text":
         if "result" in step:
             expected = step["result"].upper()
+    elif phase.get("inputMode") == "multiple_choice":
+        # For multiple choice, expected is the index of the correct option
+        if "options" in step:
+            for i, opt in enumerate(step["options"]):
+                if opt.get("correct"):
+                    expected = i
+                    break
 
     # Check answer
     correct = False
@@ -320,6 +370,9 @@ def handle_input(clue_id, clue, value):
         # Compare text (case-insensitive)
         if isinstance(value, str) and expected:
             correct = value.upper().strip() == expected
+    elif phase.get("inputMode") == "multiple_choice":
+        # Compare selected option index
+        correct = value == expected
 
     if correct:
         # Add highlight if specified

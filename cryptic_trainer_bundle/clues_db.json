@@ -30,8 +30,19 @@
           "result": "EB"
         },
         {
+          "type": "container",
+          "indicator": {"indices": [5], "text": "nurses"},
+          "inner": "EB",
+          "outer": "LYMPHTOO",
+          "options": [
+            {"label": "EB goes inside LYMPHTOO", "correct": true},
+            {"label": "LYMPHTOO goes inside EB", "correct": false}
+          ],
+          "result": "LYMPH EB TOO"
+        },
+        {
           "type": "anagram_solve",
-          "fodder": "LYMPHTOO + EB",
+          "fodder": "LYMPHEBTOO",
           "result": "PHLEBOTOMY",
           "letterCount": 10,
           "definition": "drawing blood"

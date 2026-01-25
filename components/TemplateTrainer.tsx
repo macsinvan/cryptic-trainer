@@ -49,6 +49,7 @@ export function TemplateTrainer({
   // Ephemeral UI state (pre-submission)
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [textInput, setTextInput] = useState('');
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null);
 
   // Split clue into words
@@ -95,14 +96,20 @@ export function TemplateTrainer({
   // ---------------------------------------------------------------------------
   // Handle check/submit
   // ---------------------------------------------------------------------------
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (optionIndex?: number) => {
     if (!render) return;
 
     setFeedback(null);
 
-    const value = render.inputMode === 'tap_words'
-      ? selectedIndices
-      : textInput;
+    // Determine value based on input mode
+    let value: number[] | string | number;
+    if (render.inputMode === 'tap_words') {
+      value = selectedIndices;
+    } else if (render.inputMode === 'multiple_choice') {
+      value = optionIndex ?? selectedOption ?? 0;
+    } else {
+      value = textInput;
+    }
 
     try {
       const response = await trainingInput(clueId, value);
@@ -113,6 +120,7 @@ export function TemplateTrainer({
           setRender(response.render);
           setSelectedIndices([]);
           setTextInput('');
+          setSelectedOption(null);
           setFeedback(null);
 
           // Check if complete
@@ -132,7 +140,7 @@ export function TemplateTrainer({
     } catch (e) {
       setError(String(e));
     }
-  }, [clueId, render, selectedIndices, textInput, onComplete]);
+  }, [clueId, render, selectedIndices, textInput, selectedOption, onComplete]);
 
   // ---------------------------------------------------------------------------
   // Handle continue button
@@ -144,6 +152,7 @@ export function TemplateTrainer({
         setRender(response.render);
         setSelectedIndices([]);
         setTextInput('');
+        setSelectedOption(null);
         setFeedback(null);
 
         if (response.render.complete) {
@@ -212,6 +221,8 @@ export function TemplateTrainer({
   const isTeaching = render.phaseId === 'teaching';
   const canSubmit = render.inputMode === 'tap_words'
     ? selectedIndices.length > 0
+    : render.inputMode === 'multiple_choice'
+    ? selectedOption !== null
     : textInput.trim().length > 0;
 
   return (
@@ -319,6 +330,27 @@ export function TemplateTrainer({
             </div>
           )}
 
+          {/* Multiple choice options */}
+          {render.inputMode === 'multiple_choice' && render.options && (
+            <div className="mt-4 space-y-3">
+              {render.options.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSubmit(index)}
+                  className={`
+                    w-full px-4 py-3 text-left rounded-lg border-2 transition-colors
+                    hover:bg-blue-50 hover:border-blue-400
+                    ${selectedOption === index
+                      ? 'bg-blue-100 border-blue-500'
+                      : 'bg-white border-gray-200'}
+                  `}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Buttons */}
           <div className="mt-6 flex gap-3">
             {render.button ? (
@@ -329,10 +361,10 @@ export function TemplateTrainer({
               >
                 {render.button.label}
               </button>
-            ) : render.inputMode !== 'none' && (
-              // Input phase - show check button
+            ) : render.inputMode !== 'none' && render.inputMode !== 'multiple_choice' && (
+              // Input phase - show check button (not for multiple_choice which submits on click)
               <button
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
                 disabled={!canSubmit}
                 className={`
                   flex-1 py-3 px-6 font-medium rounded-lg transition-colors
