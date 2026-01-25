@@ -12,6 +12,26 @@ import re
 # =============================================================================
 
 STEP_TEMPLATES = {
+    "clue_type_identify": {
+        "phases": [
+            {
+                "id": "choose",
+                "intro": {
+                    "title": "What Type of Clue Is This?",
+                    "text": "Before solving, identify the clue structure. Look for a clean split between the definition (always at start or end) and wordplay (the rest). Stay flexible — let the clue tell you how it wants to be read.",
+                    "example": "Tip: ? often signals wordplay or a cryptic definition. ! traditionally marks an &lit clue."
+                },
+                "panel": {
+                    "title": "IDENTIFY CLUE TYPE",
+                    "instruction": "Select the type of clue you think this is."
+                },
+                "inputMode": "multiple_choice",
+                "onCorrect": {"message": "Correct!"},
+                "onWrong": {"message": "Not quite. Look again at the clue structure."}
+            }
+        ]
+    },
+
     "standard_definition": {
         "phases": [
             {
@@ -194,8 +214,118 @@ STEP_TEMPLATES = {
                 "button": {"label": "Continue →", "action": "next_step"}
             }
         ]
+    },
+
+    "double_definition": {
+        "phases": [
+            {
+                "id": "first_def",
+                "intro": {
+                    "title": "Double Definition",
+                    "text": "A double definition clue contains two separate definitions for the same word, with no wordplay. The entire clue is made up of definitions.",
+                    "example": '"Dog lead" → POINTER (a breed of dog, and something that leads/guides)'
+                },
+                "panel": {
+                    "title": "FIRST DEFINITION",
+                    "instruction": "Tap the first definition."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "GREEN", "role": "definition1"}},
+                "onWrong": {"message": "Look for a word or phrase that defines the answer"}
+            },
+            {
+                "id": "second_def",
+                "panel": {
+                    "title": "SECOND DEFINITION",
+                    "instruction": "Tap the second definition."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "definition2"}},
+                "onWrong": {"message": "Look for another word or phrase that also defines the answer"}
+            },
+            {
+                "id": "solve",
+                "panel": {
+                    "title": "SOLVE",
+                    "instruction": "Type the word that matches both definitions."
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Correct!"},
+                "onWrong": {"message": "Think of a word that means both '{def1}' and '{def2}'"}
+            },
+            {
+                "id": "teaching",
+                "panel": {
+                    "title": "Double Definition Complete",
+                    "instruction": "Both '{def1}' and '{def2}' define {result}. No wordplay needed — just two meanings!"
+                },
+                "inputMode": "none",
+                "button": {"label": "Complete →", "action": "complete"}
+            }
+        ]
     }
 }
+
+# =============================================================================
+# CLUE TYPE IDENTIFICATION
+# =============================================================================
+
+# Map step types to clue type categories
+STEP_TO_CLUE_TYPE = {
+    "standard_definition": "standard",
+    "anagram_find": "standard",
+    "anagram_solve": "standard",
+    "letter_selection": "standard",
+    "container": "standard",
+    "double_definition": "double_definition",
+    # Add more mappings as needed
+}
+
+CLUE_TYPE_OPTIONS = [
+    {
+        "id": "standard",
+        "label": "Standard",
+        "description": "Definition at start or end, with wordplay indicators in the rest"
+    },
+    {
+        "id": "double_definition",
+        "label": "Double Definition",
+        "description": "Two separate meanings with no wordplay indicators"
+    },
+    {
+        "id": "cryptic_definition",
+        "label": "Cryptic Definition",
+        "description": "Whole clue is one whimsical description with no obvious wordplay"
+    },
+    {
+        "id": "and_lit",
+        "label": "&lit",
+        "description": "Whole clue both describes AND constructs the answer simultaneously"
+    }
+]
+
+def get_clue_type(clue):
+    """Determine the clue type from the first step."""
+    steps = clue.get("steps", [])
+    if not steps:
+        return "standard"
+    first_step_type = steps[0].get("type", "")
+    return STEP_TO_CLUE_TYPE.get(first_step_type, "standard")
+
+def build_clue_type_step(clue):
+    """Build a synthetic clue_type_identify step with correct answer."""
+    correct_type = get_clue_type(clue)
+    options = []
+    for opt in CLUE_TYPE_OPTIONS:
+        options.append({
+            "label": opt["label"],
+            "description": opt["description"],
+            "correct": opt["id"] == correct_type
+        })
+    return {
+        "type": "clue_type_identify",
+        "options": options
+    }
 
 # =============================================================================
 # SESSION MANAGEMENT
@@ -207,7 +337,7 @@ def start_session(clue_id, clue):
     """Initialize a new training session."""
     _sessions[clue_id] = {
         "clue_id": clue_id,
-        "step_index": 0,
+        "step_index": -1,  # Start at -1 for clue type identification step
         "phase_index": 0,
         "highlights": []
     }
@@ -232,6 +362,14 @@ def substitute_variables(text, step, session):
     # Handle expected.text for definition
     if "expected" in step and isinstance(step["expected"], dict):
         subs["result"] = step["expected"].get("text", "")
+
+    # Handle definitions array for double_definition
+    if "definitions" in step:
+        definitions = step["definitions"]
+        if len(definitions) > 0:
+            subs["def1"] = definitions[0].get("text", "")
+        if len(definitions) > 1:
+            subs["def2"] = definitions[1].get("text", "")
 
     # Direct fields
     for key in ["position", "result", "fodder", "indicator", "extractionType", "letterCount", "definition", "inner", "outer"]:
@@ -264,7 +402,12 @@ def get_render(clue_id, clue):
             "highlights": session["highlights"]
         }
 
-    step = steps[session["step_index"]]
+    # Handle clue type identification step (step_index == -1)
+    if session["step_index"] == -1:
+        step = build_clue_type_step(clue)
+    else:
+        step = steps[session["step_index"]]
+
     template = STEP_TEMPLATES.get(step["type"])
     if not template:
         return {"error": f"Unknown step type: {step['type']}"}
@@ -316,6 +459,14 @@ def get_render(clue_id, clue):
             # Partial anagram - more letters needed
             render["panel"]["instruction"] = f"\"{step['indicator']['text'].capitalize()}\" is an anagram indicator, telling us to rearrange {step['fodder']['text'].upper()}. That gives {letter_count} letters, but the answer requires {enumeration}, so we know additional letters must be added from elsewhere in the clue."
 
+    # Special handling for double_definition teaching phase
+    if step["type"] == "double_definition" and phase["id"] == "teaching":
+        definitions = step.get("definitions", [])
+        def1_text = definitions[0]["text"] if len(definitions) > 0 else ""
+        def2_text = definitions[1]["text"] if len(definitions) > 1 else ""
+        result = step.get("result", "")
+        render["panel"]["instruction"] = f"Both '{def1_text}' and '{def2_text}' define {result}. No wordplay needed — just two meanings!"
+
     # Add expected for validation (tap_words needs indices)
     if phase.get("inputMode") == "tap_words":
         phase_id = phase["id"]
@@ -325,6 +476,10 @@ def get_render(clue_id, clue):
             render["expected"] = step["indicator"]["indices"]
         elif phase_id == "fodder" and "fodder" in step:
             render["expected"] = step["fodder"]["indices"]
+        elif phase_id == "first_def" and "definitions" in step:
+            render["expected"] = step["definitions"][0]["indices"]
+        elif phase_id == "second_def" and "definitions" in step:
+            render["expected"] = step["definitions"][1]["indices"]
     elif phase.get("inputMode") == "text":
         if "result" in step:
             render["expected"] = step["result"]
@@ -346,7 +501,13 @@ def handle_input(clue_id, clue, value):
         return {"error": "No session"}
 
     steps = clue.get("steps", [])
-    step = steps[session["step_index"]]
+
+    # Handle clue type identification step (step_index == -1)
+    if session["step_index"] == -1:
+        step = build_clue_type_step(clue)
+    else:
+        step = steps[session["step_index"]]
+
     template = STEP_TEMPLATES[step["type"]]
     phase = template["phases"][session["phase_index"]]
 
@@ -361,6 +522,10 @@ def handle_input(clue_id, clue, value):
             expected = step["indicator"]["indices"]
         elif phase_id == "fodder" and "fodder" in step:
             expected = step["fodder"]["indices"]
+        elif phase_id == "first_def" and "definitions" in step:
+            expected = step["definitions"][0]["indices"]
+        elif phase_id == "second_def" and "definitions" in step:
+            expected = step["definitions"][1]["indices"]
     elif phase.get("inputMode") == "text":
         if "result" in step:
             expected = step["result"].upper()
@@ -421,7 +586,13 @@ def handle_continue(clue_id, clue):
         return {"error": "No session"}
 
     steps = clue.get("steps", [])
-    step = steps[session["step_index"]]
+
+    # Handle clue type identification step (step_index == -1)
+    if session["step_index"] == -1:
+        step = build_clue_type_step(clue)
+    else:
+        step = steps[session["step_index"]]
+
     template = STEP_TEMPLATES[step["type"]]
 
     # Advance to next phase

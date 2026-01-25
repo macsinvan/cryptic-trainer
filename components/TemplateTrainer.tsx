@@ -345,7 +345,10 @@ export function TemplateTrainer({
                       : 'bg-white border-gray-200'}
                   `}
                 >
-                  {option.label}
+                  <span className="font-bold">{option.label}</span>
+                  {option.description && (
+                    <p className="text-sm text-gray-500 mt-1">{option.description}</p>
+                  )}
                 </button>
               ))}
             </div>

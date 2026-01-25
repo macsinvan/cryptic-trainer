@@ -55,6 +55,32 @@
         "setter": "Unknown"
       },
       "publicationId": "times"
+    },
+    "times-2025-27a": {
+      "id": "times-2025-27a",
+      "clue": {
+        "number": "27A",
+        "text": "Dog lead",
+        "enumeration": "7",
+        "answer": "POINTER"
+      },
+      "words": ["Dog", "lead"],
+      "steps": [
+        {
+          "type": "double_definition",
+          "definitions": [
+            {"indices": [0], "text": "Dog"},
+            {"indices": [1], "text": "lead"}
+          ],
+          "result": "POINTER"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "2025",
+        "setter": "Unknown"
+      },
+      "publicationId": "times"
     }
   }
 }
