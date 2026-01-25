@@ -5,23 +5,19 @@ A training app for learning to solve Times-style cryptic crosswords.
 ## Current Status
 
 ### What's Working
-- **Server-driven rendering**: Server sends explicit `RenderInstructions` — UI has zero phase logic
-- **Thin client architecture**: All logic on Python server, UI just renders what server says
-- **Training flow API**: `/training/action` endpoint handles all training state
-- **Dependency system**: Wordplays block/unblock based on `dependencies` array
-- **Teaching moments**: `fodder_selection` with `blockedHint` shows learning point + Continue button
-- **Golden clue tests**: PHLEBOTOMY clue fully tested (13 test cases pass)
+- **Predefined step templates**: 90% generic templates + 10% clue-specific data
+- **Server-driven rendering**: Server merges template + clue data, UI just renders
+- **Thin client architecture**: All logic on Python server (~80 lines handler)
+- **Teaching moments**: Built into templates with variable substitution
 
-### Recent Changes
-1. **Server-driven rendering** — Server returns `render` object with explicit UI instructions:
-   - `panel`: which panel to show (active, teaching, complete, blocked)
-   - `primaryText`, `secondaryText`: instruction text
-   - `inputMode`: tap_words, enter_text, or none
-   - `buttons`: exactly which buttons to display with labels and actions
-   - `highlights`: which words to highlight and in what color
-2. **InstructionPanel component** — New UI component that renders purely from `render` instructions
-3. Teaching moment for `fodder_selection` now works correctly via `render.panel = 'teaching'`
-4. All 13 golden clue tests pass
+### Architecture
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  STEP_TEMPLATES │  +  │    Clue Data     │  =  │  Runtime Render │
+│   (90% generic) │     │ (10% specific)   │     │                 │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+```
 
 ### Known Issues
 - None currently
@@ -34,7 +30,7 @@ The system has two components:
 
 | Component | Location | Port | Purpose |
 |-----------|----------|------|---------|
-| **Python Backend** | `cryptic_trainer_bundle/` | 5001 | Constraint-first solver + clue storage API |
+| **Python Backend** | `cryptic_trainer_bundle/` | 5001 | Step templates + handler + clue storage |
 | **React UI** | Root directory | 3000 | Training interface (Vite dev server) |
 
 **Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
@@ -42,12 +38,11 @@ The system has two components:
 ### Data Storage
 
 Clues are stored server-side in `cryptic_trainer_bundle/clues_db.json` (auto-created).
-The Python server provides REST endpoints for CRUD operations on clues.
 
 ## Quick Start
 
 ```bash
-# Terminal 1: Start Python backend (solver + storage API)
+# Terminal 1: Start Python backend
 cd cryptic_trainer_bundle
 python3 server.py
 # Runs on http://localhost:5001
@@ -60,7 +55,15 @@ npm run dev
 
 Open http://localhost:3000
 
-### Server API Endpoints
+### Training API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/training/start` | POST | Start training session |
+| `/api/training/input` | POST | Submit user input (tap/text) |
+| `/api/training/continue` | POST | Continue through teaching |
+
+### Other API Endpoints
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -70,86 +73,91 @@ Open http://localhost:3000
 | `/clues/<id>` | DELETE | Delete a clue by ID |
 | `/clues/bulk` | POST | Bulk import clues |
 | `/clues/clear` | POST | Clear all clues |
-| `/parser-issues` | GET/POST | Parser issue tracking |
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
 | `CLAUDE.md` | **Read first** — AI assistant rules and interactive protocol |
-| `DESIGN_SPEC.md` | **Complete system design** — architecture, schema, training flow, test guidelines |
-| `INTERACTIVE_SOLVE_FLOW.md` | Solve UI step-by-step specification |
+| `DESIGN_SPEC.md` | **Complete system design** — step templates, session state, handler |
 
 ### Key Sections in DESIGN_SPEC.md
 
-- **Server-Driven Rendering** — Server sends explicit `RenderInstructions`, UI has zero logic
-- **Thin Client Architecture** — UI only renders, server handles all logic
-- **UI State Architecture** — Only 4 state variables, everything else derived from `serverState`
-- **Training Flow** — Step-by-step training (clue type → definition → wordplays)
-- **Wordplay Schema** — Complete metadata structure with dependencies and subOperations
-- **Regression Testing** — Golden clue tests for PHLEBOTOMY
-- **Test Case Design Guidelines** — Rigorous 3-step format for writing tests
+- **Predefined Step Templates** — `standard_definition`, `anagram_find`, `letter_selection`, `anagram_solve`
+- **Complete Clue Example** — PHLEBOTOMY in the new `steps` format
+- **Session State** — `step_index`, `phase_index`, `highlights`
+- **Handler Implementation** — ~80 lines: `get_render`, `handle_input`, `handle_continue`
+- **Verification** — curl commands for manual testing
 
 ## Key Files
 
 ### React UI (root directory)
-- `components/training/InstructionPanel.tsx` — Server-driven rendering (renders `RenderInstructions`)
-- `components/ClueTrainer.tsx` — Training interface (uses InstructionPanel)
-- `services/clueManager.ts` — Clue CRUD via HTTP to Python backend
-- `services/puzzleConverter.ts` — Converts puzzle JSON to UI format
-- `components/ManualEntryMode.tsx` — Puzzle file import UI
+- `components/training/InstructionPanel.tsx` — Renders from server `render` object
+- `components/ClueTrainer.tsx` — Training interface
 - `vite.config.ts` — Dev server config with API proxy rules
 
 ### Python Backend (`cryptic_trainer_bundle/`)
-- `server.py` — HTTP server (solver + storage API)
+- `server.py` — HTTP server + training endpoints
+- `training_handler.py` — Step templates + handler (~100 lines)
 - `cryptic_trainer.py` — Core solver logic
 - `clues_db.json` — Clue storage (auto-created)
 
 ## Testing
 
+### Manual Testing with curl
+
 ```bash
-# Run golden clue regression tests (requires server running)
-cd cryptic_trainer_bundle
-python3 test_training_flow.py              # Run all tests
-python3 test_training_flow.py --verbose    # Detailed output
-python3 test_training_flow.py --test 1A    # Run specific test
+# Start session
+curl -X POST localhost:5001/api/training/start \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1"}'
 
-# Test Python solver directly
-python3 cryptic_trainer.py solve --clue "Cross about Scottish inventor being guest announcer" --length 8 --pretty
+# Submit definition selection
+curl -X POST localhost:5001/api/training/input \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1","value":{"indices":[0,1]}}'
 
-# Test against scraped puzzles
-python3 puzzle_tester.py puzzle.json --stop-on-fail
-
-# Build React UI (from project root)
-npm run build
+# Continue through teaching
+curl -X POST localhost:5001/api/training/continue \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1"}'
 ```
 
-### Test Design Guidelines
+### Test Python solver directly
 
-See `DESIGN_SPEC.md` → "Test Case Design Guidelines" for the rigorous 3-step format:
+```bash
+cd cryptic_trainer_bundle
+python3 cryptic_trainer.py solve --clue "Cross about Scottish inventor being guest announcer" --length 8 --pretty
+```
 
-1. **Step 1: Identify Indicator** — positive/negative cases, state changes, UI result
-2. **Step 2: Identify Fodder** — positive/negative cases, state changes, UI result
-3. **Step 3: Result** — depends on `metadata.operation`:
-   - `fodder_selection`: NO result input, auto-completes
-   - Other operations: result input required
+## Step Templates
 
-**Key principle**: Metadata is source of truth. If test can't be written due to incomplete metadata, fix the metadata.
+| Template | Phases | Description |
+|----------|--------|-------------|
+| `standard_definition` | select → teaching | Find definition at start/end |
+| `anagram_find` | indicator → fodder → teaching | Find anagram indicator + fodder |
+| `letter_selection` | indicator → fodder → result → teaching | Extract letters from words |
+| `anagram_solve` | result → teaching | Solve the anagram |
 
-## Training Workflow
+## Example Clue (PHLEBOTOMY)
 
-See `cryptic_trainer_bundle/DESIGN_SPEC.md` for the full workflow:
-
-1. Scrape clues from Times for the Times
-2. Run cold test against solver
-3. Fix gaps (add synonyms, indicators, phrases)
-4. Add to regression, repeat
-
-## Importing Puzzles
-
-1. Create a puzzle JSON file (see `cryptic_trainer_bundle/DESIGN_SPEC.md` for format)
-2. In the UI, click "Import Puzzle" and select the JSON file
-3. Each clue imports with `puzzleNumber`, `publication`, and `setter` metadata
+```json
+{
+    "id": "phlebotomy-1",
+    "clue": {
+        "number": "1A",
+        "text": "Drawing blood, lymph too, busy nurses conclude job at last",
+        "enumeration": "10",
+        "answer": "PHLEBOTOMY"
+    },
+    "steps": [
+        {"type": "standard_definition", "expected": {"indices": [0, 1], "text": "Drawing blood"}, "position": "start"},
+        {"type": "anagram_find", "indicator": {"indices": [4], "text": "busy"}, "fodder": {"indices": [2, 3], "text": "lymph too"}, "result": "LYMPHTOO"},
+        {"type": "letter_selection", "indicator": {"indices": [7, 8], "text": "at last"}, "fodder": {"indices": [5, 6], "text": "conclude job"}, "extractionType": "last letter", "result": "EB"},
+        {"type": "anagram_solve", "fodder": "LYMPHTOO + EB", "result": "PHLEBOTOMY", "letterCount": 10, "definition": "drawing blood"}
+    ]
+}
+```
 
 ## Deployment
 
