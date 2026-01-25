@@ -572,6 +572,9 @@ class SolverHandler(BaseHTTPRequestHandler):
         """Build explicit render instructions for the UI.
 
         The UI should render EXACTLY what this returns - no phase/operation logic in UI.
+
+        PRIORITY: If step has trainingScript, use it directly (metadata-driven).
+        FALLBACK: Compute render instructions from phase/operation (legacy).
         """
         wordplays = context.get('wordplays', [])
         validation = context.get('validation')
@@ -579,10 +582,19 @@ class SolverHandler(BaseHTTPRequestHandler):
         blocked_hint = context.get('blockedHint') or (step.get('blockedHint') if step else None)
         all_solved = context.get('allSolved', False)
 
+        # === METADATA-DRIVEN: Use trainingScript if available ===
+        training_script = step.get('trainingScript', []) if step else []
+        if training_script and phase in ('indicator', 'fodder', 'result', 'teaching'):
+            return self._build_render_from_script(
+                clue_entry, step, phase, training_script, wordplays, blocked, blocked_hint, all_solved
+            )
+
+        # === LEGACY: Compute render instructions from phase + operation ===
         # Compute operation label
         op = step.get('operation', '') if step else ''
         op_labels = {
             'anagram': 'ANAGRAM',
+            'discover_anagram': 'DISCOVER ANAGRAM',
             'letter_selection': 'LETTER SELECTION',
             'container': 'CONTAINER',
             'fodder_selection': 'FODDER SELECTION',
@@ -767,6 +779,177 @@ class SolverHandler(BaseHTTPRequestHandler):
             'blockedHint': blocked_hint,
         }
 
+    def _build_render_from_script(self, clue_entry, step, phase, training_script, wordplays, blocked, blocked_hint, all_solved):
+        """Build render instructions from trainingScript metadata.
+
+        This is the metadata-driven approach: the script contains everything needed.
+        Server just looks up the current phase's step and returns its data.
+        """
+        # Find the script step matching current phase
+        script_step = None
+        for s in training_script:
+            if s.get('phase') == phase:
+                script_step = s
+                break
+
+        # Compute progress
+        total_steps = sum(len(wp.get('subOperations', [])) or 1 for wp in wordplays)
+        solved_count = sum(
+            1 for wp in wordplays
+            for s in (wp.get('subOperations', []) or [wp])
+            if s.get('state', {}).get('solved', False)
+        )
+        step_progress = f"{solved_count + 1}/{total_steps}" if step else f"{solved_count}/{total_steps}"
+
+        # Compute step label from operation
+        op = step.get('operation', '') if step else ''
+        op_labels = {
+            'anagram': 'ANAGRAM',
+            'discover_anagram': 'DISCOVER ANAGRAM',
+            'letter_selection': 'LETTER SELECTION',
+            'container': 'CONTAINER',
+            'fodder_selection': 'FODDER SELECTION',
+            'reversal': 'REVERSAL',
+            'hidden': 'HIDDEN WORD',
+            'deletion': 'DELETION',
+            'solve_anagram': 'SOLVE ANAGRAM',
+        }
+        step_label = op_labels.get(op, op.upper().replace('_', ' '))
+
+        # If no matching script step, fall back to defaults
+        if not script_step:
+            return {
+                'panel': 'complete' if all_solved else 'blocked' if blocked else 'active',
+                'primaryText': 'Step complete' if all_solved else (blocked_hint or 'This step is blocked'),
+                'secondaryText': None,
+                'inputMode': 'none',
+                'inputTarget': None,
+                'showResultInput': False,
+                'buttons': [],
+                'highlights': self._collect_highlights(wordplays, clue_entry),
+                'stepLabel': step_label,
+                'stepProgress': step_progress,
+                'resultDisplay': None,
+                'blockedHint': blocked_hint,
+            }
+
+        # Build render from script step
+        panel = script_step.get('panel', 'active')
+        if all_solved:
+            panel = 'complete'
+        elif blocked:
+            panel = 'blocked'
+
+        # Compute buttons from script
+        buttons = []
+        if script_step.get('button'):
+            btn = script_step['button']
+            buttons.append({
+                'id': btn.get('action', 'continue'),
+                'label': btn.get('label', 'Continue'),
+                'action': btn.get('action', 'continue'),
+                'variant': 'primary',
+                'requiresSelection': False,
+                'requiresInput': False,
+            })
+        elif phase == 'indicator':
+            buttons.append({
+                'id': 'check',
+                'label': 'Check',
+                'action': 'check_indicator',
+                'variant': 'primary',
+                'requiresSelection': True
+            })
+        elif phase == 'fodder':
+            buttons.append({
+                'id': 'check',
+                'label': 'Check',
+                'action': 'check_fodder',
+                'variant': 'primary',
+                'requiresSelection': True
+            })
+        elif phase == 'result':
+            buttons.append({
+                'id': 'check',
+                'label': 'Check',
+                'action': 'check_result',
+                'variant': 'primary',
+                'requiresInput': True
+            })
+
+        # Add skip button for multi-step clues
+        if len(wordplays) > 1 and phase in ('indicator', 'fodder', 'result'):
+            buttons.append({
+                'id': 'skip',
+                'label': 'Skip for now →',
+                'action': 'skip_wordplay',
+                'variant': 'secondary',
+                'requiresSelection': False,
+                'requiresInput': False
+            })
+
+        return {
+            'panel': panel,
+            'primaryText': script_step.get('instruction', ''),
+            'secondaryText': script_step.get('hint'),
+            'inputMode': script_step.get('inputMode', 'none'),
+            'inputTarget': phase if phase in ('indicator', 'fodder', 'result') else None,
+            'showResultInput': phase == 'result',
+            'buttons': buttons,
+            'highlights': self._collect_highlights(wordplays, clue_entry),
+            'stepLabel': step_label,
+            'stepProgress': step_progress,
+            'resultDisplay': script_step.get('resultDisplay'),
+            'blockedHint': script_step.get('blockedHint') or blocked_hint,
+        }
+
+    def _collect_highlights(self, wordplays, clue_entry):
+        """Collect all confirmed highlights from wordplays and definition."""
+        highlights = []
+        for wp in wordplays:
+            wp_state = wp.get('state', {})
+            if wp_state.get('indicatorFound') and wp_state.get('indicatorIndices'):
+                highlights.append({
+                    'indices': wp_state['indicatorIndices'],
+                    'color': 'ORANGE',
+                    'role': 'indicator',
+                    'confirmed': True
+                })
+            if wp_state.get('fodderFound') and wp_state.get('fodderIndices'):
+                highlights.append({
+                    'indices': wp_state['fodderIndices'],
+                    'color': 'BLUE',
+                    'role': 'fodder',
+                    'confirmed': True
+                })
+            for sub in wp.get('subOperations', []):
+                sub_state = sub.get('state', {})
+                if sub_state.get('indicatorFound') and sub_state.get('indicatorIndices'):
+                    highlights.append({
+                        'indices': sub_state['indicatorIndices'],
+                        'color': 'ORANGE',
+                        'role': 'indicator',
+                        'confirmed': True
+                    })
+                if sub_state.get('fodderFound') and sub_state.get('fodderIndices'):
+                    highlights.append({
+                        'indices': sub_state['fodderIndices'],
+                        'color': 'BLUE',
+                        'role': 'fodder',
+                        'confirmed': True
+                    })
+
+        clue_state = clue_entry.get('state', {})
+        if clue_state.get('definitionFound') and clue_state.get('definitionIndices'):
+            highlights.append({
+                'indices': clue_state['definitionIndices'],
+                'color': 'GREEN',
+                'role': 'definition',
+                'confirmed': True
+            })
+
+        return highlights
+
     def _cleanup_old_sessions(self):
         """Remove training sessions older than SESSION_TIMEOUT_SECONDS."""
         now = time.time()
@@ -779,7 +962,7 @@ class SolverHandler(BaseHTTPRequestHandler):
 
     # Operations that don't require user to type a result
     # (they complete after fodder phase)
-    NO_RESULT_OPERATIONS = {'fodder_selection'}
+    NO_RESULT_OPERATIONS = {'fodder_selection', 'discover_anagram'}
 
     def _get_wordplay_phase(self, wp):
         """Determine current phase for a wordplay or subOperation.
@@ -800,8 +983,10 @@ class SolverHandler(BaseHTTPRequestHandler):
             return 'result'
 
         fodder = wp.get('fodder', '')
+        indicator = wp.get('indicator', '')
 
-        if not state.get('indicatorFound', False):
+        # If no indicator defined, skip indicator phase
+        if indicator and not state.get('indicatorFound', False):
             return 'indicator'
 
         # If fodder is a reference, skip fodder phase entirely
@@ -987,6 +1172,18 @@ class SolverHandler(BaseHTTPRequestHandler):
                 if correct:
                     wp['state']['indicatorFound'] = True
                     wp['state']['indicatorIndices'] = action_data.get('selectedIndices', [])
+
+                # After indicator found, if this wordplay has subOperations, navigate to first available subOp
+                if correct and wp.get('subOperations'):
+                    (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
+                    if next_step and next_is_subop and next_parent == wp:
+                        # Navigate to the first subOperation of this wordplay
+                        next_phase = self._get_wordplay_phase(next_step)
+                        self._send_json(self._build_training_response(
+                            clue_entry, wordplays, next_step, next_phase, True, wp,
+                            validation={'correct': correct, 'expected': expected}
+                        ))
+                        return
 
                 next_phase = self._get_wordplay_phase(wp) if correct else 'indicator'
                 self._send_json(self._build_training_response(

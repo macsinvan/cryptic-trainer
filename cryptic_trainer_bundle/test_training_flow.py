@@ -116,19 +116,17 @@ class TestResult:
 # Clue: "Drawing blood, lymph too, busy nurses conclude job at last"
 # Answer: PHLEBOTOMY (10)
 #
-# Structure:
+# Structure (flat wordplays, no subOperations):
 # - Definition: "Drawing blood" (start)
-# - Wordplay 1: anagram with subOperations
-#   - SubOp 1A: fodder_selection (deps: []) - select "lymph too" with indicator "busy"
-#   - SubOp 1B: solve_anagram (deps: ["2", "3"]) - solve LYMPHTOO+EB = PHLEBOTOMY
-# - Wordplay 2: container (deps: ["1A", "3"]) - "nurses" indicates insertion
-# - Wordplay 3: letter_selection (deps: []) - "at last" from "conclude job" = EB
+# - Wordplay 1: discover_anagram (deps: []) - "busy" indicator, "lymph too" fodder → LYMPHTOO
+# - Wordplay 2: letter_selection (deps: []) - "at last" from "conclude job" = EB
+# - Wordplay 3: solve_anagram (deps: ["1", "2"]) - solve LYMPHTOO+EB = PHLEBOTOMY
 #
 # Expected training flow:
-# 1. Start → SubOp 1A available (no deps), Wordplay 3 available (no deps)
-# 2. Server should serve whichever comes first in structure
-# 3. Complete 1A and 3 → SubOp 1B becomes available
-# 4. Complete 1B → Wordplay 1 solved → Wordplay 2 becomes available
+# 1. Start → Wordplay 1 or 2 available (no deps)
+# 2. Complete 1 (teaching moment) and 2
+# 3. Wordplay 3 becomes available (deps satisfied)
+# 4. Complete 3 → all solved
 # =============================================================================
 
 PHLEBOTOMY_CLUE_ID = "user-1769245327284-1A"
@@ -159,10 +157,10 @@ def test_phlebotomy_session_start() -> TestResult:
     # Current phase should be indicator (first phase)
     result.assert_eq(resp.get('currentPhase'), 'indicator', "Initial phase is 'indicator'")
 
-    # First available step should be either 1A or 3 (both have no dependencies)
+    # First available step should be either 1 or 2 (both have no dependencies)
     current_wp = resp.get('currentWordplay', {})
     wp_id = current_wp.get('id', '')
-    result.assert_in(wp_id, ['1A', '3'], "First step is 1A or 3 (no dependencies)")
+    result.assert_in(wp_id, ['1', '2'], "First step is 1 or 2 (no dependencies)")
 
     return result
 
@@ -177,25 +175,25 @@ def test_phlebotomy_dependency_blocking() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Try to select SubOp 1B (depends on 2 and 3, which are not solved)
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '1B'})
+    # Try to select wordplay 3 (solve_anagram, depends on 1 and 2 which are not solved)
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
 
     result.assert_true(resp.get('success', False), "API returns success")
-    result.assert_true(resp.get('blocked', False), "SubOp 1B is blocked")
+    result.assert_true(resp.get('blocked', False), "Wordplay 3 is blocked")
     result.assert_true('blockedHint' in resp, "Response includes blockedHint")
 
     # Should redirect to an available step
     current_wp = resp.get('currentWordplay', {})
     if current_wp:
         wp_id = current_wp.get('id', '')
-        result.assert_in(wp_id, ['1A', '3'], "Redirected to available step (1A or 3)")
+        result.assert_in(wp_id, ['1', '2'], "Redirected to available step (1 or 2)")
 
     return result
 
 
-def test_phlebotomy_wordplay3_flow() -> TestResult:
-    """Test complete flow through wordplay 3 (letter_selection, no dependencies)."""
-    result = TestResult("PHLEBOTOMY: Wordplay 3 complete flow")
+def test_phlebotomy_wordplay2_flow() -> TestResult:
+    """Test complete flow through wordplay 2 (letter_selection, no dependencies)."""
+    result = TestResult("PHLEBOTOMY: Wordplay 2 complete flow")
 
     # Start fresh session
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
@@ -203,18 +201,18 @@ def test_phlebotomy_wordplay3_flow() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Select wordplay 3 explicitly
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
-    result.assert_true(resp.get('success', False), "Select wordplay 3 succeeds")
-    result.assert_true(not resp.get('blocked', False), "Wordplay 3 is not blocked")
+    # Select wordplay 2 explicitly
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
+    result.assert_true(resp.get('success', False), "Select wordplay 2 succeeds")
+    result.assert_true(not resp.get('blocked', False), "Wordplay 2 is not blocked")
 
     current_wp = resp.get('currentWordplay', {})
-    result.assert_eq(current_wp.get('id'), '3', "Current wordplay is 3")
+    result.assert_eq(current_wp.get('id'), '2', "Current wordplay is 2")
     result.assert_eq(resp.get('currentPhase'), 'indicator', "Phase is indicator")
 
     # Check indicator: "at last"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'selected': 'at last'
     })
     result.assert_true(resp.get('success', False), "check_indicator succeeds")
@@ -224,7 +222,7 @@ def test_phlebotomy_wordplay3_flow() -> TestResult:
 
     # Check fodder: "conclude job"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'selected': 'conclude job'
     })
     result.assert_true(resp.get('success', False), "check_fodder succeeds")
@@ -234,25 +232,25 @@ def test_phlebotomy_wordplay3_flow() -> TestResult:
 
     # Check result: "EB"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'entered': 'EB'
     })
     result.assert_true(resp.get('success', False), "check_result succeeds")
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Result 'EB' is correct")
 
-    # Wordplay 3 should now be solved, and we should move to next available
+    # Wordplay 2 should now be solved, and we should move to next available
     result.assert_true(not resp.get('allSolved', False), "Not all solved yet")
 
     return result
 
 
-def test_phlebotomy_subop1a_flow() -> TestResult:
-    """Test complete flow through SubOp 1A (fodder_selection with blockedHint).
+def test_phlebotomy_wordplay1_flow() -> TestResult:
+    """Test complete flow through wordplay 1 (discover_anagram with blockedHint).
 
-    fodder_selection with blockedHint shows teaching phase, then advances after pass_teaching.
+    discover_anagram with blockedHint shows teaching phase, then advances after pass_teaching.
     """
-    result = TestResult("PHLEBOTOMY: SubOp 1A complete flow (fodder_selection with teaching)")
+    result = TestResult("PHLEBOTOMY: Wordplay 1 complete flow (discover_anagram with teaching)")
 
     # Start fresh session
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
@@ -260,13 +258,13 @@ def test_phlebotomy_subop1a_flow() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Select subOp 1A explicitly
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '1A'})
-    result.assert_true(resp.get('success', False), "Select subOp 1A succeeds")
-    result.assert_true(not resp.get('blocked', False), "SubOp 1A is not blocked")
+    # Select wordplay 1 explicitly
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '1'})
+    result.assert_true(resp.get('success', False), "Select wordplay 1 succeeds")
+    result.assert_true(not resp.get('blocked', False), "Wordplay 1 is not blocked")
 
     current_wp = resp.get('currentWordplay', {})
-    result.assert_eq(current_wp.get('id'), '1A', "Current wordplay is 1A")
+    result.assert_eq(current_wp.get('id'), '1', "Current wordplay is 1")
     result.assert_eq(resp.get('currentPhase'), 'indicator', "Phase is indicator")
 
     # blockedHint should be present (informational)
@@ -274,7 +272,7 @@ def test_phlebotomy_subop1a_flow() -> TestResult:
 
     # Check indicator: "busy"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {
-        'wordplayId': '1A',
+        'wordplayId': '1',
         'selected': 'busy'
     })
     result.assert_true(resp.get('success', False), "check_indicator succeeds")
@@ -285,31 +283,31 @@ def test_phlebotomy_subop1a_flow() -> TestResult:
 
     # Check fodder: "lymph too"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {
-        'wordplayId': '1A',
+        'wordplayId': '1',
         'selected': 'lymph too'
     })
     result.assert_true(resp.get('success', False), "check_fodder succeeds")
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Fodder 'lymph too' is correct")
 
-    # fodder_selection with blockedHint should show TEACHING phase (not result, not immediate advance)
+    # discover_anagram with blockedHint should show TEACHING phase (not result, not immediate advance)
     result.assert_eq(resp.get('currentPhase'), 'teaching',
-                     "fodder_selection with blockedHint returns teaching phase")
+                     "discover_anagram with blockedHint returns teaching phase")
 
-    # Current wordplay should still be 1A (not advanced yet)
+    # Current wordplay should still be 1 (not advanced yet)
     current_wp = resp.get('currentWordplay', {})
-    result.assert_eq(current_wp.get('id'), '1A', "Still on 1A during teaching phase")
+    result.assert_eq(current_wp.get('id'), '1', "Still on 1 during teaching phase")
 
     # blockedHint should be present for display
     result.assert_true('blockedHint' in resp, "blockedHint present in teaching response")
 
     # Now pass the teaching moment
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_teaching', {'wordplayId': '1A'})
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_teaching', {'wordplayId': '1'})
     result.assert_true(resp.get('success', False), "pass_teaching succeeds")
 
     # Should move to next available wordplay
     next_wp = resp.get('currentWordplay', {})
-    result.assert_true(next_wp.get('id') != '1A', "Advanced to next wordplay after pass_teaching")
+    result.assert_true(next_wp.get('id') != '1', "Advanced to next wordplay after pass_teaching")
 
     return result
 
@@ -324,12 +322,12 @@ def test_phlebotomy_wrong_indicator() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Select wordplay 3
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
+    # Select wordplay 2
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
 
     # Submit wrong indicator
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'selected': 'conclude'  # Wrong - should be "at last"
     })
     result.assert_true(resp.get('success', False), "API returns success")
@@ -350,14 +348,14 @@ def test_phlebotomy_wrong_result() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Select wordplay 3 and complete indicator/fodder
-    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
-    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '3', 'selected': 'at last'})
-    training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '3', 'selected': 'conclude job'})
+    # Select wordplay 2 and complete indicator/fodder
+    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '2', 'selected': 'at last'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '2', 'selected': 'conclude job'})
 
     # Submit wrong result
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'entered': 'AB'  # Wrong - should be "EB"
     })
     result.assert_true(resp.get('success', False), "API returns success")
@@ -380,48 +378,36 @@ def test_phlebotomy_full_solve() -> TestResult:
 
     result.assert_true(not resp.get('allSolved', False), "Initially not all solved")
 
-    # Step 1: Solve wordplay 3 (letter_selection, no deps)
-    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
-    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '3', 'selected': 'at last'})
-    training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '3', 'selected': 'conclude job'})
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {'wordplayId': '3', 'entered': 'EB'})
-    result.assert_true(resp.get('validation', {}).get('correct', False), "Wordplay 3 solved")
+    # Step 1: Solve wordplay 1 (discover_anagram, no deps)
+    # NOTE: discover_anagram completes after fodder phase with teaching - NO result entry
+    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '1'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '1', 'selected': 'busy'})
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '1', 'selected': 'lymph too'})
+    result.assert_true(resp.get('validation', {}).get('correct', False), "Wordplay 1 fodder correct")
+    # Pass the teaching moment
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_teaching', {'wordplayId': '1'})
 
-    # Step 2: Solve SubOp 1A (fodder_selection, no deps)
-    # NOTE: fodder_selection completes after fodder phase - NO result entry
-    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '1A'})
-    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '1A', 'selected': 'busy'})
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '1A', 'selected': 'lymph too'})
-    result.assert_true(resp.get('validation', {}).get('correct', False), "SubOp 1A solved (fodder_selection)")
+    # Step 2: Solve wordplay 2 (letter_selection, no deps)
+    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '2', 'selected': 'at last'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '2', 'selected': 'conclude job'})
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {'wordplayId': '2', 'entered': 'EB'})
+    result.assert_true(resp.get('validation', {}).get('correct', False), "Wordplay 2 solved")
 
-    # Step 3: Now SubOp 1B should be available (deps: 2, 3 - but 3 is solved)
-    # Actually deps are ["2", "3"], and 2 depends on ["1A", "3"]
-    # So after solving 3 and 1A, we need to check what's available
-
-    # Get current state
+    # Step 3: Now wordplay 3 should be available (deps: ["1", "2"] both solved)
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'get_state')
     current_wp = resp.get('currentWordplay', {})
-    result.assert_true(current_wp is not None, "Still have available wordplay")
+    result.assert_eq(current_wp.get('id'), '3', "Wordplay 3 is now available")
 
-    # The next available might be 2 (container) or 1B
-    # Based on dependency chain: 2 needs [1A, 3], both solved now
-    # 1B needs [2, 3], so 2 should be next
+    # Wordplay 3 (solve_anagram) has fodder as reference, so it skips to result phase
+    result.assert_eq(resp.get('currentPhase'), 'result', "Wordplay 3 starts at result phase")
 
-    # Try selecting wordplay 2 (container)
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
+    # Solve the anagram
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {'wordplayId': '3', 'entered': 'PHLEBOTOMY'})
+    result.assert_true(resp.get('validation', {}).get('correct', False), "Wordplay 3 solved")
 
-    # Wordplay 2 has fodder as reference, so it might skip to result phase
-    # The container operation uses results from other wordplays
-
-    # Continue solving remaining wordplays until all done
-    # (The exact flow depends on the container operation specifics)
-
-    # Check final state
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'get_state')
-
-    # Not asserting allSolved here since we haven't completed all steps
-    # This test verifies the dependency chain is working
-    result.assert_true(resp.get('success', False), "Can get state after partial solve")
+    # Should now be all solved
+    result.assert_true(resp.get('allSolved', False), "All wordplays solved")
 
     return result
 
@@ -436,12 +422,12 @@ def test_phlebotomy_case_insensitive() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Select wordplay 3
-    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
+    # Select wordplay 2
+    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
 
     # Submit indicator with different case
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'selected': 'AT LAST'  # Uppercase
     })
     validation = resp.get('validation', {})
@@ -449,7 +435,7 @@ def test_phlebotomy_case_insensitive() -> TestResult:
 
     # Submit fodder with mixed case
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'selected': 'Conclude Job'  # Mixed case
     })
     validation = resp.get('validation', {})
@@ -457,7 +443,7 @@ def test_phlebotomy_case_insensitive() -> TestResult:
 
     # Submit result with lowercase
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'entered': 'eb'  # Lowercase
     })
     validation = resp.get('validation', {})
@@ -480,37 +466,37 @@ def test_phlebotomy_indices_stored() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Select wordplay 3
-    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
-    result.assert_true(resp.get('success', False), "Select wordplay 3 succeeds")
+    # Select wordplay 2
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
+    result.assert_true(resp.get('success', False), "Select wordplay 2 succeeds")
 
-    # Check indicator with indices [8, 9] for "at last"
+    # Check indicator with indices [7, 8] for "at last"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'selected': 'at last',
-        'selectedIndices': [8, 9]  # Word indices for "at" and "last"
+        'selectedIndices': [7, 8]  # Word indices for "at" and "last"
     })
     result.assert_true(resp.get('success', False), "check_indicator succeeds")
 
     current_wp = resp.get('currentWordplay', {})
     state = current_wp.get('state', {})
     result.assert_true(state.get('indicatorFound', False), "indicatorFound is True")
-    result.assert_eq(state.get('indicatorIndices'), [8, 9], "indicatorIndices stored correctly")
+    result.assert_eq(state.get('indicatorIndices'), [7, 8], "indicatorIndices stored correctly")
 
-    # Check fodder with indices [6, 7] for "conclude job"
+    # Check fodder with indices [5, 6] for "conclude job"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {
-        'wordplayId': '3',
+        'wordplayId': '2',
         'selected': 'conclude job',
-        'selectedIndices': [6, 7]  # Word indices for "conclude" and "job"
+        'selectedIndices': [5, 6]  # Word indices for "conclude" and "job"
     })
     result.assert_true(resp.get('success', False), "check_fodder succeeds")
 
     current_wp = resp.get('currentWordplay', {})
     state = current_wp.get('state', {})
     result.assert_true(state.get('fodderFound', False), "fodderFound is True")
-    result.assert_eq(state.get('fodderIndices'), [6, 7], "fodderIndices stored correctly")
+    result.assert_eq(state.get('fodderIndices'), [5, 6], "fodderIndices stored correctly")
     # Indicator indices should still be present
-    result.assert_eq(state.get('indicatorIndices'), [8, 9], "indicatorIndices persists after fodder check")
+    result.assert_eq(state.get('indicatorIndices'), [7, 8], "indicatorIndices persists after fodder check")
 
     return result
 
@@ -521,8 +507,8 @@ def test_phlebotomy_session_isolation() -> TestResult:
 
     # Start and partially complete a session
     training_action(PHLEBOTOMY_CLUE_ID, 'start')
-    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '3'})
-    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '3', 'selected': 'at last'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '2', 'selected': 'at last'})
 
     # Start a NEW session
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'start')
@@ -638,8 +624,8 @@ def test_phlebotomy_definition_case_insensitive() -> TestResult:
 ALL_TESTS = [
     test_phlebotomy_session_start,
     test_phlebotomy_dependency_blocking,
-    test_phlebotomy_wordplay3_flow,
-    test_phlebotomy_subop1a_flow,
+    test_phlebotomy_wordplay2_flow,
+    test_phlebotomy_wordplay1_flow,
     test_phlebotomy_wrong_indicator,
     test_phlebotomy_wrong_result,
     test_phlebotomy_full_solve,

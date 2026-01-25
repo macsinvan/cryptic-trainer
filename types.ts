@@ -69,9 +69,14 @@ export interface WordplayState {
 export interface SubOperation {
     id: string;
     operation: string;
+    indicator?: string;
+    fodder?: string;
+    result?: string;
     dependencies: string[];
     blockedHint?: string;
-    state: { solved: boolean };
+    state: { solved: boolean; indicatorFound?: boolean; fodderFound?: boolean; resultEntered?: boolean; indicatorIndices?: number[]; fodderIndices?: number[] };
+    // Training script - complete instructions for each phase
+    trainingScript?: TrainingStep[];
 }
 
 /** Fodder reference when fodder comes from other wordplay results */
@@ -96,6 +101,8 @@ export interface Wordplay {
     explanation: string;
     // For letter_selection
     extractionType?: 'first_letter' | 'last_letter' | 'odd_letters' | 'even_letters' | 'middle_letters';
+    // Training script - complete instructions for each phase
+    trainingScript?: TrainingStep[];
 }
 
 /** V2 Definition structure */
@@ -340,6 +347,51 @@ export type ViewState =
   | { type: 'TRAINING'; publicationId: string; customClues?: ScannedClue[]; initialIndex?: number }
   | { type: 'SOLVER'; publicationId: string }
   | { type: 'MANUAL_ENTRY'; publicationId: string };
+
+// ========== TRAINING SCRIPT SCHEMA ==========
+// The metadata contains a complete "script" for training.
+// The server just looks up steps and validates input - no logic computation.
+
+/** Expected input for validation */
+export interface ExpectedInput {
+  text: string;           // Text to match (case-insensitive)
+  indices?: number[];     // Expected word indices in clue (for tap_words)
+}
+
+/** What happens on correct/wrong answer */
+export interface StepOutcome {
+  highlight?: {
+    color: 'GREEN' | 'ORANGE' | 'BLUE' | 'PURPLE';
+    role: 'definition' | 'indicator' | 'fodder' | 'result';
+  };
+  message?: string;       // Feedback message
+}
+
+/** A single training step within a wordplay */
+export interface TrainingStep {
+  phase: 'indicator' | 'fodder' | 'result' | 'teaching';
+
+  // Render instructions (what to display)
+  instruction: string;              // Primary instruction text
+  hint?: string;                    // Secondary hint text
+  panel?: PanelType;                // Panel type (defaults to 'active')
+  inputMode: InputMode;             // How user provides input
+
+  // For teaching steps
+  resultDisplay?: string;           // Result to show read-only
+  blockedHint?: string;             // Learning point text
+
+  // Validation (for indicator/fodder/result steps)
+  expected?: ExpectedInput;
+  onCorrect?: StepOutcome;
+  onWrong?: StepOutcome;
+
+  // Button configuration
+  button?: {
+    label: string;
+    action: string;
+  };
+}
 
 // ========== SERVER-DRIVEN RENDER INSTRUCTIONS ==========
 

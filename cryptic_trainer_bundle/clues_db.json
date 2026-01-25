@@ -20,86 +20,53 @@
         "wordplays": [
           {
             "id": "1",
+            "operation": "discover_anagram",
             "indicator": "busy",
-            "operation": "anagram",
             "fodder": "lymph too",
-            "fodderLetterCount": 8,
-            "result": "PHLEBOTOMY",
-            "resultLetterCount": 10,
-            "dependencies": [
-              "2",
-              "3"
-            ],
-            "blockedHint": "Fodder only has 8 letters, answer needs 10. We need to find 2 more letters.",
+            "result": "LYMPHTOO",
+            "dependencies": [],
+            "blockedHint": "Fodder only has 8 letters, answer needs 10. Find other wordplay steps first.",
             "state": {
               "indicatorFound": false,
               "fodderFound": false,
               "resultEntered": false,
               "solved": false
             },
-            "subOperations": [
+            "explanation": "The word 'busy' indicates an anagram. First we identify the fodder letters.",
+            "trainingScript": [
               {
-                "id": "1A",
-                "operation": "fodder_selection",
-                "indicator": "busy",
-                "fodder": "lymph too",
-                "result": "LYMPHTOO",
-                "dependencies": [],
-                "blockedHint": "Fodder only has 8 letters, answer needs 10. Find other wordplay steps first.",
-                "state": {
-                  "indicatorFound": false,
-                  "fodderFound": false,
-                  "resultEntered": false,
-                  "solved": false
-                }
+                "phase": "indicator",
+                "instruction": "Tap the anagram indicator in the clue",
+                "hint": "Look for a word that signals disorder or rearrangement",
+                "inputMode": "tap_words",
+                "expected": { "text": "busy", "indices": [4] },
+                "onCorrect": { "highlight": { "color": "ORANGE", "role": "indicator" } },
+                "onWrong": { "message": "Not quite - look for a word suggesting disorder or change" }
               },
               {
-                "id": "1B",
-                "operation": "solve_anagram",
-                "indicator": "busy",
-                "fodder": "lymph too + EB",
-                "result": "PHLEBOTOMY",
-                "dependencies": ["2", "3"],
-                "blockedHint": "Need to find the missing letters first (solve other wordplays).",
-                "state": {
-                  "indicatorFound": false,
-                  "fodderFound": false,
-                  "resultEntered": false,
-                  "solved": false
-                }
+                "phase": "fodder",
+                "instruction": "Now tap the fodder - the letters to be rearranged",
+                "hint": "The fodder is adjacent to the indicator",
+                "inputMode": "tap_words",
+                "expected": { "text": "lymph too", "indices": [2, 3] },
+                "onCorrect": { "highlight": { "color": "BLUE", "role": "fodder" } },
+                "onWrong": { "message": "Look for words adjacent to the indicator" }
+              },
+              {
+                "phase": "teaching",
+                "instruction": "🎓 Learning Point",
+                "panel": "teaching",
+                "inputMode": "none",
+                "resultDisplay": "LYMPHTOO",
+                "blockedHint": "Fodder only has 8 letters, answer needs 10. Find other wordplay steps first.",
+                "button": { "label": "Got it — Continue →", "action": "pass_teaching" }
               }
-            ],
-            "explanation": "The word 'busy' indicates an anagram of 'lymph too', combined with letters from other wordplays to form PHLEBOTOMY."
+            ]
           },
           {
             "id": "2",
-            "indicator": "nurses",
-            "operation": "container",
-            "fodder": {
-              "type": "result",
-              "fromWordplay": [
-                "1A",
-                "3"
-              ]
-            },
-            "result": "(insertion point into anagram)",
-            "dependencies": [
-              "1A",
-              "3"
-            ],
-            "blockedHint": "Cannot insert until we solve adjacent wordplays.",
-            "state": {
-              "indicatorFound": false,
-              "fodderFound": false,
-              "resultEntered": false,
-              "solved": false
-            },
-            "explanation": "The word 'nurses' indicates that EB (from 'at last') is inserted into the anagram fodder."
-          },
-          {
-            "id": "3",
-            "indicator": "at last",
             "operation": "letter_selection",
+            "indicator": "at last",
             "extractionType": "last_letter",
             "fodder": "conclude job",
             "result": "EB",
@@ -111,7 +78,66 @@
               "resultEntered": false,
               "solved": false
             },
-            "explanation": "The indicator 'at last' tells us to take the final letters of 'conclude' and 'job', giving EB."
+            "explanation": "The indicator 'at last' tells us to take the final letters of 'conclude' and 'job', giving EB.",
+            "trainingScript": [
+              {
+                "phase": "indicator",
+                "instruction": "Tap the letter selection indicator",
+                "hint": "Look for a phrase that tells you which letters to extract",
+                "inputMode": "tap_words",
+                "expected": { "text": "at last", "indices": [7, 8] },
+                "onCorrect": { "highlight": { "color": "ORANGE", "role": "indicator" } },
+                "onWrong": { "message": "Not quite - look for a phrase suggesting 'final letters'" }
+              },
+              {
+                "phase": "fodder",
+                "instruction": "Now tap the fodder words",
+                "hint": "Which words do we take the last letters from?",
+                "inputMode": "tap_words",
+                "expected": { "text": "conclude job", "indices": [5, 6] },
+                "onCorrect": { "highlight": { "color": "BLUE", "role": "fodder" } },
+                "onWrong": { "message": "Look for words adjacent to the indicator" }
+              },
+              {
+                "phase": "result",
+                "instruction": "Type the result of this step",
+                "hint": "Take the last letter of each fodder word",
+                "inputMode": "enter_text",
+                "expected": { "text": "EB" },
+                "onCorrect": { "message": "Correct! E from concludE, B from joB." },
+                "onWrong": { "message": "Take the final letter from each word" }
+              }
+            ]
+          },
+          {
+            "id": "3",
+            "operation": "solve_anagram",
+            "fodder": {
+              "type": "result",
+              "fromWordplay": ["1", "2"]
+            },
+            "result": "PHLEBOTOMY",
+            "resultLetterCount": 10,
+            "dependencies": ["1", "2"],
+            "blockedHint": "Need to find the missing letters first (solve other wordplays).",
+            "state": {
+              "indicatorFound": false,
+              "fodderFound": false,
+              "resultEntered": false,
+              "solved": false
+            },
+            "explanation": "Now solve the anagram: LYMPHTOO + EB = PHLEBOTOMY",
+            "trainingScript": [
+              {
+                "phase": "result",
+                "instruction": "Type the anagram result",
+                "hint": "Rearrange LYMPHTOO + EB to form a 10-letter word meaning 'drawing blood'",
+                "inputMode": "enter_text",
+                "expected": { "text": "PHLEBOTOMY" },
+                "onCorrect": { "message": "Correct! PHLEBOTOMY is the medical term for drawing blood." },
+                "onWrong": { "message": "Not quite - try rearranging all the letters" }
+              }
+            ]
           }
         ]
       },
