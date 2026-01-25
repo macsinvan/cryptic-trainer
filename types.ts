@@ -296,22 +296,35 @@ export interface Publication {
 
 export interface TrainingItem {
   id: string;
-  clue: string;
+  clue: string | { text: string; enumeration?: string; answer?: string; number?: string };
   answer: string;
   enumeration?: string;           // e.g., "10"
   clueNumber?: string;            // e.g., "1A"
 
+  // V3 Schema - Template-based training
+  steps?: Array<{
+    type: string;
+    expected?: { indices: number[]; text: string };
+    indicator?: { indices: number[]; text: string };
+    fodder?: { indices: number[]; text: string } | string;
+    result?: string;
+    position?: string;
+    extractionType?: string;
+    letterCount?: number;
+    definition?: string;
+  }>;
+
   // V2 Schema - The primary data structure
-  patternData: PatternInstance;   // V2 engine data with wordplays, dependencies, state
+  patternData?: PatternInstance;   // V2 engine data with wordplays, dependencies, state
 
   // Metadata
-  setterName: string;
+  setterName?: string;
   publicationId?: string;
   puzzleId?: string;
-  timestamp: number;
+  timestamp?: number;
 
   // Progress tracking
-  stats: TrainingStats;
+  stats?: TrainingStats;
 
   // ========== DEPRECATED V1 FIELDS ==========
   /** @deprecated Use patternData.clueType instead */
@@ -412,7 +425,7 @@ export interface ButtonSpec {
 export interface HighlightInstruction {
   indices: number[];
   color: 'GREEN' | 'ORANGE' | 'BLUE' | 'PURPLE';
-  role: 'definition' | 'indicator' | 'fodder' | 'deleteTarget';
+  role: 'definition' | 'indicator' | 'fodder' | 'deleteTarget' | 'result';
   confirmed: boolean;
 }
 

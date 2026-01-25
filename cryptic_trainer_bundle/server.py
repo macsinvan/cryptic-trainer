@@ -29,6 +29,7 @@ if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
 from cryptic_trainer import solve
+import training_handler
 
 # --- Clue Storage ---
 DB_FILE = os.path.join(_script_dir, 'clues_db.json')
@@ -144,6 +145,12 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._handle_clear()
         elif self.path == '/parser-issues':
             self._handle_save_parser_issue()
+        elif self.path == '/training/start':
+            self._handle_training_start()
+        elif self.path == '/training/input':
+            self._handle_training_input()
+        elif self.path == '/training/continue':
+            self._handle_training_continue()
         elif self.path == '/training/action':
             self._handle_training_action()
         else:
@@ -439,6 +446,106 @@ class SolverHandler(BaseHTTPRequestHandler):
             import traceback
             traceback.print_exc()
             self._send_json({'error': str(e)}, 500)
+
+    # ==========================================================================
+    # NEW TEMPLATE-BASED TRAINING ENDPOINTS
+    # ==========================================================================
+
+    def _handle_training_start(self):
+        """Start a new training session using the template-based system."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            clue_id = data.get('clueId')
+            if not clue_id:
+                self._send_json({'success': False, 'error': 'Missing clueId'}, 400)
+                return
+
+            db = _load_db()
+            item = db['training_items'].get(clue_id)
+            if not item:
+                self._send_json({'success': False, 'error': 'Clue not found'}, 404)
+                return
+
+            # Start session with new template handler
+            render = training_handler.start_session(clue_id, item)
+            self._send_json({'success': True, 'render': render})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._send_json({'success': False, 'error': str(e)}, 500)
+
+    def _handle_training_input(self):
+        """Handle user input (tap selection or text entry)."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            clue_id = data.get('clueId')
+            value = data.get('value')
+
+            if not clue_id:
+                self._send_json({'success': False, 'error': 'Missing clueId'}, 400)
+                return
+
+            session = training_handler.get_session(clue_id)
+            if not session:
+                self._send_json({'success': False, 'error': 'No active session'}, 400)
+                return
+
+            db = _load_db()
+            item = db['training_items'].get(clue_id)
+            if not item:
+                self._send_json({'success': False, 'error': 'Clue not found'}, 404)
+                return
+
+            result = training_handler.handle_input(clue_id, item, value)
+            self._send_json({'success': True, **result})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._send_json({'success': False, 'error': str(e)}, 500)
+
+    def _handle_training_continue(self):
+        """Handle continue button press."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            clue_id = data.get('clueId')
+
+            if not clue_id:
+                self._send_json({'success': False, 'error': 'Missing clueId'}, 400)
+                return
+
+            session = training_handler.get_session(clue_id)
+            if not session:
+                self._send_json({'success': False, 'error': 'No active session'}, 400)
+                return
+
+            db = _load_db()
+            item = db['training_items'].get(clue_id)
+            if not item:
+                self._send_json({'success': False, 'error': 'Clue not found'}, 404)
+                return
+
+            render = training_handler.handle_continue(clue_id, item)
+            self._send_json({'success': True, 'render': render})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._send_json({'success': False, 'error': str(e)}, 500)
+
+    # ==========================================================================
+    # LEGACY TRAINING HANDLER (kept for backwards compatibility)
+    # ==========================================================================
 
     def _is_wordplay_blocked(self, wordplay, all_wordplays):
         """Check if a wordplay's dependencies are all solved.

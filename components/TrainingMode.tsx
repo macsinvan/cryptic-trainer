@@ -4,6 +4,7 @@ import { ArrowLeft, Trophy, ChevronRight } from 'lucide-react';
 import { PUBLICATIONS } from '../data';
 import { ScannedClue, TrainingItem } from '../types';
 import { ClueTrainer } from './ClueTrainer';
+import { TemplateTrainer } from './TemplateTrainer';
 import { getTrainingQueue } from '../services/clueManager';
 import { STANDARD_CLUE_TYPES } from '../data';
 
@@ -68,10 +69,13 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
     }
 
     const items = getTrainingQueue(publicationId);
-    // Filter to only clues with V2 definition (required for ClueTrainer)
-    // Check both V2 definition.text and legacy definitionText
+    // Filter to only clues that are trainable:
+    // - V3: has steps (new template-based format)
+    // - V2: has definition.text (required for ClueTrainer)
     const trainableItems = items.filter(item =>
-      item.patternData?.definition?.text || item.patternData?.definitionText
+      item.steps ||  // V3 template-based
+      item.patternData?.definition?.text ||  // V2 definition
+      item.patternData?.definitionText  // Legacy
     );
     setQueue(trainableItems);
   }, [publicationId, isCustomMode, customClues]);
@@ -151,18 +155,31 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
         </div>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <ClueTrainer
-            key={currentItem.id}
-            clueId={currentItem.id}
-            patternData={currentItem.patternData}
-            onCorrect={handleCorrect}
-            onNext={nextClue}
-            onGiveUp={handleGiveUp}
-            clueNumber={currentItem.patternData?.clueNumber}
-            enumeration={currentItem.patternData?.enumeration}
-            setterName={currentItem.setterName}
-            difficulty={currentItem.evaluation?.difficulty?.toLowerCase() || 'medium'}
-          />
+          {/* Use TemplateTrainer for new step-based clues, ClueTrainer for legacy */}
+          {currentItem.steps ? (
+            <TemplateTrainer
+              key={currentItem.id}
+              clueId={currentItem.id}
+              clueText={typeof currentItem.clue === 'string' ? currentItem.clue : currentItem.clue?.text || ''}
+              enumeration={typeof currentItem.clue === 'string' ? (currentItem.patternData?.enumeration || '') : (currentItem.clue?.enumeration || '')}
+              clueNumber={typeof currentItem.clue === 'string' ? currentItem.patternData?.clueNumber : currentItem.clue?.number}
+              onComplete={nextClue}
+              onBack={onExit}
+            />
+          ) : (
+            <ClueTrainer
+              key={currentItem.id}
+              clueId={currentItem.id}
+              patternData={currentItem.patternData}
+              onCorrect={handleCorrect}
+              onNext={nextClue}
+              onGiveUp={handleGiveUp}
+              clueNumber={currentItem.patternData?.clueNumber}
+              enumeration={currentItem.patternData?.enumeration}
+              setterName={currentItem.setterName}
+              difficulty={currentItem.evaluation?.difficulty?.toLowerCase() || 'medium'}
+            />
+          )}
         </div>
       </div>
     </div>

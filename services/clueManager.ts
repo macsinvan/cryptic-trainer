@@ -8,6 +8,12 @@ const runtimeClues = new Map<string, TrainingItem>();
 
 const normalize = (text: string) => (text || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
 
+/** Get clue text as string (handles union type) */
+const getClueText = (item: TrainingItem): string => {
+    if (typeof item.clue === 'string') return item.clue;
+    return item.clue?.text || '';
+};
+
 // --- HTTP API Helpers ---
 const API_BASE = '/api';
 
@@ -166,15 +172,28 @@ export const initializeClues = async (): Promise<void> => {
           evaluation: evaluation,
           patternData: raw.patternData
       };
-      mergedClues.set(normalize(seedItem.clue), seedItem);
+      mergedClues.set(normalize(getClueText(seedItem)), seedItem);
   }
 
   // Load from server
   try {
       const data = await fetchJson<{ items: any[] }>('/clues');
       data.items.forEach(item => {
+          // V3: If item has steps (new template-based format)
+          if (item.steps) {
+              // New format: { id, clue: { text, enumeration, answer, number }, steps: [...] }
+              // Extract clue text for normalization, but keep original clue object for TemplateTrainer
+              const clueObj = item.clue;
+              const clueText = typeof clueObj === 'string' ? clueObj : clueObj?.text || '';
+              item.answer = typeof clueObj === 'object' ? clueObj?.answer : item.answer;
+              // Keep steps for TemplateTrainer detection
+              if (clueText) {
+                  mergedClues.set(normalize(clueText), item);
+              }
+              return; // Skip the rest for V3 format
+          }
           // V2: If item has clueEntry, map to patternData for UI compatibility
-          if (item.clueEntry) {
+          else if (item.clueEntry) {
               item.clue = item.clueEntry.clue.text;
               item.answer = item.clueEntry.clue.answer;
               item.enumeration = item.clueEntry.clue.enumeration;
@@ -190,7 +209,11 @@ export const initializeClues = async (): Promise<void> => {
                   wordplays: item.clueEntry.wordplays,
               };
           }
-          mergedClues.set(normalize(item.clue), item);
+          // Normalize for lookup - handle both string and object clue
+          const clueText = typeof item.clue === 'string' ? item.clue : item.clue?.text || '';
+          if (clueText) {
+              mergedClues.set(normalize(clueText), item);
+          }
       });
   } catch (e) {
       console.warn('[clueManager] Could not load clues from server:', e);
@@ -322,14 +345,14 @@ export const importUserData = async (jsonString: string): Promise<{ success: boo
 export const searchClues = (q: string) => {
     const query = normalize(q);
     return Array.from(runtimeClues.values()).filter(item =>
-        normalize(item.clue).includes(query)
+        normalize(getClueText(item)).includes(query)
     ).slice(0, 5);
 };
 export const mapToValidClueType = (s: string, p?: string) => (STANDARD_CLUE_TYPES[0] as any);
 
 // --- Training Flow API ---
 
-import { RenderInstructions } from '../types';
+import { RenderInstructions, ButtonSpec, HighlightInstruction } from '../types';
 
 export interface TrainingActionResponse {
     success: boolean;
@@ -368,6 +391,138 @@ export const trainingAction = async (
     });
 };
 
+// =============================================================================
+// NEW TEMPLATE-BASED TRAINING API
+// =============================================================================
+
+/** Response from new template-based training endpoints */
+export interface NewTrainingRender {
+    stepIndex: number;
+    phaseIndex: number;
+    stepType: string;
+    phaseId: string;
+    inputMode: 'tap_words' | 'text' | 'none';
+    highlights: Array<{ indices: number[]; color: string; role: string }>;
+    intro?: { title: string; text: string; example: string };
+    panel?: { title: string; instruction: string };
+    button?: { label: string; action: string };
+    expected?: number[] | string;
+    complete?: boolean;
+}
+
+export interface NewTrainingResponse {
+    success: boolean;
+    render: NewTrainingRender;
+    correct?: boolean;
+    message?: string;
+    error?: string;
+}
+
+/** Convert new render format to legacy RenderInstructions for UI compatibility */
+function adaptRenderToLegacy(render: NewTrainingRender): RenderInstructions {
+    // Determine panel type
+    let panel: 'active' | 'teaching' | 'blocked' | 'complete' = 'active';
+    if (render.complete) {
+        panel = 'complete';
+    } else if (render.phaseId === 'teaching') {
+        panel = 'teaching';
+    }
+
+    // Determine input mode
+    let inputMode: 'tap_words' | 'enter_text' | 'none' = 'none';
+    if (render.inputMode === 'tap_words') {
+        inputMode = 'tap_words';
+    } else if (render.inputMode === 'text') {
+        inputMode = 'enter_text';
+    }
+
+    // Build buttons
+    const buttons: ButtonSpec[] = [];
+    if (render.button) {
+        buttons.push({
+            id: render.button.action,
+            label: render.button.label,
+            action: render.button.action === 'next_step' ? 'continue' : render.button.action,
+            variant: 'primary',
+            requiresSelection: false,
+            requiresInput: false
+        });
+    } else if (render.inputMode === 'tap_words') {
+        buttons.push({
+            id: 'check',
+            label: 'Check',
+            action: 'check_input',
+            variant: 'primary',
+            requiresSelection: true,
+            requiresInput: false
+        });
+    } else if (render.inputMode === 'text') {
+        buttons.push({
+            id: 'check',
+            label: 'Check',
+            action: 'check_input',
+            variant: 'primary',
+            requiresSelection: false,
+            requiresInput: true
+        });
+    }
+
+    // Convert highlights
+    const highlights: HighlightInstruction[] = render.highlights.map(h => ({
+        indices: h.indices,
+        color: h.color as 'GREEN' | 'ORANGE' | 'BLUE' | 'PURPLE',
+        role: h.role as 'definition' | 'indicator' | 'fodder' | 'result',
+        confirmed: true
+    }));
+
+    return {
+        panel,
+        primaryText: render.panel?.instruction || (render.complete ? 'Training complete!' : ''),
+        secondaryText: render.intro?.text || null,
+        inputMode,
+        inputTarget: render.phaseId === 'indicator' ? 'indicator' :
+                     render.phaseId === 'fodder' ? 'fodder' :
+                     render.phaseId === 'result' ? 'result' : null,
+        showResultInput: render.inputMode === 'text',
+        buttons,
+        highlights,
+        stepLabel: render.panel?.title || render.stepType?.toUpperCase().replace('_', ' ') || '',
+        stepProgress: `${render.stepIndex + 1}`,
+        stepId: `${render.stepType}-${render.phaseId}`,
+        resultDisplay: null,
+        blockedHint: null
+    };
+}
+
+/** Start a new training session (template-based) */
+export const trainingStart = async (clueId: string): Promise<NewTrainingResponse> => {
+    return fetchJson<NewTrainingResponse>('/training/start', {
+        method: 'POST',
+        body: JSON.stringify({ clueId })
+    });
+};
+
+/** Submit user input (tap indices or text) */
+export const trainingInput = async (clueId: string, value: number[] | string): Promise<NewTrainingResponse> => {
+    return fetchJson<NewTrainingResponse>('/training/input', {
+        method: 'POST',
+        body: JSON.stringify({ clueId, value })
+    });
+};
+
+/** Continue to next step (after teaching moment) */
+export const trainingContinue = async (clueId: string): Promise<NewTrainingResponse> => {
+    return fetchJson<NewTrainingResponse>('/training/continue', {
+        method: 'POST',
+        body: JSON.stringify({ clueId })
+    });
+};
+
+/** Get adapted render for UI compatibility */
+export const getAdaptedRender = (response: NewTrainingResponse): RenderInstructions => {
+    return adaptRenderToLegacy(response.render);
+};
+
 /**
  * Check if a clue already exists in the library (by normalized text)
  */
@@ -396,13 +551,13 @@ export const migrateAllClues = async (): Promise<{ migrated: number; errors: num
                     body: JSON.stringify(item)
                 });
 
-                runtimeClues.set(normalize(item.clue), item);
+                runtimeClues.set(normalize(getClueText(item)), item);
                 migrated++;
-                console.log(`[migration] Migrated: ${item.clue.substring(0, 40)}... → ${migratedPatternData.patternId}`);
+                console.log(`[migration] Migrated: ${getClueText(item).substring(0, 40)}... → ${migratedPatternData.patternId}`);
             }
         } catch (err) {
             errors++;
-            console.error(`[migration] Error migrating clue "${item.clue}":`, err);
+            console.error(`[migration] Error migrating clue "${getClueText(item)}":`, err);
         }
     }
 
@@ -425,7 +580,7 @@ export const clearCluesByPuzzleNumber = async (puzzleNumbers: number[]): Promise
                 await fetchJson(`/clues/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
                 runtimeClues.delete(norm);
                 deleted++;
-                console.log(`[cleanup] Deleted: ${item.clue.substring(0, 40)}... (puzzle ${puzzleNum})`);
+                console.log(`[cleanup] Deleted: ${getClueText(item).substring(0, 40)}... (puzzle ${puzzleNum})`);
             } catch (e) {
                 console.error(`[cleanup] Failed to delete:`, e);
             }
