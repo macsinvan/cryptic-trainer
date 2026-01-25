@@ -38,6 +38,31 @@ _db_lock = threading.Lock()
 _training_sessions = {}  # clueId -> { clueEntry: {...}, startTime: timestamp }
 SESSION_TIMEOUT_SECONDS = 3600  # Clean up sessions older than 1 hour
 
+# --- Teaching Content ---
+# General teaching for definition types (by clueType.id)
+DEFINITION_TEACHING = {
+    'standard': "In standard definition clues the definition is always found at the start or the end of the clue — never buried in the middle.",
+    'double_definition': "Double definitions have no wordplay — just two different meanings of the same word.",
+    'triple_definition': "Triple definitions are rare — three separate meanings for one word, with no wordplay.",
+    'cryptic_definition': "The entire clue is a misleading definition — there's no separate wordplay.",
+    'andit': "In an &lit clue, the whole clue is both definition AND wordplay simultaneously."
+}
+
+# General teaching for wordplay operations (by operation type)
+WORDPLAY_TEACHING = {
+    'anagram': "Anagram indicators suggest disorder or change: 'mixed', 'broken', 'wild', 'drunk'.",
+    'discover_anagram': "Anagram indicators suggest disorder or change: 'mixed', 'broken', 'wild', 'drunk'.",
+    'letter_selection': "Letter selection extracts specific letters: 'first' (initial), 'last' (final), 'odd', 'even'.",
+    'container': "Container indicators signal one thing goes inside another: 'in', 'around', 'holding'.",
+    'hidden': "Hidden word indicators conceal the answer consecutively within the clue text.",
+    'reversal': "Reversal indicators suggest backwards movement: 'back', 'returned', 'up' (in down clues).",
+    'deletion': "Deletion indicators remove letters: 'headless' (first), 'endless' (last), 'heartless' (middle).",
+    'homophone': "Homophone indicators signal a word that sounds like the answer: 'heard', 'said', 'reportedly'.",
+    'abbreviation': "Common abbreviations: directions (N,S,E,W), titles (DR, ST), units, symbols.",
+    'synonym': "Synonym substitution replaces a word with its equivalent meaning.",
+    'solve_anagram': "Now rearrange all the collected letters to form the answer."
+}
+
 def _load_db():
     """Load the clue database from JSON file."""
     if os.path.exists(DB_FILE):
@@ -582,6 +607,42 @@ class SolverHandler(BaseHTTPRequestHandler):
         blocked_hint = context.get('blockedHint') or (step.get('blockedHint') if step else None)
         all_solved = context.get('allSolved', False)
 
+        # === TEACHING PHASES: Use teaching content from context ===
+        teaching = context.get('teaching')
+        if teaching and phase.startswith('teaching_'):
+            # Determine which action to call on continue
+            if phase == 'teaching_indicator':
+                pass_action = 'pass_indicator_teaching'
+            elif phase == 'teaching_fodder':
+                pass_action = 'pass_fodder_teaching'
+            elif phase == 'teaching_result':
+                pass_action = 'pass_result_teaching'
+            else:
+                pass_action = 'pass_teaching'
+
+            return {
+                'panel': 'teaching',
+                'primaryText': teaching.get('primaryText', ''),
+                'secondaryText': teaching.get('secondaryText'),
+                'inputMode': 'none',
+                'inputTarget': None,
+                'showResultInput': False,
+                'buttons': [{
+                    'id': 'continue',
+                    'label': 'Continue →',
+                    'action': pass_action,
+                    'variant': 'primary',
+                    'requiresSelection': False,
+                    'requiresInput': False
+                }],
+                'highlights': self._collect_highlights(wordplays, clue_entry),
+                'stepLabel': 'CONGRATULATIONS',
+                'stepProgress': '',
+                'stepId': step.get('id', '') if step else '',
+                'resultDisplay': step.get('result', '') if step else None,
+                'blockedHint': blocked_hint
+            }
+
         # === METADATA-DRIVEN: Use trainingScript if available ===
         training_script = step.get('trainingScript', []) if step else []
         if training_script and phase in ('indicator', 'fodder', 'result', 'teaching'):
@@ -775,6 +836,7 @@ class SolverHandler(BaseHTTPRequestHandler):
             'highlights': highlights,
             'stepLabel': step_label,
             'stepProgress': step_progress,
+            'stepId': step.get('id', '') if step else '',
             'resultDisplay': result_display,
             'blockedHint': blocked_hint,
         }
@@ -899,6 +961,7 @@ class SolverHandler(BaseHTTPRequestHandler):
             'highlights': self._collect_highlights(wordplays, clue_entry),
             'stepLabel': step_label,
             'stepProgress': step_progress,
+            'stepId': step.get('id', '') if step else '',
             'resultDisplay': script_step.get('resultDisplay'),
             'blockedHint': script_step.get('blockedHint') or blocked_hint,
         }
@@ -1151,9 +1214,42 @@ class SolverHandler(BaseHTTPRequestHandler):
                     clue_entry['state']['definitionFound'] = True
                     clue_entry['state']['definitionIndices'] = selected_indices
 
+                    # Build teaching moment
+                    clue_type = clue_entry.get('clueType', {}).get('id', 'standard')
+                    general = DEFINITION_TEACHING.get(clue_type, '')
+                    specific = f"Here you found '{definition.get('text', '')}' at the {definition.get('position', '')}."
+
+                    self._send_json({
+                        'success': True,
+                        'validation': {'correct': True, 'expected': expected},
+                        'clueEntry': clue_entry,
+                        'currentPhase': 'teaching_definition',
+                        'render': {
+                            'panel': 'teaching',
+                            'primaryText': f"{general} {specific}",
+                            'secondaryText': None,
+                            'inputMode': 'none',
+                            'inputTarget': None,
+                            'showResultInput': False,
+                            'buttons': [{
+                                'id': 'continue',
+                                'label': 'Continue →',
+                                'action': 'pass_definition_teaching',
+                                'variant': 'primary',
+                                'requiresSelection': False,
+                                'requiresInput': False
+                            }],
+                            'highlights': self._collect_highlights(wordplays, clue_entry),
+                            'stepLabel': 'CONGRATULATIONS',
+                            'stepProgress': ''
+                        }
+                    })
+                    return
+
+                # Wrong answer - no teaching
                 self._send_json({
                     'success': True,
-                    'validation': {'correct': correct, 'expected': expected},
+                    'validation': {'correct': False, 'expected': expected},
                     'clueEntry': clue_entry
                 })
 
@@ -1173,22 +1269,26 @@ class SolverHandler(BaseHTTPRequestHandler):
                     wp['state']['indicatorFound'] = True
                     wp['state']['indicatorIndices'] = action_data.get('selectedIndices', [])
 
-                # After indicator found, if this wordplay has subOperations, navigate to first available subOp
-                if correct and wp.get('subOperations'):
-                    (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
-                    if next_step and next_is_subop and next_parent == wp:
-                        # Navigate to the first subOperation of this wordplay
-                        next_phase = self._get_wordplay_phase(next_step)
-                        self._send_json(self._build_training_response(
-                            clue_entry, wordplays, next_step, next_phase, True, wp,
-                            validation={'correct': correct, 'expected': expected}
-                        ))
-                        return
+                    # Build teaching moment for indicator
+                    operation = wp.get('operation', '')
+                    general = WORDPLAY_TEACHING.get(operation, '')
+                    indicator = wp.get('indicator', '')
+                    specific = f"Here you found '{indicator}' which signals this wordplay technique."
 
-                next_phase = self._get_wordplay_phase(wp) if correct else 'indicator'
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, wp, 'teaching_indicator', is_subop, parent_wp,
+                        validation={'correct': True, 'expected': expected},
+                        teaching={
+                            'primaryText': f"{general} {specific}",
+                            'secondaryText': None
+                        }
+                    ))
+                    return
+
+                # Wrong answer - stay on indicator phase
                 self._send_json(self._build_training_response(
-                    clue_entry, wordplays, wp, next_phase, is_subop, parent_wp,
-                    validation={'correct': correct, 'expected': expected}
+                    clue_entry, wordplays, wp, 'indicator', is_subop, parent_wp,
+                    validation={'correct': False, 'expected': expected}
                 ))
 
             elif action == 'check_fodder':
@@ -1217,48 +1317,31 @@ class SolverHandler(BaseHTTPRequestHandler):
                 if correct:
                     wp['state']['fodderFound'] = True
                     wp['state']['fodderIndices'] = action_data.get('selectedIndices', [])
-                    # For fodder_selection operations, completing fodder = solved
+                    # For NO_RESULT_OPERATIONS, completing fodder = solved
                     if wp.get('operation', '') in self.NO_RESULT_OPERATIONS:
                         wp['state']['resultEntered'] = True
                         wp['state']['solved'] = True
-                        # If this is a subOperation, check if parent should be marked solved
                         if is_subop and parent_wp:
                             self._update_parent_solved_if_all_subops_done(parent_wp)
 
-                # Determine next step/phase
-                if correct:
-                    next_phase = self._get_wordplay_phase(wp)
-                    if next_phase == 'complete':
-                        # Check for teaching moment BEFORE advancing
-                        if wp.get('blockedHint'):
-                            # Return teaching phase — stay on current step
-                            self._send_json(self._build_training_response(
-                                clue_entry, wordplays, wp, 'teaching', is_subop, parent_wp,
-                                validation={'correct': correct, 'expected': expected}
-                            ))
-                            return
+                    # Build teaching moment for fodder
+                    indicator = wp.get('indicator', '')
+                    specific = f"Here you found '{fodder}' next to the indicator '{indicator}'."
 
-                        # No blockedHint — advance immediately
-                        (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
-                        if next_step:
-                            next_phase = self._get_wordplay_phase(next_step)
-                        else:
-                            all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
-                            next_phase = 'complete' if all_solved else 'blocked'
-                        self._send_json(self._build_training_response(
-                            clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
-                            validation={'correct': correct, 'expected': expected}
-                        ))
-                        return
-                    # Stay on same wordplay for result phase
-                    next_step, next_parent, next_is_subop = wp, parent_wp, is_subop
-                else:
-                    next_phase = 'fodder'
-                    next_step, next_parent, next_is_subop = wp, parent_wp, is_subop
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, wp, 'teaching_fodder', is_subop, parent_wp,
+                        validation={'correct': True, 'expected': expected},
+                        teaching={
+                            'primaryText': f"The fodder is always adjacent to the indicator. {specific}",
+                            'secondaryText': None
+                        }
+                    ))
+                    return
 
+                # Wrong answer - stay on fodder phase
                 self._send_json(self._build_training_response(
-                    clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
-                    validation={'correct': correct, 'expected': expected}
+                    clue_entry, wordplays, wp, 'fodder', is_subop, parent_wp,
+                    validation={'correct': False, 'expected': expected}
                 ))
 
             elif action == 'check_result':
@@ -1276,23 +1359,30 @@ class SolverHandler(BaseHTTPRequestHandler):
                 if correct:
                     wp['state']['resultEntered'] = True
                     wp['state']['solved'] = True
-                    # If this is a subOperation, check if parent should be marked solved
                     if is_subop and parent_wp:
                         self._update_parent_solved_if_all_subops_done(parent_wp)
 
-                # Find next available step
-                (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
-                all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
-                next_phase = self._get_wordplay_phase(next_step) if next_step else ('complete' if all_solved else 'blocked')
+                    # Build teaching moment for result
+                    operation = wp.get('operation', '')
+                    fodder_val = wp.get('fodder', '')
+                    fodder_display = fodder_val if isinstance(fodder_val, str) else '[combined letters]'
+                    result = wp.get('result', '')
+                    specific = f"You correctly worked out that '{fodder_display}' gives '{result}'."
 
-                # Clean up session when all solved
-                if all_solved and clue_id in _training_sessions:
-                    del _training_sessions[clue_id]
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, wp, 'teaching_result', is_subop, parent_wp,
+                        validation={'correct': True, 'expected': expected},
+                        teaching={
+                            'primaryText': specific,
+                            'secondaryText': None
+                        }
+                    ))
+                    return
 
+                # Wrong answer - stay on result phase
                 self._send_json(self._build_training_response(
-                    clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
-                    validation={'correct': correct, 'expected': expected},
-                    allSolved=all_solved
+                    clue_entry, wordplays, wp, 'result', is_subop, parent_wp,
+                    validation={'correct': False, 'expected': expected}
                 ))
 
             elif action == 'pass_teaching':
@@ -1313,6 +1403,85 @@ class SolverHandler(BaseHTTPRequestHandler):
 
                 self._send_json(self._build_training_response(
                     clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent
+                ))
+
+            elif action == 'pass_definition_teaching':
+                # Advance from definition teaching to first wordplay
+                (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
+                if next_step:
+                    next_phase = self._get_wordplay_phase(next_step)
+                else:
+                    all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
+                    next_phase = 'complete' if all_solved else 'blocked'
+
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent
+                ))
+
+            elif action == 'pass_indicator_teaching':
+                # Advance from indicator teaching to fodder phase
+                wordplay_id = action_data.get('wordplayId')
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, wp, 'fodder', is_subop, parent_wp
+                ))
+
+            elif action == 'pass_fodder_teaching':
+                # Advance from fodder teaching to result phase (or next wordplay for no-result ops)
+                wordplay_id = action_data.get('wordplayId')
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                # Check if this operation requires result entry
+                if wp.get('operation', '') in self.NO_RESULT_OPERATIONS:
+                    # No result needed - check for blocked teaching or advance to next wordplay
+                    if wp.get('blockedHint'):
+                        # Show existing teaching phase (blockedHint teaching)
+                        self._send_json(self._build_training_response(
+                            clue_entry, wordplays, wp, 'teaching', is_subop, parent_wp
+                        ))
+                    else:
+                        # Advance to next wordplay
+                        (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
+                        if next_step:
+                            next_phase = self._get_wordplay_phase(next_step)
+                        else:
+                            all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
+                            next_phase = 'complete' if all_solved else 'blocked'
+                        self._send_json(self._build_training_response(
+                            clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent
+                        ))
+                else:
+                    # Advance to result phase
+                    self._send_json(self._build_training_response(
+                        clue_entry, wordplays, wp, 'result', is_subop, parent_wp
+                    ))
+
+            elif action == 'pass_result_teaching':
+                # Advance from result teaching to next wordplay
+                wordplay_id = action_data.get('wordplayId')
+                (wp, parent_wp, is_subop) = self._find_wordplay_by_id(wordplays, wordplay_id)
+                if not wp:
+                    self._send_json({'success': False, 'error': 'Wordplay not found'}, 404)
+                    return
+
+                (next_step, next_parent, next_is_subop) = self._get_next_available_wordplay(wordplays)
+                all_solved = all(w.get('state', {}).get('solved', False) for w in wordplays)
+                next_phase = self._get_wordplay_phase(next_step) if next_step else ('complete' if all_solved else 'blocked')
+
+                # Clean up session when all solved
+                if all_solved and clue_id in _training_sessions:
+                    del _training_sessions[clue_id]
+
+                self._send_json(self._build_training_response(
+                    clue_entry, wordplays, next_step, next_phase, next_is_subop, next_parent,
+                    allSolved=all_solved
                 ))
 
             elif action == 'select_wordplay':

@@ -499,7 +499,7 @@ export const ClueSolver: React.FC<ClueSolverProps> = ({
           {grid.map((char, i) => (
               <input
                 key={i}
-                ref={el => gridRefs.current[i] = el}
+                ref={el => { gridRefs.current[i] = el; }}
                 type="text"
                 maxLength={1}
                 value={char}

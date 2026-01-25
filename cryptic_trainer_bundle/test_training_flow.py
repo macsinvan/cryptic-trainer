@@ -218,6 +218,11 @@ def test_phlebotomy_wordplay2_flow() -> TestResult:
     result.assert_true(resp.get('success', False), "check_indicator succeeds")
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Indicator 'at last' is correct")
+    result.assert_eq(resp.get('currentPhase'), 'teaching_indicator', "Phase is teaching_indicator")
+
+    # Pass indicator teaching to advance
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_indicator_teaching', {'wordplayId': '2'})
+    result.assert_true(resp.get('success', False), "pass_indicator_teaching succeeds")
     result.assert_eq(resp.get('currentPhase'), 'fodder', "Phase advances to fodder")
 
     # Check fodder: "conclude job"
@@ -228,6 +233,11 @@ def test_phlebotomy_wordplay2_flow() -> TestResult:
     result.assert_true(resp.get('success', False), "check_fodder succeeds")
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Fodder 'conclude job' is correct")
+    result.assert_eq(resp.get('currentPhase'), 'teaching_fodder', "Phase is teaching_fodder")
+
+    # Pass fodder teaching to advance
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_fodder_teaching', {'wordplayId': '2'})
+    result.assert_true(resp.get('success', False), "pass_fodder_teaching succeeds")
     result.assert_eq(resp.get('currentPhase'), 'result', "Phase advances to result")
 
     # Check result: "EB"
@@ -238,6 +248,11 @@ def test_phlebotomy_wordplay2_flow() -> TestResult:
     result.assert_true(resp.get('success', False), "check_result succeeds")
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Result 'EB' is correct")
+    result.assert_eq(resp.get('currentPhase'), 'teaching_result', "Phase is teaching_result")
+
+    # Pass result teaching to advance
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_result_teaching', {'wordplayId': '2'})
+    result.assert_true(resp.get('success', False), "pass_result_teaching succeeds")
 
     # Wordplay 2 should now be solved, and we should move to next available
     result.assert_true(not resp.get('allSolved', False), "Not all solved yet")
@@ -278,6 +293,11 @@ def test_phlebotomy_wordplay1_flow() -> TestResult:
     result.assert_true(resp.get('success', False), "check_indicator succeeds")
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Indicator 'busy' is correct")
+    result.assert_eq(resp.get('currentPhase'), 'teaching_indicator', "Phase is teaching_indicator")
+
+    # Pass indicator teaching to advance to fodder
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_indicator_teaching', {'wordplayId': '1'})
+    result.assert_true(resp.get('success', False), "pass_indicator_teaching succeeds")
     result.assert_eq(resp.get('currentPhase'), 'fodder', "Phase advances to fodder")
     result.assert_true('blockedHint' in resp, "blockedHint still present after indicator")
 
@@ -290,18 +310,22 @@ def test_phlebotomy_wordplay1_flow() -> TestResult:
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Fodder 'lymph too' is correct")
 
-    # discover_anagram with blockedHint should show TEACHING phase (not result, not immediate advance)
-    result.assert_eq(resp.get('currentPhase'), 'teaching',
-                     "discover_anagram with blockedHint returns teaching phase")
+    # discover_anagram shows teaching_fodder phase
+    result.assert_eq(resp.get('currentPhase'), 'teaching_fodder',
+                     "discover_anagram returns teaching_fodder phase")
 
     # Current wordplay should still be 1 (not advanced yet)
     current_wp = resp.get('currentWordplay', {})
     result.assert_eq(current_wp.get('id'), '1', "Still on 1 during teaching phase")
 
-    # blockedHint should be present for display
-    result.assert_true('blockedHint' in resp, "blockedHint present in teaching response")
+    # Now pass the fodder teaching moment - for NO_RESULT_OPERATIONS with blockedHint, goes to teaching
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_fodder_teaching', {'wordplayId': '1'})
+    result.assert_true(resp.get('success', False), "pass_fodder_teaching succeeds")
 
-    # Now pass the teaching moment
+    # discover_anagram with blockedHint shows existing teaching phase
+    result.assert_eq(resp.get('currentPhase'), 'teaching', "Shows blockedHint teaching phase")
+
+    # Now pass the blockedHint teaching moment
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_teaching', {'wordplayId': '1'})
     result.assert_true(resp.get('success', False), "pass_teaching succeeds")
 
@@ -348,10 +372,12 @@ def test_phlebotomy_wrong_result() -> TestResult:
         result.error(f"Failed to start session: {resp.get('error')}")
         return result
 
-    # Select wordplay 2 and complete indicator/fodder
+    # Select wordplay 2 and complete indicator/fodder (with teaching passes)
     training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
     training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '2', 'selected': 'at last'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_indicator_teaching', {'wordplayId': '2'})
     training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '2', 'selected': 'conclude job'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_fodder_teaching', {'wordplayId': '2'})
 
     # Submit wrong result
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {
@@ -382,17 +408,23 @@ def test_phlebotomy_full_solve() -> TestResult:
     # NOTE: discover_anagram completes after fodder phase with teaching - NO result entry
     training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '1'})
     training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '1', 'selected': 'busy'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_indicator_teaching', {'wordplayId': '1'})
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '1', 'selected': 'lymph too'})
     result.assert_true(resp.get('validation', {}).get('correct', False), "Wordplay 1 fodder correct")
-    # Pass the teaching moment
+    # Pass fodder teaching moment
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_fodder_teaching', {'wordplayId': '1'})
+    # Pass the blockedHint teaching moment
     training_action(PHLEBOTOMY_CLUE_ID, 'pass_teaching', {'wordplayId': '1'})
 
     # Step 2: Solve wordplay 2 (letter_selection, no deps)
     training_action(PHLEBOTOMY_CLUE_ID, 'select_wordplay', {'wordplayId': '2'})
     training_action(PHLEBOTOMY_CLUE_ID, 'check_indicator', {'wordplayId': '2', 'selected': 'at last'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_indicator_teaching', {'wordplayId': '2'})
     training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {'wordplayId': '2', 'selected': 'conclude job'})
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_fodder_teaching', {'wordplayId': '2'})
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {'wordplayId': '2', 'entered': 'EB'})
     result.assert_true(resp.get('validation', {}).get('correct', False), "Wordplay 2 solved")
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_result_teaching', {'wordplayId': '2'})
 
     # Step 3: Now wordplay 3 should be available (deps: ["1", "2"] both solved)
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'get_state')
@@ -405,8 +437,10 @@ def test_phlebotomy_full_solve() -> TestResult:
     # Solve the anagram
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {'wordplayId': '3', 'entered': 'PHLEBOTOMY'})
     result.assert_true(resp.get('validation', {}).get('correct', False), "Wordplay 3 solved")
+    result.assert_eq(resp.get('currentPhase'), 'teaching_result', "Shows teaching_result phase")
 
-    # Should now be all solved
+    # Pass result teaching and check allSolved in the response
+    resp = training_action(PHLEBOTOMY_CLUE_ID, 'pass_result_teaching', {'wordplayId': '3'})
     result.assert_true(resp.get('allSolved', False), "All wordplays solved")
 
     return result
@@ -432,6 +466,7 @@ def test_phlebotomy_case_insensitive() -> TestResult:
     })
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Uppercase indicator accepted")
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_indicator_teaching', {'wordplayId': '2'})
 
     # Submit fodder with mixed case
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {
@@ -440,6 +475,7 @@ def test_phlebotomy_case_insensitive() -> TestResult:
     })
     validation = resp.get('validation', {})
     result.assert_true(validation.get('correct', False), "Mixed case fodder accepted")
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_fodder_teaching', {'wordplayId': '2'})
 
     # Submit result with lowercase
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_result', {
@@ -482,6 +518,9 @@ def test_phlebotomy_indices_stored() -> TestResult:
     state = current_wp.get('state', {})
     result.assert_true(state.get('indicatorFound', False), "indicatorFound is True")
     result.assert_eq(state.get('indicatorIndices'), [7, 8], "indicatorIndices stored correctly")
+
+    # Pass indicator teaching
+    training_action(PHLEBOTOMY_CLUE_ID, 'pass_indicator_teaching', {'wordplayId': '2'})
 
     # Check fodder with indices [5, 6] for "conclude job"
     resp = training_action(PHLEBOTOMY_CLUE_ID, 'check_fodder', {

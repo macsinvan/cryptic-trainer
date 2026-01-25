@@ -270,7 +270,13 @@ export const subscribeToClues = (cb: () => void) => {
     return () => {};
 };
 
-export const getCloudConnectionStatus = () => ({ status: 'connected' as any });
+export const getCloudConnectionStatus = () => ({
+    status: 'connected' as const,
+    userCount: 1,
+    currentUserId: 'local-user',
+    recentUsers: [] as Array<{ id: string; last_active: string }>,
+    error: null as string | null
+});
 export const refreshConnection = async () => {};
 export const getCustomClueCount = () => 0;
 

@@ -451,6 +451,89 @@ This means:
 
 ---
 
+## Teaching Moments
+
+**This is a training app.** After every successful step, the server pauses to show a teaching moment before advancing. This gives users time to absorb what they learned.
+
+### Architecture
+
+Teaching moments are:
+1. **Server-side** — Server decides when to show them and what content to display
+2. **Metadata-driven** — Content comes from clue metadata (pattern type, definition, indicator, fodder, etc.)
+3. **Pattern-based** — General teaching about the pattern type (e.g., "standard definition", "anagram", "letter_selection")
+4. **Clue-specific** — Fills in specifics from this clue's metadata
+
+### Format
+
+Every teaching moment follows the same structure:
+
+```
+Teaching moment: "{pattern type}"
+
+{General teaching about this pattern type}. Here you found {specific values from metadata}.
+
+[Continue →]
+```
+
+### When Teaching Moments Appear
+
+| After | Pattern Type | Example Content |
+|-------|--------------|-----------------|
+| Definition found | `{clueType.id}` (e.g., "standard") | "In standard definition clues the definition is always found at the start or the end of the clue. Here you found the definition '{definition.text}' at the {definition.position}." |
+| Indicator found | `{operation}` (e.g., "anagram") | "Anagram indicators suggest disorder or change. Here you found the indicator '{indicator}' which signals letters to rearrange." |
+| Fodder found | `{operation}` | "The fodder is always adjacent to the indicator. Here you found '{fodder}' next to the indicator '{indicator}'." |
+| Result entered | `{operation}` | "You correctly worked out that {fodder} gives {result}." |
+
+### Flow
+
+```
+User completes step correctly
+  → Server returns panel: 'teaching' with teaching content
+  → UI renders teaching panel with "Continue" button
+  → User clicks "Continue"
+  → UI sends action: 'pass_teaching'
+  → Server advances to next phase/wordplay
+```
+
+### RenderInstructions for Teaching
+
+When returning a teaching moment, the server sets:
+
+```json
+{
+  "render": {
+    "panel": "teaching",
+    "primaryText": "Teaching moment: standard definition",
+    "secondaryText": "In standard definition clues the definition is always at the start or end. Here you found 'Drawing blood' at the start.",
+    "inputMode": "none",
+    "buttons": [
+      {
+        "id": "continue",
+        "label": "Continue →",
+        "action": "pass_teaching",
+        "variant": "primary"
+      }
+    ]
+  }
+}
+```
+
+### General Teaching Content
+
+The server maintains teaching content for each pattern type:
+
+| Pattern | General Teaching |
+|---------|------------------|
+| `standard` | "In standard definition clues the definition is always found at the start or the end of the clue — never buried in the middle." |
+| `double_definition` | "Double definitions have no wordplay — just two different meanings of the same word." |
+| `anagram` | "Anagram indicators suggest disorder or change: 'mixed', 'broken', 'wild', 'drunk'. The fodder is always adjacent to the indicator." |
+| `letter_selection` | "Letter selection extracts specific letters: 'first' (initial), 'last' (final), 'odd', 'even'. The fodder is always adjacent to the indicator." |
+| `container` | "Container indicators signal one thing goes inside another: 'in', 'around', 'holding'. The fodder is always adjacent to the indicator." |
+| `hidden` | "Hidden word indicators conceal the answer consecutively within the clue text: 'in', 'part of', 'some'." |
+| `reversal` | "Reversal indicators suggest backwards movement: 'back', 'returned', 'up' (in down clues)." |
+
+---
+
 ## Stored Data Structure
 
 The server stores source data directly in `patternData`. Key fields:

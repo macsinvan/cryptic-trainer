@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ChevronRight, ChevronDown, Check, HelpCircle, Lightbulb, Zap, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, Check, HelpCircle, Lightbulb, Zap, BookOpen, RotateCcw } from 'lucide-react';
 import { PatternInstance, WordHighlight, RenderInstructions } from '../types';
 import { WORKFLOW_COLORS } from '../data/designTemplates';
 import { trainingAction } from '../services/clueManager';
@@ -118,6 +118,13 @@ const renderLearningText = (text: string): React.ReactNode => {
     }
     return part;
   });
+};
+
+// Helper to format fodder for display - handles reference objects
+const formatFodder = (fodder: any): string => {
+  if (typeof fodder === 'string') return fodder;
+  if (fodder?.fromWordplay) return `[from steps ${fodder.fromWordplay.join(', ')}]`;
+  return '';
 };
 
 // =============================================================================
@@ -361,7 +368,8 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
     if (patternData?.steps && patternData.steps.length > 0) {
       return patternData.steps
         .filter((s: any) => s.operation !== 'charade') // Exclude assembly steps
-        .map((s: any) => ({
+        .map((s: any, idx: number) => ({
+          id: s.id || `step-${idx}`,
           indicator: s.indicator || '',
           fodder: typeof s.fodder === 'string' ? s.fodder : '',
           result: s.result || '',
@@ -647,6 +655,42 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
   // NOTE: wordplaySubPhase removed - use currentPhase (derived from serverState) directly
 
   // ---------------------------------------------------------------------------
+  // RESTART HANDLER
+  // ---------------------------------------------------------------------------
+
+  const handleRestart = async () => {
+    // Reset all UI state
+    setPhase('choose');
+    setSelectedIndices([]);
+    setDefinitionCheckFeedback(null);
+    setSpecialTypeDefinition(null);
+    setShowWordplayDetail(false);
+    setIdentifiedType(null);
+    setSelectedIndicatorIndices([]);
+    setSelectedDeleteTargetIndices([]);
+    setSelectedFodderIndices([]);
+    setSelectedDecodeMethod(null);
+    setStepResultInput('');
+    setExpandedCompletedSteps([]);
+    setRevealedIndicatorSteps([]);
+    setCheckFeedback(null);
+    setServerState(null);
+
+    // Reset answer grid
+    const cleanAnswer = answer.replace(/[^A-Z]/gi, '').toUpperCase();
+    setGrid(new Array(cleanAnswer.length).fill(''));
+
+    // Tell server to reset session
+    if (clueId) {
+      try {
+        await trainingAction(clueId, 'start');
+      } catch (err) {
+        console.warn('[restart] Could not reset server session:', err);
+      }
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // INTERACTION HANDLERS
   // ---------------------------------------------------------------------------
 
@@ -755,25 +799,38 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
       // Show feedback
       setDefinitionCheckFeedback(isCorrect ? 'correct' : 'wrong');
 
-      // Update server state - create new state if none exists
-      setServerState((prev: any) => ({
-        clueEntry: response.clueEntry,
-        currentWordplay: prev?.currentWordplay ?? null,
-        currentWordplayIndex: prev?.currentWordplayIndex ?? 0,
-        currentPhase: prev?.currentPhase ?? 'indicator',
-        blocked: prev?.blocked ?? false,
-        blockedHint: prev?.blockedHint ?? '',
-        allSolved: prev?.allSolved ?? false,
-      }));
-
       if (isCorrect) {
-        // Clear selection after brief delay, then move to wordplay phase
+        // Update server state with render instructions for teaching moment
+        setServerState((prev: any) => ({
+          clueEntry: response.clueEntry,
+          currentWordplay: prev?.currentWordplay ?? null,
+          currentWordplayIndex: prev?.currentWordplayIndex ?? 0,
+          currentPhase: response.currentPhase || 'teaching_definition',
+          blocked: prev?.blocked ?? false,
+          blockedHint: prev?.blockedHint ?? '',
+          allSolved: prev?.allSolved ?? false,
+          render: response.render,  // Include render instructions for teaching
+        }));
+
+        // Clear selection after brief delay, then show teaching panel
         setTimeout(() => {
           setSelectedIndices([]);
           setDefinitionCheckFeedback(null);
+          // Move to wordplay phase which will show the InstructionPanel with teaching content
           setPhase('wordplay');
         }, 600);
       } else {
+        // Update server state without render
+        setServerState((prev: any) => ({
+          clueEntry: response.clueEntry,
+          currentWordplay: prev?.currentWordplay ?? null,
+          currentWordplayIndex: prev?.currentWordplayIndex ?? 0,
+          currentPhase: prev?.currentPhase ?? 'indicator',
+          blocked: prev?.blocked ?? false,
+          blockedHint: prev?.blockedHint ?? '',
+          allSolved: prev?.allSolved ?? false,
+        }));
+
         // Wrong - clear selection after brief red flash
         setTimeout(() => {
           setSelectedIndices([]);
@@ -1557,10 +1614,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               return `Select a word to decode`;
             }
             if (currentPhase === 'decodeMethod') {
-              return `How does "${currentStep.fodder}" decode?`;
+              return `How does "${formatFodder(currentStep.fodder)}" decode?`;
             }
             if (currentPhase === 'result') {
-              return `What does "${currentStep.fodder}" give you?`;
+              return `What does "${formatFodder(currentStep.fodder)}" give you?`;
             }
           } else {
             // Steps with indicator
@@ -1619,7 +1676,16 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
 
       {/* CLUE DISPLAY */}
       <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200 relative">
-        <div className="text-xl md:text-2xl font-serif text-slate-900 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        {/* Restart button */}
+        <button
+          onClick={handleRestart}
+          title="Restart clue"
+          className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+        >
+          <RotateCcw size={16} />
+        </button>
+
+        <div className="text-xl md:text-2xl font-serif text-slate-900 flex flex-wrap items-baseline gap-x-2 gap-y-1 pr-8">
           {/* Clue number */}
           {displayClueNumber && (
             <span className="text-indigo-600 font-bold">{displayClueNumber}</span>
@@ -1726,7 +1792,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
             {grid.map((char, i) => (
               <input
                 key={i}
-                ref={el => gridRefs.current[i] = el}
+                ref={el => { gridRefs.current[i] = el; }}
                 type="text"
                 maxLength={1}
                 value={char}
@@ -1916,7 +1982,9 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               {wordplaySteps.map((step, i) => {
                 const stepType = step.stepType?.toLowerCase() || '';
                 const learning = WORDPLAY_LEARNINGS[stepType];
-                const clueSpecific = getClueSpecificLearning(stepType, step.indicator, step.fodder);
+                // Format fodder for display - handle reference objects
+                const fodderDisplay = step.fodder || (step.fodderRef ? `[from steps ${step.fodderRef.fromWordplay?.join(', ')}]` : '');
+                const clueSpecific = getClueSpecificLearning(stepType, step.indicator, fodderDisplay);
                 const isExpanded = expandedCompletedSteps.includes(i);
                 return (
                   <div key={i} className="bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
@@ -1932,7 +2000,7 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
                     >
                       <Check size={16} className="text-green-600 flex-shrink-0" />
                       <span className="text-indigo-600 text-sm font-bold uppercase">{getStepTypeLabel(step)}:</span>
-                      <span className="text-slate-600 text-base">"{step.indicator}" + "{step.fodder}" → {step.result}</span>
+                      <span className="text-slate-600 text-base">{step.indicator ? `"${step.indicator}" + ` : ''}{fodderDisplay ? `"${fodderDisplay}"` : ''} → {step.result}</span>
                       <ChevronDown
                         size={16}
                         className={`ml-auto text-slate-400 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
@@ -2017,7 +2085,10 @@ export const ClueTrainer: React.FC<ClueTrainerProps> = ({
               // Handle both V1 (stepType) and V2 (operation) formats
               const stepType = (step.operation || step.stepType || '').toLowerCase();
               const learning = WORDPLAY_LEARNINGS[stepType];
-              const fodderText = typeof step.fodder === 'string' ? step.fodder : '';
+              // Handle fodder reference objects
+              const fodderText = typeof step.fodder === 'string'
+                ? step.fodder
+                : (step.fodder?.fromWordplay ? `[from steps ${step.fodder.fromWordplay.join(', ')}]` : '');
               const clueSpecific = getClueSpecificLearning(stepType, step.indicator || '', fodderText);
               const isExpanded = expandedCompletedSteps.includes(i);
               // Skip assembly/charade steps

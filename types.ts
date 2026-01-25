@@ -120,6 +120,7 @@ export interface ClueTypeId {
 
 /** @deprecated Use Wordplay instead */
 export interface WordplayStep {
+    id?: string;
     indicator: string;
     fodder: string;
     result: string;
@@ -192,6 +193,8 @@ export interface PatternInstance {
     variables?: Record<string, string>;
     /** @deprecated */
     wordHighlights?: WordHighlight[];
+    /** @deprecated Use wordplays instead */
+    steps?: any[];
     /** @deprecated */
     solveExplanation?: DisplayBlock[];
     /** @deprecated */
@@ -442,6 +445,7 @@ export interface RenderInstructions {
   // Step metadata
   stepLabel: string;
   stepProgress: string;
+  stepId?: string;  // For debugging
 
   // Optional content
   resultDisplay?: string | null;

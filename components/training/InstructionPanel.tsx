@@ -54,6 +54,9 @@ export const InstructionPanel: React.FC<InstructionPanelProps> = ({
               <Lightbulb size={14} className="text-yellow-900" />
             </div>
             <span className="font-semibold text-slate-700">{render.stepLabel}</span>
+            {render.stepId && (
+              <span className="text-xs text-slate-400 font-mono">[{render.stepId}]</span>
+            )}
           </div>
           <span className="text-sm text-slate-500">{render.stepProgress}</span>
         </div>
