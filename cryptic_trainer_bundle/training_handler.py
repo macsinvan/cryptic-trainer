@@ -17,9 +17,9 @@ STEP_TEMPLATES = {
             {
                 "id": "select",
                 "intro": {
-                    "title": "Standard",
-                    "text": "Do you see a definition at the start or end, with wordplay indicators in the rest?",
-                    "example": '"Crazy golf equipment (7)" → PUTTERS (anagram of "putters")'
+                    "title": "Spotting the Definition in a Standard Cryptic Clue",
+                    "text": "In most cryptic crossword clues, the definition is the straight part of the clue — a normal dictionary-style meaning of the answer. It's usually found either at the very beginning or the very end of the clue, with the rest of the words providing the wordplay that builds the answer.",
+                    "example": "First, ignore the surface story. Look for a phrase at start or end that could define a word. Check that remaining words can plausibly explain how to construct that word."
                 },
                 "panel": {
                     "title": "FIND DEFINITION",
@@ -303,6 +303,18 @@ def get_render(clue_id, clue):
     # Add button if present
     if "button" in phase:
         render["button"] = phase["button"]
+
+    # Special handling for anagram_find teaching phase
+    if step["type"] == "anagram_find" and phase["id"] == "teaching":
+        letter_count = step.get("letterCount", 0)
+        enumeration = int(clue.get("clue", {}).get("enumeration", "0"))
+
+        if letter_count == enumeration:
+            # Complete anagram - can solve directly
+            render["panel"]["instruction"] = f"'{step['indicator']['text']}' tells us to rearrange '{step['fodder']['text']}' → {step['result']} ({letter_count} letters). This is our full anagram!"
+        else:
+            # Partial anagram - more letters needed
+            render["panel"]["instruction"] = f"\"{step['indicator']['text'].capitalize()}\" is an anagram indicator, telling us to rearrange {step['fodder']['text'].upper()}. That gives {letter_count} letters, but the answer requires {enumeration}, so we know additional letters must be added from elsewhere in the clue."
 
     # Add expected for validation (tap_words needs indices)
     if phase.get("inputMode") == "tap_words":

@@ -9,6 +9,7 @@
         "enumeration": "10",
         "answer": "PHLEBOTOMY"
       },
+      "words": ["Drawing", "blood", "lymph", "too", "busy", "nurses", "conclude", "job", "at", "last"],
       "steps": [
         {
           "type": "standard_definition",
