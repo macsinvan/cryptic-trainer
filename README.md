@@ -11,6 +11,8 @@ A training app for learning to solve Times-style cryptic crosswords.
 - **Teaching moments**: Built into templates with variable substitution
 - **Solved view with learnings**: Shows accumulated teaching summaries after completing all steps
 - **Fixed 3-section layout**: Clue, answer entry, and action area with consistent button placement
+- **Letter checking**: Green/red feedback as you type the answer (configurable via Settings)
+- **Progress tracking**: Collapsed learnings show what you've discovered in previous steps
 
 ### Architecture
 

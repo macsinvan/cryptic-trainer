@@ -135,11 +135,14 @@ export function TemplateTrainer({
     setFeedback(null);
 
     // Determine value based on input mode
+    // anagram_solve and double_definition use the main answer input
     let value: number[] | string | number;
     if (render.inputMode === 'tap_words') {
       value = selectedIndices;
     } else if (render.inputMode === 'multiple_choice') {
       value = optionIndex ?? selectedOption ?? 0;
+    } else if (render.stepType === 'anagram_solve' || render.stepType === 'double_definition') {
+      value = answerInput;
     } else {
       value = textInput;
     }
@@ -256,10 +259,13 @@ export function TemplateTrainer({
 
   const isComplete = render.complete;
   const isTeaching = render.phaseId === 'teaching';
+  const isFinalAnswerStep = render.stepType === 'anagram_solve' || render.stepType === 'double_definition';
   const canSubmit = render.inputMode === 'tap_words'
     ? selectedIndices.length > 0
     : render.inputMode === 'multiple_choice'
     ? selectedOption !== null
+    : isFinalAnswerStep
+    ? answerInput.trim().length > 0
     : textInput.trim().length > 0;
 
   // Solved view - show congratulations with all learnings
@@ -359,8 +365,9 @@ export function TemplateTrainer({
 
       {/* ===== SECTION 2: INPUT AREA (fixed height) ===== */}
       {/* Shows either: transitory text input (for intermediate steps) OR answer entry */}
+      {/* anagram_solve uses the main answer input since it's the final answer */}
       <div className="bg-slate-50 border border-b-0 p-4 min-h-[80px] flex flex-col justify-center">
-        {render.inputMode === 'text' && !isTeaching ? (
+        {render.inputMode === 'text' && !isTeaching && render.stepType !== 'anagram_solve' && render.stepType !== 'double_definition' ? (
           /* Transitory input for intermediate steps (e.g., typing "EB" for letter extraction) */
           <>
             <CrosswordInput
@@ -444,13 +451,22 @@ export function TemplateTrainer({
                 key={index}
                 onClick={() => handleSubmit(index)}
                 className={`
-                  w-full px-4 py-3 text-left rounded-lg border-2 transition-colors
-                  hover:bg-blue-50 hover:border-blue-400
+                  w-full px-4 py-3 text-left rounded-lg border-2 transition-all flex items-center gap-3
                   ${selectedOption === index
-                    ? 'bg-blue-100 border-blue-500'
-                    : 'bg-white border-gray-200'}
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                    : 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-400'}
                 `}
               >
+                <span className={`
+                  w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
+                  ${selectedOption === index
+                    ? 'bg-white border-white'
+                    : 'border-gray-300'}
+                `}>
+                  {selectedOption === index && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                  )}
+                </span>
                 <span className="font-medium">{option.label}</span>
               </button>
             ))}

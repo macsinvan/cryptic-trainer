@@ -235,6 +235,15 @@ Three action buttons:
 | Purple | #a855f7 | Special |
 | Gray | #94a3b8 | Current selection (pre-submit) |
 
+**Letter Checking (Answer Entry):**
+| Color | Meaning |
+|-------|---------|
+| Green background/border | Correct letter |
+| Red background/border | Wrong letter |
+| Blue background | Letter entered (checking disabled) |
+
+Letter checking is configurable via the Settings panel on the publication page.
+
 ---
 
 ## Data Storage
@@ -254,6 +263,9 @@ Three action buttons:
   "import_logs": {
     "<import_id>": ImportLog,
     ...
+  },
+  "settings": {
+    "letterChecking": true
   }
 }
 ```
@@ -717,6 +729,13 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
 | `/training/input` | POST | Submit user input (tap/text/choice) |
 | `/training/continue` | POST | Continue through teaching phase |
 | `/training/clear` | POST | Clear session (on exit) for fresh start |
+
+### Settings
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/settings` | GET | Get current settings |
+| `/settings` | POST | Update settings |
 
 ### Other
 
