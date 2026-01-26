@@ -505,6 +505,54 @@ Every API response includes a `render` object:
 | `expected` | any? | Expected answer (indices for tap, text for typing) |
 | `options` | array? | Multiple choice options |
 | `complete` | boolean | True when training is finished |
+| `answer` | string | Correct answer for "solve anytime" feature |
+| `actionPrompt` | string | Short instruction for Section 3 |
+
+### Training UX — Fixed 3-Section Layout
+
+**CRITICAL: Sections 1-3 must ALWAYS be the same size and position. No jumpiness as user navigates between steps.**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ SECTION 1: CLUE (fixed height)                      │
+│                                                     │
+│ Drawing blood, lymph too, busy nurses conclude      │
+│ job at last (10)                                    │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│ SECTION 2: INPUT AREA (fixed height)                │
+│                                                     │
+│ ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐          │
+│ │   │   │   │   │   │   │   │   │   │   │          │
+│ └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘          │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│ SECTION 3: ACTION REQUIRED + BUTTON (fixed height)  │
+│                                                     │
+│ Tap the definition words                [ Check ]   │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+│                                                     │
+│ SECTION 4: DETAILS (scrollable, below fold)         │
+│ Teaching content, intro cards, feedback, etc.       │
+└─────────────────────────────────────────────────────┘
+```
+
+#### Section 2: Dual-Purpose Input Area
+
+Section 2 serves dual purpose to maintain static layout:
+- **Default:** Answer entry boxes (e.g., 10 boxes for PHLEBOTOMY) — always available for "solve anytime"
+- **Text input steps:** Temporarily shows intermediate input boxes (e.g., 2 boxes for "EB"), then reverts
+
+This eliminates layout jumping when transitioning between step types.
+
+#### Layout Principles
+
+1. **Sections 1-3 are FIXED** — same size, same position, always visible
+2. **Only content changes** — text/boxes update, but layout doesn't shift
+3. **Section 4 is below the fold** — details for those who want them
+4. **Experienced users** can work entirely in sections 1-3
+5. **New users** scroll down for teaching content
 
 ---
 
@@ -847,6 +895,7 @@ curl -X POST localhost:5001/training/continue \
 | `App.tsx` | Main app, navigation, view state |
 | `components/TrainingMode.tsx` | Training queue management |
 | `components/TemplateTrainer.tsx` | Server-driven training UI |
+| `components/CrosswordInput.tsx` | Crossword-style letter boxes for input |
 | `components/SolverMode.tsx` | AI-assisted solving |
 | `components/ManualEntryMode.tsx` | Clue entry, puzzle import |
 | `components/DataManager.tsx` | Admin data management |
