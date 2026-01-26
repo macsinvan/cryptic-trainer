@@ -9,7 +9,7 @@ A training app for learning to solve Times-style cryptic crosswords.
 - **Server-driven rendering**: Server merges template + clue data, UI just renders
 - **Thin client architecture**: All logic on Python server (~100 lines handler)
 - **Teaching moments**: Built into templates with variable substitution
-- **Solved view with learnings**: Shows accumulated teaching summaries after completing all steps
+- **Solved view with learnings**: Shows all teaching summaries (even when solving early)
 - **Fixed 3-section layout**: Clue, answer entry, and action area with consistent button placement
 - **Letter checking**: Green/red feedback as you type the answer (configurable via Settings)
 - **Progress tracking**: Collapsed learnings show what you've discovered in previous steps
@@ -67,6 +67,7 @@ Open http://localhost:3000
 | `/api/training/input` | POST | Submit user input (tap/text) |
 | `/api/training/continue` | POST | Continue through teaching |
 | `/api/training/clear` | POST | Clear session (reset progress) |
+| `/api/training/learnings` | POST | Get all learnings for early solve |
 
 ### Other API Endpoints
 

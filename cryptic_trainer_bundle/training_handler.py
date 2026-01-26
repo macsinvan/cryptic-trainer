@@ -184,7 +184,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Complete training",
                 "panel": {
                     "title": "SOLVED: {result}",
-                    "instruction": "{fodder} rearranges to form '{definition}'"
+                    "instruction": "{fodder} rearranges to form {result} = '{definition}'"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -678,3 +678,43 @@ def handle_continue(clue_id, clue):
         session["phase_index"] = 0
 
     return get_render(clue_id, clue)
+
+def get_all_learnings(clue):
+    """Generate all learnings for a clue (used when user solves early)."""
+    learnings = []
+    steps = clue.get("steps", [])
+
+    for step in steps:
+        template = STEP_TEMPLATES.get(step["type"])
+        if not template:
+            continue
+
+        # Find the teaching phase
+        for phase in template["phases"]:
+            if phase["id"] == "teaching" and "panel" in phase:
+                # Generate learning text with special handling for each step type
+                learning_text = substitute_variables(phase["panel"].get("instruction", ""), step, {}, clue)
+
+                if step["type"] == "anagram_find":
+                    letter_count = step.get("letterCount", 0)
+                    enumeration = int(clue.get("clue", {}).get("enumeration", "0"))
+                    if letter_count == enumeration:
+                        learning_text = f"'{step['indicator']['text']}' tells us to rearrange '{step['fodder']['text']}' → {step['result']} ({letter_count} letters). This is our full anagram!"
+                    else:
+                        learning_text = f"\"{step['indicator']['text'].capitalize()}\" is an anagram indicator, telling us to rearrange {step['fodder']['text'].upper()}. That gives {letter_count} letters, but the answer requires {enumeration}, so we know additional letters must be added from elsewhere in the clue."
+                elif step["type"] == "double_definition":
+                    definitions = step.get("definitions", [])
+                    def1_text = definitions[0]["text"] if len(definitions) > 0 else ""
+                    def2_text = definitions[1]["text"] if len(definitions) > 1 else ""
+                    result = step.get("result", "")
+                    learning_text = f"Both '{def1_text}' and '{def2_text}' define {result}. No wordplay needed — just two meanings!"
+
+                if learning_text:
+                    learning_title = substitute_variables(phase["panel"].get("title", ""), step, {}, clue)
+                    learnings.append({
+                        "title": learning_title,
+                        "text": learning_text
+                    })
+                break  # Only one teaching phase per step
+
+    return learnings

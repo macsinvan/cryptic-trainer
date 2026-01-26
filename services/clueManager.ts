@@ -515,6 +515,14 @@ export const trainingClear = async (clueId: string): Promise<{ success: boolean;
     });
 };
 
+/** Get all learnings for a clue (for early solve) */
+export const trainingLearnings = async (clueId: string): Promise<{ success: boolean; learnings: Array<{ title: string; text: string }> }> => {
+    return fetchJson('/training/learnings', {
+        method: 'POST',
+        body: JSON.stringify({ clueId })
+    });
+};
+
 /** Get adapted render for UI compatibility */
 export const getAdaptedRender = (response: NewTrainingResponse): RenderInstructions => {
     return adaptRenderToLegacy(response.render);

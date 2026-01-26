@@ -138,6 +138,8 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._handle_training_continue()
         elif self.path == '/training/clear':
             self._handle_training_clear()
+        elif self.path == '/training/learnings':
+            self._handle_training_learnings()
         elif self.path == '/settings':
             self._handle_save_settings()
         else:
@@ -579,6 +581,33 @@ class SolverHandler(BaseHTTPRequestHandler):
 
             cleared = training_handler.clear_session(clue_id)
             self._send_json({'success': True, 'cleared': cleared})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._send_json({'success': False, 'error': str(e)}, 500)
+
+    def _handle_training_learnings(self):
+        """Get all learnings for a clue (for early solve)."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            clue_id = data.get('clueId')
+
+            if not clue_id:
+                self._send_json({'success': False, 'error': 'Missing clueId'}, 400)
+                return
+
+            db = _load_db()
+            item = db['training_items'].get(clue_id)
+            if not item:
+                self._send_json({'success': False, 'error': 'Clue not found'}, 404)
+                return
+
+            learnings = training_handler.get_all_learnings(item)
+            self._send_json({'success': True, 'learnings': learnings})
 
         except Exception as e:
             import traceback

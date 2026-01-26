@@ -729,6 +729,7 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
 | `/training/input` | POST | Submit user input (tap/text/choice) |
 | `/training/continue` | POST | Continue through teaching phase |
 | `/training/clear` | POST | Clear session (on exit) for fresh start |
+| `/training/learnings` | POST | Get all learnings for a clue (for early solve) |
 
 ### Settings
 

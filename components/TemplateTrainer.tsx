@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { trainingStart, trainingInput, trainingContinue, trainingClear, NewTrainingRender } from '../services/clueManager';
+import { trainingStart, trainingInput, trainingContinue, trainingClear, trainingLearnings, NewTrainingRender } from '../services/clueManager';
 import { CrosswordInput } from './CrosswordInput';
 
 // =============================================================================
@@ -95,6 +95,46 @@ export function TemplateTrainer({
   }, [clueId]);
 
   // ---------------------------------------------------------------------------
+  // Auto-detect correct answer and show solved view
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!render || render.complete) return;
+
+    const normalizedInput = answerInput.toUpperCase().replace(/\s/g, '');
+    const normalizedAnswer = answer.toUpperCase().replace(/\s/g, '');
+
+    if (normalizedInput.length === normalizedAnswer.length && normalizedInput === normalizedAnswer) {
+      // Correct! Fetch all learnings and show solved view
+      setAnswerFeedback(null);
+
+      // Fetch all learnings from server (for early solve)
+      trainingLearnings(clueId).then(response => {
+        if (response.success) {
+          setRender(prev => prev ? {
+            ...prev,
+            complete: true,
+            learnings: response.learnings
+          } : null);
+        } else {
+          // Fallback: show completed without learnings
+          setRender(prev => prev ? {
+            ...prev,
+            complete: true,
+            learnings: prev.learnings || []
+          } : null);
+        }
+      }).catch(() => {
+        // Fallback on error
+        setRender(prev => prev ? {
+          ...prev,
+          complete: true,
+          learnings: prev.learnings || []
+        } : null);
+      });
+    }
+  }, [answerInput, answer, render?.complete, clueId]);
+
+  // ---------------------------------------------------------------------------
   // Handle answer submission (can happen at any time)
   // ---------------------------------------------------------------------------
   const handleAnswerSubmit = useCallback(() => {
@@ -102,14 +142,19 @@ export function TemplateTrainer({
     const normalizedAnswer = answer.toUpperCase().replace(/\s/g, '');
 
     if (normalizedInput === normalizedAnswer) {
-      // Correct! Skip to complete
+      // Correct! Show solved view with accumulated learnings
       setAnswerFeedback(null);
-      onComplete?.();
+      setRender(prev => prev ? {
+        ...prev,
+        complete: true,
+        // Keep any learnings accumulated so far
+        learnings: prev.learnings || []
+      } : null);
     } else if (normalizedInput.length === normalizedAnswer.length) {
       // Wrong answer
       setAnswerFeedback('Not quite - keep working through the steps');
     }
-  }, [answerInput, answer, onComplete]);
+  }, [answerInput, answer]);
 
   // ---------------------------------------------------------------------------
   // Handle word tap
