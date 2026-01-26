@@ -366,6 +366,13 @@ def get_session(clue_id):
     """Get existing session or None."""
     return _sessions.get(clue_id)
 
+def clear_session(clue_id):
+    """Clear session for a clue (e.g., on exit). Returns True if session existed."""
+    if clue_id in _sessions:
+        del _sessions[clue_id]
+        return True
+    return False
+
 # =============================================================================
 # RENDER
 # =============================================================================

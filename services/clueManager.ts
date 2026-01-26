@@ -486,6 +486,14 @@ export const trainingContinue = async (clueId: string): Promise<NewTrainingRespo
     });
 };
 
+/** Clear training session (e.g., on exit). Allows fresh start next time. */
+export const trainingClear = async (clueId: string): Promise<{ success: boolean; cleared: boolean }> => {
+    return fetchJson('/training/clear', {
+        method: 'POST',
+        body: JSON.stringify({ clueId })
+    });
+};
+
 /** Get adapted render for UI compatibility */
 export const getAdaptedRender = (response: NewTrainingResponse): RenderInstructions => {
     return adaptRenderToLegacy(response.render);
