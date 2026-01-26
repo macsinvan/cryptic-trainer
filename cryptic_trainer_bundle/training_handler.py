@@ -19,7 +19,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Select clue type",
                 "intro": {
                     "title": "Before solving, identify the clue type",
-                    "text": "Start by scanning the clue, not solving it. Look for instruction words (e.g. rearranged, inside, about, sounds like). If you see them, it's almost certainly a standard clue with definition + wordplay. Check the ends of the clue. A clear, straight definition at the start or end usually means standard. If the clue is short and has no instruction words, suspect a double definition. If the whole clue reads like a single playful description, with no clear split, it may be a cryptic definition. If every word contributes to both meaning and wordplay, it's likely an &lit clue."
+                    "text": "Scan the clue structure, don't solve yet:\n\n• Instruction words (rearranged, inside, about, sounds like) → Standard clue\n• Clear definition at start or end → Standard clue\n• Short clue, no instruction words → Double definition\n• Single playful description, no clear split → Cryptic definition\n• Every word serves both meaning AND wordplay → &lit"
                 },
                 "panel": {
                     "title": "IDENTIFY CLUE TYPE",
@@ -38,9 +38,9 @@ STEP_TEMPLATES = {
                 "id": "select",
                 "actionPrompt": "Tap the definition words",
                 "intro": {
-                    "title": "Spotting the Definition in a Standard Cryptic Clue",
-                    "text": "In most cryptic crossword clues, the definition is the straight part of the clue — a normal dictionary-style meaning of the answer. It's usually found either at the very beginning or the very end of the clue, with the rest of the words providing the wordplay that builds the answer.",
-                    "example": "First, ignore the surface story. Look for a phrase at start or end that could define a word. Check that remaining words can plausibly explain how to construct that word."
+                    "title": "Spotting the Definition",
+                    "text": "The definition is the 'straight' part — a normal dictionary meaning of the answer.\n\nIt's always at the very beginning OR the very end of the clue.",
+                    "example": "Ignore the surface story. Look for a phrase at start or end that could define a word."
                 },
                 "panel": {
                     "title": "FIND DEFINITION",
@@ -241,8 +241,8 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Tap the first definition",
                 "intro": {
                     "title": "Double Definition",
-                    "text": "A double definition clue gives two separate meanings of the same answer. There's no wordplay to build the solution — instead, both parts of the clue define the word in different ways. The definitions usually sit side by side, and either meaning should make sense on its own.",
-                    "example": "Coaching tip: if a clue feels unusually short and nothing looks like wordplay (no indicators for anagrams, containers, deletions, etc.), it's often a double definition."
+                    "text": "Two separate meanings of the same answer, sitting side by side.\n\nNo wordplay — both parts simply define the word in different ways.",
+                    "example": "Tip: Short clue with no wordplay indicators? Probably a double definition."
                 },
                 "panel": {
                     "title": "FIRST DEFINITION",

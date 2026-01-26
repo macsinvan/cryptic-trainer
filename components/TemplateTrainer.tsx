@@ -477,9 +477,9 @@ export function TemplateTrainer({
         {render.intro && !isTeaching && (
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
             <h3 className="font-bold text-blue-800">{render.intro.title}</h3>
-            <p className="text-blue-700 mt-1">{render.intro.text}</p>
+            <p className="text-blue-700 mt-1 whitespace-pre-line">{render.intro.text}</p>
             {render.intro.example && (
-              <p className="text-blue-600 text-sm mt-2 italic">{render.intro.example}</p>
+              <p className="text-blue-600 text-sm mt-2 italic whitespace-pre-line">{render.intro.example}</p>
             )}
           </div>
         )}
@@ -493,7 +493,7 @@ export function TemplateTrainer({
                 {render.panel.title}
               </h3>
             </div>
-            <p className="text-amber-800">{render.panel.instruction}</p>
+            <p className="text-amber-800 whitespace-pre-line">{render.panel.instruction}</p>
           </div>
         )}
 
