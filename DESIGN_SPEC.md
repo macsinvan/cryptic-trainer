@@ -176,29 +176,97 @@ npm run dev
 
 1. **Receive** puzzle JSON from UI (`POST /clues/import`)
 2. **Validate JSON integrity** — valid JSON, has `metadata` and `clues` objects
-3. **Validate each ClueEntry** against full schema:
+3. **For each clue**, validate against step-based schema:
    - `clue` — number, text, enumeration, answer (all required)
-   - `clueType` — id (required, one of: standard, double_definition, cryptic_definition, andit)
-   - `definition` — text, position (both required)
-   - `wordplays` — array with all required fields per Wordplay schema
-4. **Reject if validation fails** — return errors in actionable form (clue number, field name, issue)
-5. **Check for duplicates** — skip if clue already exists in database (by normalized text)
-6. **Store valid ClueEntries** exactly as received — no transformation
+   - `words` — array of words matching clue text (required)
+   - `steps` — non-empty array of step objects (required)
+   - Each step must have a `type` that matches an available template
+4. **Skip invalid clues** — log actionable errors, continue with remaining clues
+5. **Check for duplicates** — skip if clue ID already exists in database
+6. **Store valid clues** in flat format with metadata
 7. **Return response**:
-   - Success count (saved, skipped)
-   - Error list with details for each failed clue
+   - Success count (saved, skipped, failed)
+   - Error list with actionable details for each failed clue
+
+### Validation Rules
+
+| Field | Requirement |
+|-------|-------------|
+| `clue.number` | Required string |
+| `clue.text` | Required string |
+| `clue.enumeration` | Required string |
+| `clue.answer` | Required string |
+| `words` | Required array, must be non-empty |
+| `steps` | Required array, must be non-empty |
+| `steps[].type` | Must match an available template |
+
+### Template Availability Check
+
+Each step's `type` must have a corresponding template in `training_handler.STEP_TEMPLATES`. If a step type has no template, the clue is skipped with an actionable error message:
+
+```
+Clue "1A": Step 0 has type "reversal" but no template exists for this type.
+Available templates: standard_definition, anagram_find, letter_selection, container, anagram_solve, double_definition
+```
 
 ### UI Display
 
-- Show success count
-- Show error logs with **copy** button for easy fixing at source
+- Show success count (saved / skipped / failed)
+- Show error logs with **copy** button for fixing at source
+- Errors are viewable and copyable at end of import
 
 ### Key Principles
 
-- **Import in full**: All fields must be present at import time — no partial schemas
-- **No transformation**: Store exactly as received — no field renaming, no restructuring
-- **Fail clearly**: Validation errors must identify exactly what to fix
-- **Fix at source**: If schema doesn't fit trainer needs, fix the puzzle file — not import code
+- **Skip on failure**: Invalid clues are skipped, not rejected — import continues
+- **Actionable errors**: Each error identifies the clue, field, and what to fix
+- **No transformation**: Store exactly as received — no field renaming
+- **Fix at source**: If validation fails, fix the puzzle file — not import code
+
+### Import Log Storage
+
+Import logs are persisted in `clues_db.json` under the `import_logs` collection. Each import attempt creates a log entry with:
+- Timestamp and import ID
+- Publication and puzzle metadata
+- Summary (saved/skipped/failed counts)
+- Detailed error list for failed clues
+
+**Log Entry Schema:**
+```json
+{
+  "id": "1706300000-times-2025",
+  "timestamp": 1706300000,
+  "publicationId": "times",
+  "puzzleFile": "Times_2025.json",
+  "puzzleNumber": "2025",
+  "summary": {
+    "saved": 5,
+    "skipped": 2,
+    "failed": 3
+  },
+  "errors": [
+    {
+      "clueId": "times-2025-1a",
+      "clueNumber": "1A",
+      "clueText": "Dog lead",
+      "errors": ["steps[0] has type \"reversal\" but no template exists"]
+    }
+  ]
+}
+```
+
+**Endpoints:**
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/import-logs` | GET | List all import logs (sorted by timestamp desc) |
+| `/import-logs/<id>` | DELETE | Delete single log entry |
+| `/import-logs?clearAll=true` | DELETE | Clear all logs |
+
+**User workflows:**
+- **Review logs**: GET `/import-logs` to see all past imports
+- **Action errors**: Use error details to fix source puzzle file, re-import
+- **Clear resolved**: DELETE `/import-logs/<id>` after fixing
+- **Fresh start**: DELETE `/import-logs?clearAll=true`
 
 ### Metadata is READ-ONLY
 
@@ -250,7 +318,7 @@ This ensures:
 }
 ```
 
-#### ClueEntry
+#### ClueEntry (Step-Based Schema)
 ```json
 {
   "clue": {
@@ -259,14 +327,31 @@ This ensures:
     "enumeration": "string", // e.g., "10"
     "answer": "string"       // e.g., "PHLEBOTOMY"
   },
-  "clueType": {
-    "id": "standard"         // One of: standard, double_definition, cryptic_definition, andit
+  "words": ["Drawing", "blood", ...],  // Clue split into words
+  "steps": [                           // Training steps (see Step Templates)
+    {
+      "type": "standard_definition",
+      "expected": {"indices": [0, 1], "text": "Drawing blood"},
+      "position": "start"
+    },
+    // ... more steps
+  ]
+}
+```
+
+#### Stored Format (in clues_db.json)
+```json
+{
+  "id": "times-2025-1a",           // Clue ID from source file
+  "clue": { ... },                  // As above
+  "words": [ ... ],                 // As above
+  "steps": [ ... ],                 // As above
+  "metadata": {                     // Puzzle metadata
+    "publisher": "Times",
+    "puzzle_number": "2025",
+    "setter": "Unknown"
   },
-  "definition": {
-    "text": "string",        // e.g., "Drawing blood"
-    "position": "start|end"
-  },
-  "wordplays": [Wordplay]    // See Wordplay schema below
+  "publicationId": "times"
 }
 ```
 

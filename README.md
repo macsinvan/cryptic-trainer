@@ -71,8 +71,12 @@ Open http://localhost:3000
 | `/clues` | GET | List all saved clues |
 | `/clues` | POST | Save/update a clue |
 | `/clues/<id>` | DELETE | Delete a clue by ID |
+| `/clues/import` | POST | Import puzzle file (validates step-based schema) |
 | `/clues/bulk` | POST | Bulk import clues |
 | `/clues/clear` | POST | Clear all clues |
+| `/import-logs` | GET | List all import logs |
+| `/import-logs/<id>` | DELETE | Delete single import log |
+| `/import-logs?clearAll=true` | DELETE | Clear all import logs |
 
 ## Documentation
 
@@ -83,7 +87,8 @@ Open http://localhost:3000
 
 ### Key Sections in DESIGN_SPEC.md
 
-- **Predefined Step Templates** — `standard_definition`, `anagram_find`, `letter_selection`, `anagram_solve`
+- **Predefined Step Templates** — `standard_definition`, `anagram_find`, `letter_selection`, `anagram_solve`, `container`, `double_definition`
+- **Import Flow** — Step-based schema validation, template availability check, import log storage
 - **Complete Clue Example** — PHLEBOTOMY in the new `steps` format
 - **Session State** — `step_index`, `phase_index`, `highlights`
 - **Handler Implementation** — ~80 lines: `get_render`, `handle_input`, `handle_continue`

@@ -110,13 +110,20 @@ class SolverHandler(BaseHTTPRequestHandler):
             db = _load_db()
             items = list(db.get('parser_issues', {}).values())
             self._send_json({'items': items})
+        elif self.path == '/import-logs':
+            self._handle_get_import_logs()
         else:
             self.send_error(404)
 
     def do_DELETE(self):
         """Handle DELETE requests."""
-        if self.path.startswith('/clues/'):
-            clue_id = self.path[7:]  # Remove '/clues/' prefix
+        # Parse path and query string
+        parsed = self.path.split('?')
+        path = parsed[0]
+        query = parsed[1] if len(parsed) > 1 else ''
+
+        if path.startswith('/clues/'):
+            clue_id = path[7:]  # Remove '/clues/' prefix
             db = _load_db()
             items = db.get('training_items', {})
             if clue_id in items:
@@ -125,6 +132,11 @@ class SolverHandler(BaseHTTPRequestHandler):
                 self._send_json({'success': True})
             else:
                 self._send_json({'success': False, 'error': 'Not found'}, 404)
+        elif path == '/import-logs' and query == 'clearAll=true':
+            self._handle_clear_import_logs()
+        elif path.startswith('/import-logs/'):
+            log_id = path[13:]  # Remove '/import-logs/' prefix
+            self._handle_delete_import_log(log_id)
         else:
             self.send_error(404)
 
@@ -214,7 +226,7 @@ class SolverHandler(BaseHTTPRequestHandler):
 
     def _validate_clue_entry(self, clue_key, clue_entry):
         """
-        Validate a ClueEntry against the full schema.
+        Validate a ClueEntry against the step-based schema.
         Returns list of error strings (empty if valid).
         """
         errors = []
@@ -228,80 +240,52 @@ class SolverHandler(BaseHTTPRequestHandler):
                 if not clue_obj.get(field):
                     errors.append(f'clue.{field} is required')
 
-        # Validate clueType
-        clue_type = clue_entry.get('clueType')
-        if not clue_type:
-            errors.append('Missing clueType object')
-        elif not clue_type.get('id'):
-            errors.append('clueType.id is required')
-        elif clue_type.get('id') not in ['standard', 'double_definition', 'cryptic_definition', 'andit']:
-            errors.append(f"clueType.id must be one of: standard, double_definition, cryptic_definition, andit (got '{clue_type.get('id')}')")
+        # Validate words array
+        words = clue_entry.get('words')
+        if not words:
+            errors.append('Missing words array')
+        elif not isinstance(words, list):
+            errors.append('words must be an array')
+        elif len(words) == 0:
+            errors.append('words array cannot be empty')
 
-        # Validate definition
-        definition = clue_entry.get('definition')
-        if not definition:
-            errors.append('Missing definition object')
+        # Validate steps array
+        steps = clue_entry.get('steps')
+        if not steps:
+            errors.append('Missing steps array')
+        elif not isinstance(steps, list):
+            errors.append('steps must be an array')
+        elif len(steps) == 0:
+            errors.append('steps array cannot be empty')
         else:
-            if not definition.get('text'):
-                errors.append('definition.text is required')
-            if not definition.get('position'):
-                errors.append('definition.position is required')
-            elif definition.get('position') not in ['start', 'end']:
-                errors.append(f"definition.position must be 'start' or 'end' (got '{definition.get('position')}')")
+            # Get available templates from training_handler
+            available_templates = list(training_handler.STEP_TEMPLATES.keys())
 
-        # Validate wordplays array
-        wordplays = clue_entry.get('wordplays')
-        if not wordplays:
-            errors.append('Missing wordplays array')
-        elif not isinstance(wordplays, list):
-            errors.append('wordplays must be an array')
-        elif len(wordplays) == 0:
-            errors.append('wordplays array cannot be empty')
-        else:
-            for i, wp in enumerate(wordplays):
-                wp_prefix = f'wordplays[{i}]'
+            for i, step in enumerate(steps):
+                step_prefix = f'steps[{i}]'
 
-                # Required fields for all wordplays
-                if not wp.get('id'):
-                    errors.append(f'{wp_prefix}.id is required')
-                if not wp.get('operation'):
-                    errors.append(f'{wp_prefix}.operation is required')
-                if 'dependencies' not in wp:
-                    errors.append(f'{wp_prefix}.dependencies is required (use [] for none)')
-                elif not isinstance(wp.get('dependencies'), list):
-                    errors.append(f'{wp_prefix}.dependencies must be an array')
-                if not wp.get('state'):
-                    errors.append(f'{wp_prefix}.state is required')
-                else:
-                    state = wp.get('state')
-                    for state_field in ['indicatorFound', 'fodderFound', 'resultEntered', 'solved']:
-                        if state_field not in state:
-                            errors.append(f'{wp_prefix}.state.{state_field} is required')
-
-                # Validate subOperations if present
-                sub_ops = wp.get('subOperations')
-                if sub_ops is not None:
-                    if not isinstance(sub_ops, list):
-                        errors.append(f'{wp_prefix}.subOperations must be an array')
-                    else:
-                        for j, sub in enumerate(sub_ops):
-                            sub_prefix = f'{wp_prefix}.subOperations[{j}]'
-                            if not sub.get('id'):
-                                errors.append(f'{sub_prefix}.id is required')
-                            if not sub.get('operation'):
-                                errors.append(f'{sub_prefix}.operation is required')
-                            if 'dependencies' not in sub:
-                                errors.append(f'{sub_prefix}.dependencies is required')
-                            if not sub.get('state'):
-                                errors.append(f'{sub_prefix}.state is required')
+                # Check step has a type
+                step_type = step.get('type')
+                if not step_type:
+                    errors.append(f'{step_prefix}.type is required')
+                elif step_type not in available_templates:
+                    errors.append(
+                        f'{step_prefix} has type "{step_type}" but no template exists. '
+                        f'Available: {", ".join(available_templates)}'
+                    )
 
         return errors
 
     def _handle_import_puzzle(self):
         """
-        Import a puzzle file. Validates against full schema, stores exactly as received.
+        Import a puzzle file using the step-based schema.
 
-        Schema: See DESIGN_SPEC.md for complete ClueEntry and Wordplay schemas.
+        - Validates each clue against the step-based schema
+        - Skips invalid clues (logs actionable errors)
+        - Skips duplicates (by clue ID)
+        - Stores valid clues in flat format with metadata
+
+        Schema: See DESIGN_SPEC.md for complete step-based schema.
         """
         try:
             content_length = int(self.headers.get('Content-Length', 0))
@@ -311,7 +295,7 @@ class SolverHandler(BaseHTTPRequestHandler):
             puzzle_data = data.get('puzzle')
             publication_id = data.get('publicationId', 'times')
 
-            # Step 2: Validate JSON integrity
+            # Validate JSON integrity
             if not puzzle_data:
                 self._send_json({'success': False, 'error': 'Missing puzzle data'}, 400)
                 return
@@ -330,59 +314,73 @@ class SolverHandler(BaseHTTPRequestHandler):
             db = _load_db()
             saved = 0
             skipped = 0
+            failed = 0
             errors = []
 
-            # Step 3-6: Validate and store each ClueEntry
+            # Process each clue
             for clue_key, clue_entry in clues_dict.items():
-                # Step 3: Validate against full schema
+                # Validate against step-based schema
                 validation_errors = self._validate_clue_entry(clue_key, clue_entry)
 
                 if validation_errors:
+                    failed += 1
                     errors.append({
-                        'clueNumber': clue_key,
+                        'clueId': clue_key,
+                        'clueNumber': clue_entry.get('clue', {}).get('number', '?'),
                         'clueText': clue_entry.get('clue', {}).get('text', '(no text)'),
                         'errors': validation_errors
                     })
                     continue
 
-                # Step 5: Check for duplicates
-                clue_text = clue_entry['clue']['text']
-                normalized = re.sub(r'[^a-z0-9]', '', clue_text.lower())
-
-                exists = False
-                for item in db['training_items'].values():
-                    existing_text = item.get('clueEntry', {}).get('clue', {}).get('text', '')
-                    existing_norm = re.sub(r'[^a-z0-9]', '', existing_text.lower())
-                    if existing_norm == normalized:
-                        exists = True
-                        break
-
-                if exists:
+                # Check for duplicates by ID
+                if clue_key in db['training_items']:
                     skipped += 1
                     continue
 
-                # Step 6: Store exactly as received - no transformation
-                clue_id = f"user-{int(time.time() * 1000)}-{clue_key}"
-
+                # Store in flat format (matching existing clues_db.json structure)
                 training_item = {
-                    'id': clue_id,
-                    'clueEntry': clue_entry,  # Store ClueEntry exactly as received
-                    'metadata': metadata,      # Store puzzle metadata
-                    'publicationId': publication_id,
-                    'timestamp': int(time.time() * 1000)
+                    'id': clue_key,
+                    'clue': clue_entry['clue'],
+                    'words': clue_entry['words'],
+                    'steps': clue_entry['steps'],
+                    'metadata': metadata,
+                    'publicationId': publication_id
                 }
 
-                db['training_items'][clue_id] = training_item
+                db['training_items'][clue_key] = training_item
                 saved += 1
 
+            # Create import log entry
+            import_id = f"{int(time.time())}-{metadata.get('puzzle_number', 'unknown')}"
+            import_log = {
+                'id': import_id,
+                'timestamp': int(time.time()),
+                'publicationId': publication_id,
+                'puzzleFile': metadata.get('file', 'unknown'),
+                'puzzleNumber': metadata.get('puzzle_number', 'unknown'),
+                'summary': {
+                    'saved': saved,
+                    'skipped': skipped,
+                    'failed': failed
+                },
+                'errors': errors
+            }
+
+            # Initialize import_logs if needed
+            if 'import_logs' not in db:
+                db['import_logs'] = {}
+
+            db['import_logs'][import_id] = import_log
             _save_db(db)
 
-            # Step 7: Return response
+            # Return response with counts and errors
             self._send_json({
-                'success': len(errors) == 0,
+                'success': True,  # Import always succeeds (invalid clues are skipped)
                 'saved': saved,
                 'skipped': skipped,
-                'errors': errors
+                'failed': failed,
+                'errors': errors,
+                'importLogId': import_id
             })
 
         except json.JSONDecodeError as e:
@@ -411,6 +409,31 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._send_json({'success': True})
         except Exception as e:
             self._send_json({'success': False, 'error': str(e)}, 500)
+
+    def _handle_get_import_logs(self):
+        """Get all import logs, sorted by timestamp descending."""
+        db = _load_db()
+        logs = list(db.get('import_logs', {}).values())
+        # Sort by timestamp descending (most recent first)
+        logs.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+        self._send_json({'logs': logs})
+
+    def _handle_delete_import_log(self, log_id):
+        """Delete a single import log entry."""
+        db = _load_db()
+        if log_id not in db.get('import_logs', {}):
+            self._send_json({'success': False, 'error': 'Log not found'}, 404)
+            return
+        del db['import_logs'][log_id]
+        _save_db(db)
+        self._send_json({'success': True})
+
+    def _handle_clear_import_logs(self):
+        """Clear all import logs."""
+        db = _load_db()
+        db['import_logs'] = {}
+        _save_db(db)
+        self._send_json({'success': True})
 
     def _handle_solve(self):
         """Handle the /solve endpoint."""

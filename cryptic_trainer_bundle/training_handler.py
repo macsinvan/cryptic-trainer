@@ -222,8 +222,8 @@ STEP_TEMPLATES = {
                 "id": "first_def",
                 "intro": {
                     "title": "Double Definition",
-                    "text": "A double definition clue contains two separate definitions for the same word, with no wordplay. The entire clue is made up of definitions.",
-                    "example": '"Dog lead" → POINTER (a breed of dog, and something that leads/guides)'
+                    "text": "A double definition clue gives two separate meanings of the same answer. There's no wordplay to build the solution — instead, both parts of the clue define the word in different ways. The definitions usually sit side by side, and either meaning should make sense on its own.",
+                    "example": "Coaching tip: if a clue feels unusually short and nothing looks like wordplay (no indicators for anagrams, containers, deletions, etc.), it's often a double definition."
                 },
                 "panel": {
                     "title": "FIRST DEFINITION",

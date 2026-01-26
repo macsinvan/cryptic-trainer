@@ -9,35 +9,86 @@
         "enumeration": "10",
         "answer": "PHLEBOTOMY"
       },
-      "words": ["Drawing", "blood", "lymph", "too", "busy", "nurses", "conclude", "job", "at", "last"],
+      "words": [
+        "Drawing",
+        "blood",
+        "lymph",
+        "too",
+        "busy",
+        "nurses",
+        "conclude",
+        "job",
+        "at",
+        "last"
+      ],
       "steps": [
         {
           "type": "standard_definition",
-          "expected": {"indices": [0, 1], "text": "Drawing blood"},
+          "expected": {
+            "indices": [
+              0,
+              1
+            ],
+            "text": "Drawing blood"
+          },
           "position": "start"
         },
         {
           "type": "anagram_find",
-          "indicator": {"indices": [4], "text": "busy"},
-          "fodder": {"indices": [2, 3], "text": "lymph too"},
+          "indicator": {
+            "indices": [
+              4
+            ],
+            "text": "busy"
+          },
+          "fodder": {
+            "indices": [
+              2,
+              3
+            ],
+            "text": "lymph too"
+          },
           "result": "LYMPHTOO",
           "letterCount": 8
         },
         {
           "type": "letter_selection",
-          "indicator": {"indices": [8, 9], "text": "at last"},
-          "fodder": {"indices": [6, 7], "text": "conclude job"},
+          "indicator": {
+            "indices": [
+              8,
+              9
+            ],
+            "text": "at last"
+          },
+          "fodder": {
+            "indices": [
+              6,
+              7
+            ],
+            "text": "conclude job"
+          },
           "extractionType": "last letter",
           "result": "EB"
         },
         {
           "type": "container",
-          "indicator": {"indices": [5], "text": "nurses"},
+          "indicator": {
+            "indices": [
+              5
+            ],
+            "text": "nurses"
+          },
           "inner": "EB",
           "outer": "LYMPHTOO",
           "options": [
-            {"label": "EB goes inside LYMPHTOO", "correct": true},
-            {"label": "LYMPHTOO goes inside EB", "correct": false}
+            {
+              "label": "EB goes inside LYMPHTOO",
+              "correct": true
+            },
+            {
+              "label": "LYMPHTOO goes inside EB",
+              "correct": false
+            }
           ],
           "result": "LYMPH EB TOO"
         },
@@ -64,13 +115,26 @@
         "enumeration": "7",
         "answer": "POINTER"
       },
-      "words": ["Dog", "lead"],
+      "words": [
+        "Dog",
+        "lead"
+      ],
       "steps": [
         {
           "type": "double_definition",
           "definitions": [
-            {"indices": [0], "text": "Dog"},
-            {"indices": [1], "text": "lead"}
+            {
+              "indices": [
+                0
+              ],
+              "text": "Dog"
+            },
+            {
+              "indices": [
+                1
+              ],
+              "text": "lead"
+            }
           ],
           "result": "POINTER"
         }
@@ -82,5 +146,6 @@
       },
       "publicationId": "times"
     }
-  }
+  },
+  "import_logs": {}
 }
