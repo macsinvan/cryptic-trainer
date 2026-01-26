@@ -64,6 +64,26 @@ export const getParserIssueCount = async (): Promise<number> => {
     return issues.length;
 };
 
+// --- Settings Functions ---
+export interface AppSettings {
+    letterChecking: boolean;
+}
+
+export const getSettings = async (): Promise<AppSettings> => {
+    try {
+        return await fetchJson<AppSettings>('/settings');
+    } catch {
+        return { letterChecking: true };
+    }
+};
+
+export const saveSettings = async (settings: Partial<AppSettings>): Promise<void> => {
+    await fetchJson('/settings', {
+        method: 'POST',
+        body: JSON.stringify(settings)
+    });
+};
+
 // --- Legacy IndexedDB functions (kept for migration only) ---
 const DB_NAME = 'CrypticTrainerDB_V2';
 const STORE_NAME = 'training_items';

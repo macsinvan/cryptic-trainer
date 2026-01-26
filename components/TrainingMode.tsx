@@ -12,9 +12,10 @@ interface TrainingModeProps {
   customClues?: ScannedClue[];
   initialIndex?: number;
   onProgress?: (idx: number) => void;
+  letterChecking?: boolean;
 }
 
-export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationId, customClues, initialIndex = 0, onProgress }) => {
+export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationId, customClues, initialIndex = 0, onProgress, letterChecking = true }) => {
   const [queue, setQueue] = useState<TrainingItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [score, setScore] = useState(0);
@@ -117,6 +118,7 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
             clueNumber={typeof currentItem.clue === 'string' ? undefined : currentItem.clue?.number}
             onComplete={nextClue}
             onBack={onExit}
+            letterChecking={letterChecking}
           />
         </div>
       </div>

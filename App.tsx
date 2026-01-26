@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { BookOpen, User, ArrowLeft, Star, Award, Book, Search, Lightbulb, Zap, Target, Palette, Brain, Upload, Layers, Keyboard, Database, Loader2, ExternalLink, MessageSquare, Newspaper, Globe, Sparkles, ChevronRight, Lock, Key, X, FileJson, Code } from 'lucide-react';
+import { BookOpen, User, ArrowLeft, Star, Award, Book, Search, Lightbulb, Zap, Target, Palette, Brain, Upload, Layers, Keyboard, Database, Loader2, ExternalLink, MessageSquare, Newspaper, Globe, Sparkles, ChevronRight, Lock, Key, X, FileJson, Code, Settings } from 'lucide-react';
 import { PUBLICATIONS } from './data';
 import { ViewState, Setter, Publication } from './types';
 import { TrainingMode } from './components/TrainingMode';
 import { SolverMode } from './components/SolverMode';
 import { ManualEntryMode } from './components/ManualEntryMode';
 import { DataManager } from './components/DataManager';
-import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus } from './services/clueManager';
+import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus, getSettings, saveSettings } from './services/clueManager';
 
 const EXTERNAL_BLOGGERS = [
   {
@@ -54,11 +54,15 @@ export default function App() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passInput, setPassInput] = useState('');
   const [passError, setPassError] = useState(false);
+  const [letterChecking, setLetterChecking] = useState(true);
 
   useEffect(() => {
     const init = async () => {
         await initializeClues();
         setIsDbReady(true);
+        // Load settings
+        const settings = await getSettings();
+        setLetterChecking(settings.letterChecking ?? true);
     };
     init();
 
@@ -319,7 +323,7 @@ export default function App() {
                            <p className="text-xs text-slate-500 leading-relaxed">Scan a puzzle grid or upload an image for instant help.</p>
                         </button>
 
-                        <button 
+                        <button
                            onClick={() => setViewState({ type: 'MANUAL_ENTRY', publicationId: pub.id })}
                            className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-500 transition-all text-left group"
                         >
@@ -330,6 +334,30 @@ export default function App() {
                            <p className="text-xs text-slate-500 leading-relaxed">Type in a clue to get a logic breakdown and tutor.</p>
                         </button>
                      </div>
+
+                     {/* Settings Panel */}
+                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3">
+                           <Settings size={18} className="text-slate-400" />
+                           <h3 className="font-bold text-sm text-slate-700">Training Settings</h3>
+                        </div>
+                        <div className="flex items-center justify-between">
+                           <div>
+                              <p className="font-medium text-slate-700">Letter Checking</p>
+                              <p className="text-xs text-slate-500">Show green/red feedback as you type the answer</p>
+                           </div>
+                           <button
+                              onClick={async () => {
+                                 const newValue = !letterChecking;
+                                 setLetterChecking(newValue);
+                                 await saveSettings({ letterChecking: newValue });
+                              }}
+                              className={`relative w-12 h-6 rounded-full transition-colors ${letterChecking ? 'bg-green-500' : 'bg-slate-300'}`}
+                           >
+                              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${letterChecking ? 'left-7' : 'left-1'}`} />
+                           </button>
+                        </div>
+                     </div>
                   </div>
                );
             })()}
@@ -337,11 +365,12 @@ export default function App() {
       )}
 
       {viewState.type === 'TRAINING' && (
-         <TrainingMode 
-            publicationId={viewState.publicationId} 
+         <TrainingMode
+            publicationId={viewState.publicationId}
             customClues={viewState.customClues}
             initialIndex={viewState.initialIndex}
             onExit={() => setViewState({ type: 'PUBLICATION', publicationId: viewState.publicationId })}
+            letterChecking={letterChecking}
          />
       )}
       

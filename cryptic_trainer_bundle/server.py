@@ -43,7 +43,7 @@ def _load_db():
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
-    return {"version": 2, "training_items": {}, "parser_issues": {}}
+    return {"version": 2, "training_items": {}, "parser_issues": {}, "settings": {"letterChecking": True}}
 
 def _save_db(db):
     """Save the clue database atomically."""
@@ -83,6 +83,8 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._send_json({'items': items})
         elif self.path == '/import-logs':
             self._handle_get_import_logs()
+        elif self.path == '/settings':
+            self._handle_get_settings()
         else:
             self.send_error(404)
 
@@ -136,6 +138,8 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._handle_training_continue()
         elif self.path == '/training/clear':
             self._handle_training_clear()
+        elif self.path == '/settings':
+            self._handle_save_settings()
         else:
             self.send_error(404)
 
@@ -405,6 +409,29 @@ class SolverHandler(BaseHTTPRequestHandler):
         db['import_logs'] = {}
         _save_db(db)
         self._send_json({'success': True})
+
+    def _handle_get_settings(self):
+        """Get current settings."""
+        db = _load_db()
+        settings = db.get('settings', {'letterChecking': True})
+        self._send_json(settings)
+
+    def _handle_save_settings(self):
+        """Save settings."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            new_settings = json.loads(body)
+
+            db = _load_db()
+            if 'settings' not in db:
+                db['settings'] = {'letterChecking': True}
+            db['settings'].update(new_settings)
+            _save_db(db)
+
+            self._send_json({'success': True, 'settings': db['settings']})
+        except Exception as e:
+            self._send_json({'success': False, 'error': str(e)}, 500)
 
     def _handle_solve(self):
         """Handle the /solve endpoint."""

@@ -26,6 +26,7 @@ interface TemplateTrainerProps {
   clueNumber?: string;
   onComplete?: () => void;
   onBack?: () => void;
+  letterChecking?: boolean;
 }
 
 interface Highlight {
@@ -45,7 +46,8 @@ export function TemplateTrainer({
   answer,
   clueNumber,
   onComplete,
-  onBack
+  onBack,
+  letterChecking = true
 }: TemplateTrainerProps) {
   // Server state (source of truth)
   const [render, setRender] = useState<NewTrainingRender | null>(null);
@@ -381,6 +383,8 @@ export function TemplateTrainer({
               onChange={setAnswerInput}
               onSubmit={handleAnswerSubmit}
               disabled={isComplete}
+              correctAnswer={answerFromServer}
+              letterChecking={letterChecking}
             />
             {answerFeedback && (
               <p className="text-center text-sm text-amber-600 mt-2">{answerFeedback}</p>

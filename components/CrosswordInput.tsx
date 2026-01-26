@@ -14,6 +14,8 @@ interface CrosswordInputProps {
   onSubmit?: () => void;
   disabled?: boolean;
   autoFocus?: boolean;
+  correctAnswer?: string;  // If provided, enables letter checking
+  letterChecking?: boolean;  // Whether to show green/red feedback
 }
 
 export function CrosswordInput({
@@ -22,7 +24,9 @@ export function CrosswordInput({
   onChange,
   onSubmit,
   disabled = false,
-  autoFocus = false
+  autoFocus = false,
+  correctAnswer,
+  letterChecking = false
 }: CrosswordInputProps) {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -100,30 +104,46 @@ export function CrosswordInput({
     }
   };
 
+  // Get letter checking colors
+  const getLetterStyle = (letter: string, index: number) => {
+    if (!letter || letter === ' ' || !letterChecking || !correctAnswer) {
+      return { bg: letter && letter !== ' ' ? 'bg-blue-50' : '', border: '', text: '' };
+    }
+
+    const correctLetter = correctAnswer[index]?.toUpperCase();
+    if (letter === correctLetter) {
+      return { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700' };
+    } else {
+      return { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700' };
+    }
+  };
+
   return (
     <div className="flex gap-1 justify-center flex-wrap">
-      {letters.map((letter, index) => (
-        <input
-          key={index}
-          ref={el => inputRefs.current[index] = el}
-          type="text"
-          value={letter === ' ' ? '' : letter}
-          onChange={e => handleChange(index, e.target.value)}
-          onKeyDown={e => handleKeyDown(index, e)}
-          onPaste={handlePaste}
-          disabled={disabled}
-          maxLength={1}
-          className={`
-            w-10 h-12 text-center text-xl font-bold font-mono uppercase
-            border-2 rounded
-            focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500
-            ${disabled
-              ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-white border-gray-400 text-gray-900'}
-            ${letter ? 'bg-blue-50' : ''}
-          `}
-        />
-      ))}
+      {letters.map((letter, index) => {
+        const style = getLetterStyle(letter, index);
+        return (
+          <input
+            key={index}
+            ref={el => inputRefs.current[index] = el}
+            type="text"
+            value={letter === ' ' ? '' : letter}
+            onChange={e => handleChange(index, e.target.value)}
+            onKeyDown={e => handleKeyDown(index, e)}
+            onPaste={handlePaste}
+            disabled={disabled}
+            maxLength={1}
+            className={`
+              w-10 h-12 text-center text-xl font-bold font-mono uppercase
+              border-2 rounded
+              focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500
+              ${disabled
+                ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
+                : `bg-white border-gray-400 text-gray-900 ${style.bg} ${style.border} ${style.text}`}
+            `}
+          />
+        );
+      })}
     </div>
   );
 }
