@@ -22,6 +22,42 @@ A training app for learning to solve Times-style cryptic crosswords.
 ### Known Issues
 - None currently
 
+### TODO: Training UX Improvements
+
+The training UI needs UX improvements to address:
+
+1. **Jumpiness** - Panels appear/disappear abruptly, causing layout shifts
+2. **No step history** - User can't see what they've solved or what's coming
+3. **Inconsistent buttons** - Check/Continue buttons appear in different states/positions
+4. **No progress indicator** - User doesn't know where they are in the solving flow
+
+**Proposed solution** (see plan file for details):
+
+- **Fixed layout zones** - Header, clue display, and working area that don't shift
+- **Step history panel** - Shows completed steps with results (collapsible)
+- **Progress indicator** - "Step 2 of 5" in header
+- **Consistent button placement** - Button always at bottom of current step panel
+- **Smooth transitions** - CSS transitions to animate panel changes
+
+**Files to modify:**
+- `components/TemplateTrainer.tsx` - Add history panel, fixed layout zones, progress indicator
+- `cryptic_trainer_bundle/training_handler.py` - Add `totalSteps`, `currentStepNumber`, `completedSteps` to render response
+
+**Server changes needed:**
+```python
+render = {
+    # ... existing fields ...
+    "totalSteps": len(steps),
+    "currentStepNumber": session["step_index"] + 1,
+    "completedSteps": [
+        {"type": "standard_definition", "label": "Definition", "result": "Drawing blood", "detail": "at start"},
+        ...
+    ]
+}
+```
+
+See `/Users/andrewmackenzie/.claude/plans/lexical-cooking-diffie.md` for full implementation plan.
+
 ---
 
 ## Architecture
