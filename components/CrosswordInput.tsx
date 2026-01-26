@@ -119,7 +119,7 @@ export function CrosswordInput({
   };
 
   return (
-    <div className="flex gap-1 justify-center flex-wrap">
+    <div className="flex gap-0.5 sm:gap-1 justify-center flex-wrap">
       {letters.map((letter, index) => {
         const style = getLetterStyle(letter, index);
         return (
@@ -134,7 +134,7 @@ export function CrosswordInput({
             disabled={disabled}
             maxLength={1}
             className={`
-              w-10 h-12 text-center text-xl font-bold font-mono uppercase
+              w-8 h-10 sm:w-10 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono uppercase
               border-2 rounded
               focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500
               ${disabled

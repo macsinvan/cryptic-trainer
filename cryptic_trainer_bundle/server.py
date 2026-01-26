@@ -619,7 +619,8 @@ class SolverHandler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     port = 5001
-    server = HTTPServer(('localhost', port), SolverHandler)
-    print(f"Cryptic Trainer Solver running on http://localhost:{port}/solve")
+    server = HTTPServer(('0.0.0.0', port), SolverHandler)
+    print(f"Cryptic Trainer Solver running on http://0.0.0.0:{port}/solve")
+    print("Access from local network via your machine's IP address")
     print("Press Ctrl+C to stop")
     server.serve_forever()
