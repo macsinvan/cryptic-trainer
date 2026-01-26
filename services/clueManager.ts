@@ -350,49 +350,8 @@ export const searchClues = (q: string) => {
 };
 export const mapToValidClueType = (s: string, p?: string) => (STANDARD_CLUE_TYPES[0] as any);
 
-// --- Training Flow API ---
-
-import { RenderInstructions, ButtonSpec, HighlightInstruction } from '../types';
-
-export interface TrainingActionResponse {
-    success: boolean;
-    clueEntry?: any;
-    currentWordplay?: any;
-    currentWordplayIndex?: number;
-    currentPhase?: 'indicator' | 'fodder' | 'result' | 'blocked' | 'complete' | 'teaching';
-    isSubOperation?: boolean;
-    parentWordplay?: any;
-    blocked?: boolean;
-    blockedHint?: string;
-    validation?: { correct: boolean; expected: string };
-    allSolved?: boolean;
-    error?: string;
-    render?: RenderInstructions;
-}
-
-export type TrainingAction =
-    | 'start'
-    | 'get_state'
-    | 'check_definition'
-    | 'check_indicator'
-    | 'check_fodder'
-    | 'check_result'
-    | 'select_wordplay'
-    | 'pass_teaching';
-
-export const trainingAction = async (
-    clueId: string,
-    action: TrainingAction,
-    data?: { wordplayId?: string; selected?: string; entered?: string; selectedIndices?: number[] }
-): Promise<TrainingActionResponse> => {
-    return fetchJson<TrainingActionResponse>('/training/action', {
-        method: 'POST',
-        body: JSON.stringify({ clueId, action, data })
-    });
-};
-
 // =============================================================================
-// NEW TEMPLATE-BASED TRAINING API
+// TEMPLATE-BASED TRAINING API
 // =============================================================================
 
 /** Multiple choice option for container steps */
