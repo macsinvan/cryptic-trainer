@@ -9,22 +9,7 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
         proxy: {
-          '/api/solve': {
-            target: 'http://localhost:5001',
-            changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api\/solve/, '/solve')
-          },
-          '/api/clues': {
-            target: 'http://localhost:5001',
-            changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api/, '')
-          },
-          '/api/parser-issues': {
-            target: 'http://localhost:5001',
-            changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api/, '')
-          },
-          '/api/training': {
+          '/api': {
             target: 'http://localhost:5001',
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/api/, '')
