@@ -7,8 +7,10 @@ A training app for learning to solve Times-style cryptic crosswords.
 ### What's Working
 - **Predefined step templates**: 90% generic templates + 10% clue-specific data
 - **Server-driven rendering**: Server merges template + clue data, UI just renders
-- **Thin client architecture**: All logic on Python server (~80 lines handler)
+- **Thin client architecture**: All logic on Python server (~100 lines handler)
 - **Teaching moments**: Built into templates with variable substitution
+- **Solved view with learnings**: Shows accumulated teaching summaries after completing all steps
+- **Fixed 3-section layout**: Clue, answer entry, and action area with consistent button placement
 
 ### Architecture
 
@@ -21,42 +23,6 @@ A training app for learning to solve Times-style cryptic crosswords.
 
 ### Known Issues
 - None currently
-
-### TODO: Training UX Improvements
-
-The training UI needs UX improvements to address:
-
-1. **Jumpiness** - Panels appear/disappear abruptly, causing layout shifts
-2. **No step history** - User can't see what they've solved or what's coming
-3. **Inconsistent buttons** - Check/Continue buttons appear in different states/positions
-4. **No progress indicator** - User doesn't know where they are in the solving flow
-
-**Proposed solution** (see plan file for details):
-
-- **Fixed layout zones** - Header, clue display, and working area that don't shift
-- **Step history panel** - Shows completed steps with results (collapsible)
-- **Progress indicator** - "Step 2 of 5" in header
-- **Consistent button placement** - Button always at bottom of current step panel
-- **Smooth transitions** - CSS transitions to animate panel changes
-
-**Files to modify:**
-- `components/TemplateTrainer.tsx` - Add history panel, fixed layout zones, progress indicator
-- `cryptic_trainer_bundle/training_handler.py` - Add `totalSteps`, `currentStepNumber`, `completedSteps` to render response
-
-**Server changes needed:**
-```python
-render = {
-    # ... existing fields ...
-    "totalSteps": len(steps),
-    "currentStepNumber": session["step_index"] + 1,
-    "completedSteps": [
-        {"type": "standard_definition", "label": "Definition", "result": "Drawing blood", "detail": "at start"},
-        ...
-    ]
-}
-```
-
-See `/Users/andrewmackenzie/.claude/plans/lexical-cooking-diffie.md` for full implementation plan.
 
 ---
 
@@ -98,6 +64,7 @@ Open http://localhost:3000
 | `/api/training/start` | POST | Start training session |
 | `/api/training/input` | POST | Submit user input (tap/text) |
 | `/api/training/continue` | POST | Continue through teaching |
+| `/api/training/clear` | POST | Clear session (reset progress) |
 
 ### Other API Endpoints
 
@@ -126,15 +93,15 @@ Open http://localhost:3000
 - **Predefined Step Templates** — `standard_definition`, `anagram_find`, `letter_selection`, `anagram_solve`, `container`, `double_definition`
 - **Import Flow** — Step-based schema validation, template availability check, import log storage
 - **Complete Clue Example** — PHLEBOTOMY in the new `steps` format
-- **Session State** — `step_index`, `phase_index`, `highlights`
+- **Session State** — `step_index`, `phase_index`, `highlights`, `learnings`
 - **Handler Implementation** — ~80 lines: `get_render`, `handle_input`, `handle_continue`
 - **Verification** — curl commands for manual testing
 
 ## Key Files
 
 ### React UI (root directory)
-- `components/training/InstructionPanel.tsx` — Renders from server `render` object
-- `components/ClueTrainer.tsx` — Training interface
+- `components/TemplateTrainer.tsx` — Server-driven training with fixed 3-section layout + solved view
+- `components/TrainingMode.tsx` — Training session wrapper with queue management
 - `vite.config.ts` — Dev server config with API proxy rules
 
 ### Python Backend (`cryptic_trainer_bundle/`)
