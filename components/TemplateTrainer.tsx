@@ -476,6 +476,20 @@ export function TemplateTrainer({
             <p className="text-amber-800">{render.panel.instruction}</p>
           </div>
         )}
+
+        {/* Previous learnings - collapsed (title only) */}
+        {render.learnings && render.learnings.length > 0 && (
+          <div className="space-y-2">
+            {render.learnings.map((learning, idx) => (
+              <div key={idx} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-500 text-sm">🎓</span>
+                  <span className="font-bold text-slate-600 text-sm">{learning.title}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

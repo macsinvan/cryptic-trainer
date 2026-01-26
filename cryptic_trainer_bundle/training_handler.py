@@ -54,8 +54,8 @@ STEP_TEMPLATES = {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
-                    "title": "Definition Found",
-                    "instruction": "The definition is always at the start or end — never buried in the middle. Here you found '{result}' at the {position}."
+                    "title": "DEFINITION FOUND: {result}",
+                    "instruction": "The definition is always at the start or end — never buried in the middle. Here you found it at the {position}."
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -84,6 +84,11 @@ STEP_TEMPLATES = {
             {
                 "id": "fodder",
                 "actionPrompt": "Tap the fodder words",
+                "intro": {
+                    "title": "Find the Fodder",
+                    "text": "The fodder is always adjacent to the indicator.",
+                    "example": "Look for words right before or after the indicator"
+                },
                 "panel": {
                     "title": "FIND FODDER",
                     "instruction": "Tap the fodder - the letters to be rearranged. It's adjacent to the indicator."
@@ -96,8 +101,8 @@ STEP_TEMPLATES = {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
-                    "title": "Anagram Identified",
-                    "instruction": "'{indicator}' tells us to rearrange '{fodder}' → {result} ({letterCount} letters)"
+                    "title": "ANAGRAM FOUND: {result}",
+                    "instruction": "'{indicator}' tells us to rearrange '{fodder}' ({letterCount} letters)"
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -112,8 +117,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Tap the letter selection indicator",
                 "intro": {
                     "title": "Letter Selection",
-                    "text": "Some indicators tell you to extract specific letters from words.",
-                    "example": '"at last" = final letters, "initially" = first letters'
+                    "text": "Some indicators tell you to extract specific letters from words."
                 },
                 "panel": {
                     "title": "FIND INDICATOR",
@@ -149,8 +153,8 @@ STEP_TEMPLATES = {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
-                    "title": "Letters Extracted",
-                    "instruction": "'{indicator}' tells us to take {extractionType}s from '{fodder}' → {result}"
+                    "title": "LETTERS EXTRACTED: {result}",
+                    "instruction": "'{indicator}' tells us to take {extractionType}s from '{fodder}'"
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -165,7 +169,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Type the answer",
                 "intro": {
                     "title": "Solve the Anagram",
-                    "text": "You've gathered all the letters. Now rearrange them to find the answer."
+                    "text": "You've gathered all the letters: {fodder}. Now rearrange them to find the answer that meets the definition '{definition}'."
                 },
                 "panel": {
                     "title": "SOLVE",
@@ -179,8 +183,8 @@ STEP_TEMPLATES = {
                 "id": "teaching",
                 "actionPrompt": "Complete training",
                 "panel": {
-                    "title": "Solved!",
-                    "instruction": "{fodder} rearranges to {result} - {definition}."
+                    "title": "SOLVED: {result}",
+                    "instruction": "{fodder} rearranges to form '{definition}'"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -221,8 +225,8 @@ STEP_TEMPLATES = {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
-                    "title": "Container Complete",
-                    "instruction": "'{indicator}' tells us {inner} goes inside {outer} → {result}"
+                    "title": "CONTAINER: {result}",
+                    "instruction": "'{indicator}' tells us {inner} goes inside {outer}"
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -274,8 +278,8 @@ STEP_TEMPLATES = {
                 "id": "teaching",
                 "actionPrompt": "Complete training",
                 "panel": {
-                    "title": "Double Definition Complete",
-                    "instruction": "Both '{def1}' and '{def2}' define {result}. No wordplay needed — just two meanings!"
+                    "title": "SOLVED: {result}",
+                    "instruction": "Both '{def1}' and '{def2}' define the answer. No wordplay needed — just two meanings!"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -460,21 +464,22 @@ def get_render(clue_id, clue):
         "inputMode": phase.get("inputMode", "none"),
         "highlights": session["highlights"],
         "answer": answer,
-        "actionPrompt": phase.get("actionPrompt", "")
+        "actionPrompt": phase.get("actionPrompt", ""),
+        "learnings": session.get("learnings", [])
     }
 
     # Add intro if present
     if "intro" in phase:
         render["intro"] = {
-            "title": phase["intro"].get("title", ""),
-            "text": phase["intro"].get("text", ""),
-            "example": phase["intro"].get("example", "")
+            "title": substitute_variables(phase["intro"].get("title", ""), step, session),
+            "text": substitute_variables(phase["intro"].get("text", ""), step, session),
+            "example": substitute_variables(phase["intro"].get("example", ""), step, session)
         }
 
     # Add panel
     if "panel" in phase:
         render["panel"] = {
-            "title": phase["panel"].get("title", ""),
+            "title": substitute_variables(phase["panel"].get("title", ""), step, session),
             "instruction": substitute_variables(phase["panel"].get("instruction", ""), step, session)
         }
 
@@ -650,8 +655,9 @@ def handle_continue(clue_id, clue):
             learning_text = f"Both '{def1_text}' and '{def2_text}' define {result}. No wordplay needed — just two meanings!"
 
         if learning_text:
+            learning_title = substitute_variables(phase["panel"].get("title", ""), step, session)
             session["learnings"].append({
-                "title": phase["panel"].get("title", ""),
+                "title": learning_title,
                 "text": learning_text
             })
 
