@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { trainingStart, trainingInput, trainingContinue, NewTrainingRender } from '../services/clueManager';
+import { trainingStart, trainingInput, trainingContinue, trainingClear, NewTrainingRender } from '../services/clueManager';
 import { CrosswordInput } from './CrosswordInput';
 
 // =============================================================================
@@ -198,6 +198,15 @@ export function TemplateTrainer({
   }, [clueId, onComplete]);
 
   // ---------------------------------------------------------------------------
+  // Handle back/exit - clear session so it starts fresh next time
+  // ---------------------------------------------------------------------------
+  const handleBack = useCallback(async () => {
+    // Clear session on server (fire and forget - don't block UI)
+    trainingClear(clueId).catch(() => {});
+    onBack?.();
+  }, [clueId, onBack]);
+
+  // ---------------------------------------------------------------------------
   // Get word highlight color
   // ---------------------------------------------------------------------------
   const getWordColor = (index: number): string | null => {
@@ -237,7 +246,7 @@ export function TemplateTrainer({
         <p className="font-medium">Error</p>
         <p className="text-sm">{error}</p>
         <button
-          onClick={onBack}
+          onClick={handleBack}
           className="mt-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
         >
           Go Back
@@ -332,7 +341,7 @@ export function TemplateTrainer({
         {/* Button */}
         {isComplete ? (
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="px-5 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
           >
             Done

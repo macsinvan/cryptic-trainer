@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Trophy, ChevronRight } from 'lucide-react';
 import { PUBLICATIONS } from '../data';
 import { ScannedClue, TrainingItem } from '../types';
 import { TemplateTrainer } from './TemplateTrainer';
-import { getTrainingQueue } from '../services/clueManager';
+import { getTrainingQueue, trainingClear } from '../services/clueManager';
 
 interface TrainingModeProps {
   onExit: () => void;
@@ -55,6 +55,14 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
       nextClue();
   };
 
+  // Handle exit - clear current session so it starts fresh next time
+  const handleExit = useCallback(() => {
+    if (currentItem) {
+      trainingClear(currentItem.id).catch(() => {});
+    }
+    onExit();
+  }, [currentItem, onExit]);
+
   const pubName = PUBLICATIONS.find(p => p.id === publicationId)?.name || 'Unknown';
 
   if (!currentItem) {
@@ -74,7 +82,7 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
       <div className="max-w-2xl mx-auto">
         {/* Compact header row */}
         <div className="flex items-center justify-between mb-3 px-1">
-          <button onClick={onExit} className="flex items-center text-slate-500 hover:text-slate-800 transition-colors text-sm">
+          <button onClick={handleExit} className="flex items-center text-slate-500 hover:text-slate-800 transition-colors text-sm">
             <ArrowLeft size={16} className="mr-1" /> Exit
           </button>
           <div className="flex items-center gap-2 text-xs text-slate-400">

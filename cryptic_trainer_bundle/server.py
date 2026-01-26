@@ -134,6 +134,8 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._handle_training_input()
         elif self.path == '/training/continue':
             self._handle_training_continue()
+        elif self.path == '/training/clear':
+            self._handle_training_clear()
         else:
             self.send_error(404)
 
@@ -535,6 +537,26 @@ class SolverHandler(BaseHTTPRequestHandler):
             traceback.print_exc()
             self._send_json({'success': False, 'error': str(e)}, 500)
 
+    def _handle_training_clear(self):
+        """Clear training session (e.g., on exit). Allows fresh start next time."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            clue_id = data.get('clueId')
+
+            if not clue_id:
+                self._send_json({'success': False, 'error': 'Missing clueId'}, 400)
+                return
+
+            cleared = training_handler.clear_session(clue_id)
+            self._send_json({'success': True, 'cleared': cleared})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._send_json({'success': False, 'error': str(e)}, 500)
 
     def log_message(self, format, *args):
         print(f"[solver] {args[0]}")
