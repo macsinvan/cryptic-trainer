@@ -46,7 +46,6 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
       setCurrentIndex(nextIdx);
       if (onProgress) onProgress(nextIdx);
     } else {
-      alert(`Training Complete! Score: ${score}`);
       onExit();
     }
   };

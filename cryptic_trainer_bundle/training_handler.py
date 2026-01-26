@@ -266,6 +266,10 @@ STEP_TEMPLATES = {
             {
                 "id": "solve",
                 "actionPrompt": "Type the answer",
+                "intro": {
+                    "title": "Solve",
+                    "text": "Find a {letterCount} letter word that means both '{def1}' and '{def2}'."
+                },
                 "panel": {
                     "title": "SOLVE",
                     "instruction": "Type the word that matches both definitions."
@@ -381,7 +385,7 @@ def clear_session(clue_id):
 # RENDER
 # =============================================================================
 
-def substitute_variables(text, step, session):
+def substitute_variables(text, step, session, clue=None):
     """Replace {variable} placeholders with values from step data."""
     if not isinstance(text, str):
         return text
@@ -410,6 +414,12 @@ def substitute_variables(text, step, session):
                 subs[key] = val["text"]
             else:
                 subs[key] = str(val)
+
+    # Get letterCount from clue enumeration if not in step (for double_definition)
+    if "letterCount" not in subs and clue:
+        enumeration = clue.get("clue", {}).get("enumeration", "")
+        if enumeration:
+            subs["letterCount"] = enumeration
 
     # Perform substitution
     for key, val in subs.items():
@@ -471,16 +481,16 @@ def get_render(clue_id, clue):
     # Add intro if present
     if "intro" in phase:
         render["intro"] = {
-            "title": substitute_variables(phase["intro"].get("title", ""), step, session),
-            "text": substitute_variables(phase["intro"].get("text", ""), step, session),
-            "example": substitute_variables(phase["intro"].get("example", ""), step, session)
+            "title": substitute_variables(phase["intro"].get("title", ""), step, session, clue),
+            "text": substitute_variables(phase["intro"].get("text", ""), step, session, clue),
+            "example": substitute_variables(phase["intro"].get("example", ""), step, session, clue)
         }
 
     # Add panel
     if "panel" in phase:
         render["panel"] = {
-            "title": substitute_variables(phase["panel"].get("title", ""), step, session),
-            "instruction": substitute_variables(phase["panel"].get("instruction", ""), step, session)
+            "title": substitute_variables(phase["panel"].get("title", ""), step, session, clue),
+            "instruction": substitute_variables(phase["panel"].get("instruction", ""), step, session, clue)
         }
 
     # Add button if present
@@ -615,7 +625,7 @@ def handle_input(clue_id, clue, value):
         message = phase.get("onWrong", {}).get("message", "Try again")
         return {
             "correct": False,
-            "message": substitute_variables(message, step, session),
+            "message": substitute_variables(message, step, session, clue),
             "render": get_render(clue_id, clue)
         }
 
@@ -638,7 +648,7 @@ def handle_continue(clue_id, clue):
 
     # If this is a teaching phase, capture the learning before advancing
     if phase["id"] == "teaching" and "panel" in phase:
-        learning_text = substitute_variables(phase["panel"].get("instruction", ""), step, session)
+        learning_text = substitute_variables(phase["panel"].get("instruction", ""), step, session, clue)
         # Apply same special handling as in get_render for anagram_find and double_definition
         if step["type"] == "anagram_find":
             letter_count = step.get("letterCount", 0)
@@ -655,7 +665,7 @@ def handle_continue(clue_id, clue):
             learning_text = f"Both '{def1_text}' and '{def2_text}' define {result}. No wordplay needed — just two meanings!"
 
         if learning_text:
-            learning_title = substitute_variables(phase["panel"].get("title", ""), step, session)
+            learning_title = substitute_variables(phase["panel"].get("title", ""), step, session, clue)
             session["learnings"].append({
                 "title": learning_title,
                 "text": learning_text

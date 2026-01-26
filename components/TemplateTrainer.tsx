@@ -173,7 +173,7 @@ export function TemplateTrainer({
     } catch (e) {
       setError(String(e));
     }
-  }, [clueId, render, selectedIndices, textInput, selectedOption, onComplete]);
+  }, [clueId, render, selectedIndices, textInput, selectedOption, answerInput, onComplete]);
 
   // ---------------------------------------------------------------------------
   // Handle continue button
