@@ -374,6 +374,8 @@ export interface NewTrainingRender {
     expected?: number[] | string;
     options?: MultipleChoiceOption[];  // For multiple_choice inputMode
     complete?: boolean;
+    actionPrompt: string;  // Short instruction for Section 3 (e.g., "Tap the definition words")
+    answer: string;        // The correct answer for early solve attempts
 }
 
 export interface NewTrainingResponse {

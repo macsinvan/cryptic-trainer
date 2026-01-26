@@ -85,8 +85,47 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
   const [importResult, setImportResult] = useState<{
     saved: number;
     skipped: number;
-    issues: Array<{ clueNumber: string; clueText: string; issue: string }>;
+    failed: number;
+    errors: Array<{ clueId: string; clueNumber: string; clueText: string; errors: string[] }>;
+    importLogId?: string;
   } | null>(null);
+
+  // Import logs state for viewing past logs
+  const [showImportLogs, setShowImportLogs] = useState(false);
+  const [importLogs, setImportLogs] = useState<Array<{
+    id: string;
+    timestamp: number;
+    puzzleFile: string;
+    puzzleNumber: string;
+    summary: { saved: number; skipped: number; failed: number };
+    errors: Array<{ clueId: string; clueNumber: string; clueText: string; errors: string[] }>;
+  }>>([]);
+
+  // Fetch import logs from server
+  const fetchImportLogs = async () => {
+    try {
+      const response = await fetch('/api/import-logs');
+      if (response.ok) {
+        const data = await response.json();
+        setImportLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch import logs:', err);
+    }
+  };
+
+  // Copy import log to clipboard
+  const copyLogToClipboard = (log: typeof importLogs[0]) => {
+    const text = [
+      `Import Log: ${log.puzzleFile} (#${log.puzzleNumber})`,
+      `Date: ${new Date(log.timestamp * 1000).toLocaleString()}`,
+      `Summary: ${log.summary.saved} saved, ${log.summary.skipped} skipped, ${log.summary.failed} failed`,
+      '',
+      'Errors:',
+      ...log.errors.map(e => `  ${e.clueNumber}: ${e.clueText}\n    - ${e.errors.join('\n    - ')}`)
+    ].join('\n');
+    navigator.clipboard.writeText(text);
+  };
 
   // Check if a clue has valid V2 metadata for training
   const isClueValid = (clue: PatternInstance): { valid: boolean; issue?: string } => {
@@ -112,11 +151,35 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
     setSolveError(null);
     setImportResult(null);
 
+    let puzzleData: any = null;
+    let fileContent = '';
+
     try {
       // Read file content
-      const content = await file.text();
-      const puzzleData = JSON.parse(content);
+      fileContent = await file.text();
+      puzzleData = JSON.parse(fileContent);
+    } catch (err) {
+      // JSON parse error - show error with file details
+      setSolveError(`Failed to parse ${file.name}: ${err instanceof Error ? err.message : 'Invalid JSON'}`);
+      // Show import result with parse error
+      setImportResult({
+        saved: 0,
+        skipped: 0,
+        failed: 1,
+        errors: [{
+          clueId: 'parse-error',
+          clueNumber: '-',
+          clueText: file.name,
+          errors: [`JSON parse error: ${err instanceof Error ? err.message : 'Invalid JSON'}`]
+        }]
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
+    try {
       // Send to server for import - server handles all conversion/validation
       const response = await fetch('/api/clues/import', {
         method: 'POST',
@@ -127,21 +190,55 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
         })
       });
 
-      const result = await response.json();
+      // Handle non-JSON responses (server error)
+      const responseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        // Server returned non-JSON (likely error page)
+        setSolveError(`Server error: ${response.status} ${response.statusText}`);
+        setImportResult({
+          saved: 0,
+          skipped: 0,
+          failed: 1,
+          errors: [{
+            clueId: 'server-error',
+            clueNumber: '-',
+            clueText: file.name,
+            errors: [`Server returned ${response.status}: ${responseText.slice(0, 200)}`]
+          }]
+        });
+        return;
+      }
 
       if (!result.success) {
         setSolveError(result.error || 'Import failed');
+        // Still show the import result with the error
+        setImportResult({
+          saved: 0,
+          skipped: 0,
+          failed: 1,
+          errors: [{
+            clueId: 'import-error',
+            clueNumber: '-',
+            clueText: puzzleData?.metadata?.file || file.name,
+            errors: [result.error || 'Unknown import error']
+          }]
+        });
         return;
       }
 
       // Update UI with server response
       setTotalClueCount(getClueCount(publicationId));
 
-      // Show import result from server
+      // Show import result from server (use correct field names from server)
       setImportResult({
         saved: result.saved || 0,
         skipped: result.skipped || 0,
-        issues: result.issues || []
+        failed: result.failed || 0,
+        errors: result.errors || [],
+        importLogId: result.importLogId
       });
 
       // Store metadata for display
@@ -154,7 +251,19 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
       }
 
     } catch (err) {
-      setSolveError(`Failed to load puzzle file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      // Network or other error
+      setSolveError(`Failed to import: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setImportResult({
+        saved: 0,
+        skipped: 0,
+        failed: 1,
+        errors: [{
+          clueId: 'network-error',
+          clueNumber: '-',
+          clueText: file.name,
+          errors: [`Network error: ${err instanceof Error ? err.message : 'Unknown error'}`]
+        }]
+      });
     }
 
     // Reset file input
@@ -1245,33 +1354,48 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
         {isTutorMode ? renderBattlecardReview() : importResult ? (
           /* IMPORT RESULT VIEW - After auto-import completes */
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in border border-slate-200">
-            <div className={`p-6 text-white ${importResult.issues.length > 0 ? 'bg-amber-600' : 'bg-green-600'}`}>
+            <div className={`p-6 text-white ${importResult.errors.length > 0 ? 'bg-amber-600' : 'bg-green-600'}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    {importResult.issues.length > 0 ? (
+                    {importResult.errors.length > 0 ? (
                       <AlertCircle size={18} className="text-amber-200" />
                     ) : (
                       <Check size={18} className="text-green-200" />
                     )}
                     <span className="text-xs font-bold text-white/80 uppercase tracking-widest">
-                      Import {importResult.issues.length > 0 ? 'Partial' : 'Complete'}
+                      Import {importResult.errors.length > 0 ? 'Partial' : 'Complete'}
                     </span>
                   </div>
                   <h2 className="text-xl font-serif font-bold">
                     {puzzleMetadata ? `${puzzleMetadata.publisher} #${puzzleMetadata.puzzle_number}` : 'Puzzle Import'}
                   </h2>
                 </div>
-                <button
-                  onClick={() => {
-                    setImportResult(null);
-                    setPuzzleMetadata(null);
-                    setIsPuzzleMode(false);
-                  }}
-                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Done
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      // Copy current errors to clipboard
+                      const text = importResult.errors.map(e =>
+                        `${e.clueNumber}: ${e.clueText}\n  - ${e.errors.join('\n  - ')}`
+                      ).join('\n\n');
+                      navigator.clipboard.writeText(text);
+                    }}
+                    className="px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-medium transition-colors"
+                    title="Copy errors to clipboard"
+                  >
+                    Copy Log
+                  </button>
+                  <button
+                    onClick={() => {
+                      setImportResult(null);
+                      setPuzzleMetadata(null);
+                      setIsPuzzleMode(false);
+                    }}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1286,31 +1410,44 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                   <div className="text-2xl font-bold text-slate-500">{importResult.skipped}</div>
                   <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Already Imported</div>
                 </div>
-                <div className={`rounded-lg p-4 text-center ${importResult.issues.length > 0 ? 'bg-red-50 border border-red-200' : 'bg-slate-50 border border-slate-200'}`}>
-                  <div className={`text-2xl font-bold ${importResult.issues.length > 0 ? 'text-red-700' : 'text-slate-400'}`}>{importResult.issues.length}</div>
-                  <div className={`text-xs font-medium uppercase tracking-wide ${importResult.issues.length > 0 ? 'text-red-600' : 'text-slate-400'}`}>Issues</div>
+                <div className={`rounded-lg p-4 text-center ${importResult.failed > 0 ? 'bg-red-50 border border-red-200' : 'bg-slate-50 border border-slate-200'}`}>
+                  <div className={`text-2xl font-bold ${importResult.failed > 0 ? 'text-red-700' : 'text-slate-400'}`}>{importResult.failed}</div>
+                  <div className={`text-xs font-medium uppercase tracking-wide ${importResult.failed > 0 ? 'text-red-600' : 'text-slate-400'}`}>Failed</div>
                 </div>
               </div>
 
-              {/* Issues list - actionable for upstream solver */}
-              {importResult.issues.length > 0 && (
+              {/* Errors list - actionable for upstream solver */}
+              {importResult.errors.length > 0 && (
                 <div className="border border-red-200 rounded-lg overflow-hidden">
-                  <div className="bg-red-50 px-4 py-3 border-b border-red-200">
-                    <h3 className="text-sm font-bold text-red-800">Clues with Missing Metadata</h3>
-                    <p className="text-xs text-red-600 mt-1">These clues need fixes in the solver output before importing</p>
+                  <div className="bg-red-50 px-4 py-3 border-b border-red-200 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-red-800">Import Errors</h3>
+                      <p className="text-xs text-red-600 mt-1">These clues need fixes before importing</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        fetchImportLogs();
+                        setShowImportLogs(true);
+                      }}
+                      className="text-xs text-red-700 hover:text-red-900 font-medium underline"
+                    >
+                      View All Logs
+                    </button>
                   </div>
                   <div className="divide-y divide-red-100 max-h-64 overflow-y-auto">
-                    {importResult.issues.map((issue, idx) => (
+                    {importResult.errors.map((error, idx) => (
                       <div key={idx} className="px-4 py-3 bg-white">
                         <div className="flex items-start gap-3">
                           <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded shrink-0">
-                            {issue.clueNumber}
+                            {error.clueNumber}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-slate-700 truncate">{issue.clueText}</p>
-                            <p className="text-xs text-red-600 mt-1 font-medium">
-                              Issue: {issue.issue}
-                            </p>
+                            <p className="text-sm text-slate-700 truncate">{error.clueText}</p>
+                            {error.errors.map((err, errIdx) => (
+                              <p key={errIdx} className="text-xs text-red-600 mt-1 font-medium">
+                                • {err}
+                              </p>
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -1319,8 +1456,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
                 </div>
               )}
 
-              {/* Success message when no issues */}
-              {importResult.issues.length === 0 && importResult.saved > 0 && (
+              {/* Success message when no errors */}
+              {importResult.errors.length === 0 && importResult.saved > 0 && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
                   <div className="bg-green-600 text-white p-3 rounded-full inline-flex mb-4">
                     <Check size={24} />
@@ -1433,6 +1570,76 @@ TON + SURE → TONSURE (monk's haircut).`}
           </div>
         )}
       </div>
+
+      {/* Import Logs Modal */}
+      {showImportLogs && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="bg-slate-800 text-white p-4 flex items-center justify-between">
+              <h2 className="font-bold">Import Logs</h2>
+              <button
+                onClick={() => setShowImportLogs(false)}
+                className="text-white/70 hover:text-white text-xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(80vh-60px)]">
+              {importLogs.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">
+                  No import logs found
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {importLogs.map((log) => (
+                    <div key={log.id} className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <span className="font-bold text-slate-800">{log.puzzleFile}</span>
+                          <span className="text-xs text-slate-500 ml-2">
+                            {new Date(log.timestamp * 1000).toLocaleString()}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => copyLogToClipboard(log)}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <div className="flex gap-4 text-xs mb-2">
+                        <span className="text-green-600">{log.summary.saved} saved</span>
+                        <span className="text-slate-500">{log.summary.skipped} skipped</span>
+                        <span className={log.summary.failed > 0 ? 'text-red-600' : 'text-slate-400'}>
+                          {log.summary.failed} failed
+                        </span>
+                      </div>
+                      {log.errors.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-red-600 cursor-pointer hover:text-red-800">
+                            {log.errors.length} error{log.errors.length !== 1 ? 's' : ''} (click to expand)
+                          </summary>
+                          <div className="mt-2 bg-red-50 rounded p-2 text-xs space-y-2 max-h-40 overflow-y-auto">
+                            {log.errors.map((err, idx) => (
+                              <div key={idx} className="border-b border-red-100 pb-2 last:border-0">
+                                <span className="font-bold text-red-700">{err.clueNumber}:</span>{' '}
+                                <span className="text-slate-700">{err.clueText}</span>
+                                {err.errors.map((e, i) => (
+                                  <p key={i} className="text-red-600 ml-4">• {e}</p>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

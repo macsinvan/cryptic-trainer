@@ -1,14 +1,18 @@
 /**
- * TemplateTrainer - Simplified training component using template-based API
+ * TemplateTrainer - Server-driven training component with fixed 3-section layout
  *
- * This component is 100% server-driven:
- * - Server sends render instructions
- * - UI renders exactly what server says
- * - No local business logic
+ * Layout:
+ * - Section 1: Clue (fixed height)
+ * - Section 2: Answer Entry - crossword boxes (fixed height)
+ * - Section 3: Action Required + Button (fixed height)
+ * - Section 4: Details (scrollable, below fold)
+ *
+ * User can enter answer at any time. Correct answer skips to complete.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { trainingStart, trainingInput, trainingContinue, NewTrainingRender } from '../services/clueManager';
+import { CrosswordInput } from './CrosswordInput';
 
 // =============================================================================
 // TYPES
@@ -18,6 +22,7 @@ interface TemplateTrainerProps {
   clueId: string;
   clueText: string;
   enumeration: string;
+  answer: string;
   clueNumber?: string;
   onComplete?: () => void;
   onBack?: () => void;
@@ -37,6 +42,7 @@ export function TemplateTrainer({
   clueId,
   clueText,
   enumeration,
+  answer,
   clueNumber,
   onComplete,
   onBack
@@ -46,11 +52,19 @@ export function TemplateTrainer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Ephemeral UI state (pre-submission)
+  // Answer entry state (always visible)
+  const [answerInput, setAnswerInput] = useState('');
+  const [answerFeedback, setAnswerFeedback] = useState<string | null>(null);
+
+  // Ephemeral UI state for step interactions
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [textInput, setTextInput] = useState('');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null);
+
+  // Parse enumeration to get letter count (fallback to answer length from server)
+  const answerFromServer = render?.answer || answer;
+  const letterCount = parseInt(enumeration.replace(/[^0-9]/g, ''), 10) || answerFromServer.replace(/[^A-Za-z]/g, '').length || 10;
 
   // Split clue into words
   const words = clueText.replace(/[,;:]/g, ' ').split(/\s+/).filter(Boolean);
@@ -79,6 +93,23 @@ export function TemplateTrainer({
   }, [clueId]);
 
   // ---------------------------------------------------------------------------
+  // Handle answer submission (can happen at any time)
+  // ---------------------------------------------------------------------------
+  const handleAnswerSubmit = useCallback(() => {
+    const normalizedInput = answerInput.toUpperCase().replace(/\s/g, '');
+    const normalizedAnswer = answer.toUpperCase().replace(/\s/g, '');
+
+    if (normalizedInput === normalizedAnswer) {
+      // Correct! Skip to complete
+      setAnswerFeedback(null);
+      onComplete?.();
+    } else if (normalizedInput.length === normalizedAnswer.length) {
+      // Wrong answer
+      setAnswerFeedback('Not quite - keep working through the steps');
+    }
+  }, [answerInput, answer, onComplete]);
+
+  // ---------------------------------------------------------------------------
   // Handle word tap
   // ---------------------------------------------------------------------------
   const handleWordTap = useCallback((index: number) => {
@@ -94,7 +125,7 @@ export function TemplateTrainer({
   }, [render?.inputMode]);
 
   // ---------------------------------------------------------------------------
-  // Handle check/submit
+  // Handle check/submit for current step
   // ---------------------------------------------------------------------------
   const handleSubmit = useCallback(async (optionIndex?: number) => {
     if (!render) return;
@@ -226,23 +257,10 @@ export function TemplateTrainer({
     : textInput.trim().length > 0;
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
-        >
-          <span>&larr;</span> Back
-        </button>
-        {clueNumber && (
-          <span className="text-blue-600 font-mono font-bold">{clueNumber}</span>
-        )}
-      </div>
-
-      {/* Clue Display */}
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <div className="flex flex-wrap gap-2 text-2xl font-serif leading-relaxed">
+    <div className="max-w-2xl mx-auto">
+      {/* ===== SECTION 1: CLUE (fixed height) ===== */}
+      <div className="bg-white rounded-t-xl border border-b-0 p-4 min-h-[100px]">
+        <div className="flex flex-wrap gap-2 text-xl font-serif leading-relaxed">
           {words.map((word, index) => {
             const bgColor = getWordColor(index);
             return (
@@ -250,7 +268,7 @@ export function TemplateTrainer({
                 key={index}
                 onClick={() => handleWordTap(index)}
                 className={`
-                  px-2 py-1 rounded cursor-pointer transition-all
+                  px-1.5 py-0.5 rounded transition-all
                   ${bgColor ? 'text-white' : 'hover:bg-gray-100'}
                   ${render.inputMode === 'tap_words' ? 'cursor-pointer' : 'cursor-default'}
                 `}
@@ -262,138 +280,143 @@ export function TemplateTrainer({
           })}
           <span className="text-gray-400">({enumeration})</span>
         </div>
+        {clueNumber && (
+          <div className="mt-2 text-sm text-blue-600 font-mono font-bold">{clueNumber}</div>
+        )}
       </div>
 
-      {/* Intro Card (if present) */}
-      {render.intro && !isTeaching && (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-          <h3 className="font-bold text-blue-800">{render.intro.title}</h3>
-          <p className="text-blue-700 mt-1">{render.intro.text}</p>
-          {render.intro.example && (
-            <p className="text-blue-600 text-sm mt-2 italic">{render.intro.example}</p>
-          )}
-        </div>
-      )}
-
-      {/* Instruction Panel */}
-      {render.panel && (
-        <div className={`
-          rounded-xl p-6
-          ${isComplete ? 'bg-green-50 border-2 border-green-500' :
-            isTeaching ? 'bg-amber-50 border-2 border-amber-400' :
-            'bg-white border shadow-sm'}
-        `}>
-          <div className="flex items-center gap-3 mb-4">
-            {isTeaching && <span className="text-2xl">&#127891;</span>}
-            {isComplete && <span className="text-2xl">&#127881;</span>}
-            <h3 className={`
-              font-bold uppercase tracking-wide
-              ${isComplete ? 'text-green-700' :
-                isTeaching ? 'text-amber-700' :
-                'text-gray-700'}
-            `}>
-              {render.panel.title}
-            </h3>
-          </div>
-
-          <p className={`
-            text-lg
-            ${isComplete ? 'text-green-800' :
-              isTeaching ? 'text-amber-800' :
-              'text-gray-800'}
-          `}>
-            {render.panel.instruction}
-          </p>
-
-          {/* Feedback message */}
-          {feedback && (
-            <div className={`
-              mt-4 p-3 rounded-lg
-              ${feedback.correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
-            `}>
-              {feedback.message}
-            </div>
-          )}
-
-          {/* Text input */}
-          {render.inputMode === 'text' && !isTeaching && (
-            <div className="mt-4">
-              <input
-                type="text"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === 'Enter' && canSubmit && handleSubmit()}
-                placeholder="Type your answer..."
-                className="w-full px-4 py-3 text-xl font-mono border-2 rounded-lg focus:outline-none focus:border-blue-500"
-                autoFocus
-              />
-            </div>
-          )}
-
-          {/* Multiple choice options */}
-          {render.inputMode === 'multiple_choice' && render.options && (
-            <div className="mt-4 space-y-3">
-              {render.options.map((option, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSubmit(index)}
-                  className={`
-                    w-full px-4 py-3 text-left rounded-lg border-2 transition-colors
-                    hover:bg-blue-50 hover:border-blue-400
-                    ${selectedOption === index
-                      ? 'bg-blue-100 border-blue-500'
-                      : 'bg-white border-gray-200'}
-                  `}
-                >
-                  <span className="font-bold">{option.label}</span>
-                  {option.description && (
-                    <p className="text-sm text-gray-500 mt-1">{option.description}</p>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Buttons */}
-          <div className="mt-6 flex gap-3">
-            {render.button ? (
-              // Teaching/Complete phase - show continue button
-              <button
-                onClick={handleContinue}
-                className="flex-1 py-3 px-6 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {render.button.label}
-              </button>
-            ) : render.inputMode !== 'none' && render.inputMode !== 'multiple_choice' && (
-              // Input phase - show check button (not for multiple_choice which submits on click)
-              <button
-                onClick={() => handleSubmit()}
-                disabled={!canSubmit}
-                className={`
-                  flex-1 py-3 px-6 font-medium rounded-lg transition-colors
-                  ${canSubmit
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-                `}
-              >
-                Check
-              </button>
+      {/* ===== SECTION 2: INPUT AREA (fixed height) ===== */}
+      {/* Shows either: transitory text input (for intermediate steps) OR answer entry */}
+      <div className="bg-slate-50 border border-b-0 p-4 min-h-[80px] flex flex-col justify-center">
+        {render.inputMode === 'text' && !isTeaching ? (
+          /* Transitory input for intermediate steps (e.g., typing "EB" for letter extraction) */
+          <>
+            <CrosswordInput
+              length={typeof render.expected === 'string' ? render.expected.length : 5}
+              value={textInput}
+              onChange={setTextInput}
+              onSubmit={() => canSubmit && handleSubmit()}
+              autoFocus
+            />
+            <p className="text-center text-xs text-slate-500 mt-2">
+              {render.actionPrompt}
+            </p>
+          </>
+        ) : (
+          /* Default: Answer entry (always available for "solve anytime") */
+          <>
+            <CrosswordInput
+              length={letterCount}
+              value={answerInput}
+              onChange={setAnswerInput}
+              onSubmit={handleAnswerSubmit}
+              disabled={isComplete}
+            />
+            {answerFeedback && (
+              <p className="text-center text-sm text-amber-600 mt-2">{answerFeedback}</p>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
-      {/* Complete State */}
-      {isComplete && (
-        <div className="text-center">
+      {/* ===== SECTION 3: ACTION REQUIRED + BUTTON (fixed height) ===== */}
+      <div className={`
+        border rounded-b-xl p-4 min-h-[70px] flex items-center justify-between gap-4
+        ${isComplete ? 'bg-green-50 border-green-300' : 'bg-white'}
+      `}>
+        <p className={`flex-1 font-medium ${isComplete ? 'text-green-700' : 'text-gray-700'}`}>
+          {/* For text input mode, show generic prompt since specific prompt is in Section 2 */}
+          {render.inputMode === 'text' && !isTeaching ? 'Enter letters above' : render.actionPrompt}
+        </p>
+
+        {/* Button */}
+        {isComplete ? (
           <button
             onClick={onBack}
-            className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700"
+            className="px-5 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
           >
-            Done - Back to List
+            Done
           </button>
-        </div>
-      )}
+        ) : render.button ? (
+          <button
+            onClick={handleContinue}
+            className="px-5 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            {render.button.label}
+          </button>
+        ) : render.inputMode !== 'none' && render.inputMode !== 'multiple_choice' ? (
+          <button
+            onClick={() => handleSubmit()}
+            disabled={!canSubmit}
+            className={`
+              px-5 py-2 font-medium rounded-lg transition-colors whitespace-nowrap
+              ${canSubmit
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+            `}
+          >
+            Check
+          </button>
+        ) : null}
+      </div>
+
+      {/* ===== SECTION 4: DETAILS (below fold, scrollable) ===== */}
+      <div className="mt-4 space-y-4">
+        {/* Feedback message */}
+        {feedback && (
+          <div className={`
+            p-3 rounded-lg
+            ${feedback.correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+          `}>
+            {feedback.message}
+          </div>
+        )}
+
+        {/* Multiple choice options */}
+        {render.inputMode === 'multiple_choice' && render.options && (
+          <div className="space-y-2">
+            {render.options.map((option, index) => (
+              <button
+                key={index}
+                onClick={() => handleSubmit(index)}
+                className={`
+                  w-full px-4 py-3 text-left rounded-lg border-2 transition-colors
+                  hover:bg-blue-50 hover:border-blue-400
+                  ${selectedOption === index
+                    ? 'bg-blue-100 border-blue-500'
+                    : 'bg-white border-gray-200'}
+                `}
+              >
+                <span className="font-medium">{option.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Intro Card - teaching content for new users (only when not in teaching phase) */}
+        {render.intro && !isTeaching && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+            <h3 className="font-bold text-blue-800">{render.intro.title}</h3>
+            <p className="text-blue-700 mt-1">{render.intro.text}</p>
+            {render.intro.example && (
+              <p className="text-blue-600 text-sm mt-2 italic">{render.intro.example}</p>
+            )}
+          </div>
+        )}
+
+        {/* Teaching Panel - only show when in teaching phase (after correct answer) */}
+        {isTeaching && render.panel && (
+          <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xl">🎓</span>
+              <h3 className="font-bold uppercase tracking-wide text-sm text-amber-700">
+                {render.panel.title}
+              </h3>
+            </div>
+            <p className="text-amber-800">{render.panel.instruction}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

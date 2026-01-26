@@ -16,6 +16,7 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "choose",
+                "actionPrompt": "Select clue type",
                 "intro": {
                     "title": "What Type of Clue Is This?",
                     "text": "Before solving, identify the clue structure. Look for a clean split between the definition (always at start or end) and wordplay (the rest). Stay flexible — let the clue tell you how it wants to be read.",
@@ -36,6 +37,7 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "select",
+                "actionPrompt": "Tap the definition words",
                 "intro": {
                     "title": "Spotting the Definition in a Standard Cryptic Clue",
                     "text": "In most cryptic crossword clues, the definition is the straight part of the clue — a normal dictionary-style meaning of the answer. It's usually found either at the very beginning or the very end of the clue, with the rest of the words providing the wordplay that builds the answer.",
@@ -51,6 +53,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "teaching",
+                "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "Definition Found",
                     "instruction": "The definition is always at the start or end — never buried in the middle. Here you found '{result}' at the {position}."
@@ -65,6 +68,7 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "indicator",
+                "actionPrompt": "Tap the anagram indicator",
                 "intro": {
                     "title": "Anagram",
                     "text": "An anagram indicator signals that letters need rearranging.",
@@ -80,6 +84,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "fodder",
+                "actionPrompt": "Tap the fodder words",
                 "panel": {
                     "title": "FIND FODDER",
                     "instruction": "Tap the fodder - the letters to be rearranged. It's adjacent to the indicator."
@@ -90,6 +95,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "teaching",
+                "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "Anagram Identified",
                     "instruction": "'{indicator}' tells us to rearrange '{fodder}' → {result} ({letterCount} letters)"
@@ -104,6 +110,7 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "indicator",
+                "actionPrompt": "Tap the letter selection indicator",
                 "intro": {
                     "title": "Letter Selection",
                     "text": "Some indicators tell you to extract specific letters from words.",
@@ -119,6 +126,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "fodder",
+                "actionPrompt": "Tap the source words",
                 "panel": {
                     "title": "FIND SOURCE WORDS",
                     "instruction": "Tap the words we extract letters from."
@@ -129,6 +137,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "result",
+                "actionPrompt": "Type the extracted letters",
                 "panel": {
                     "title": "EXTRACT LETTERS",
                     "instruction": "Type the extracted letters from '{fodder}'."
@@ -139,6 +148,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "teaching",
+                "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "Letters Extracted",
                     "instruction": "'{indicator}' tells us to take {extractionType}s from '{fodder}' → {result}"
@@ -153,6 +163,7 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "result",
+                "actionPrompt": "Type the answer",
                 "intro": {
                     "title": "Solve the Anagram",
                     "text": "You've gathered all the letters. Now rearrange them to find the answer."
@@ -167,6 +178,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "teaching",
+                "actionPrompt": "Complete training",
                 "panel": {
                     "title": "Solved!",
                     "instruction": "{fodder} rearranges to {result} - {definition}."
@@ -181,6 +193,7 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "indicator",
+                "actionPrompt": "Tap the container indicator",
                 "intro": {
                     "title": "Container",
                     "text": "A container indicator tells you one thing goes inside another.",
@@ -196,6 +209,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "order",
+                "actionPrompt": "Select the correct order",
                 "panel": {
                     "title": "WHAT GOES WHERE?",
                     "instruction": "Which element goes inside which?"
@@ -206,6 +220,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "teaching",
+                "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "Container Complete",
                     "instruction": "'{indicator}' tells us {inner} goes inside {outer} → {result}"
@@ -220,6 +235,7 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "first_def",
+                "actionPrompt": "Tap the first definition",
                 "intro": {
                     "title": "Double Definition",
                     "text": "A double definition clue gives two separate meanings of the same answer. There's no wordplay to build the solution — instead, both parts of the clue define the word in different ways. The definitions usually sit side by side, and either meaning should make sense on its own.",
@@ -235,6 +251,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "second_def",
+                "actionPrompt": "Tap the second definition",
                 "panel": {
                     "title": "SECOND DEFINITION",
                     "instruction": "Tap the second definition."
@@ -245,6 +262,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "solve",
+                "actionPrompt": "Type the answer",
                 "panel": {
                     "title": "SOLVE",
                     "instruction": "Type the word that matches both definitions."
@@ -255,6 +273,7 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "teaching",
+                "actionPrompt": "Complete training",
                 "panel": {
                     "title": "Double Definition Complete",
                     "instruction": "Both '{def1}' and '{def2}' define {result}. No wordplay needed — just two meanings!"
@@ -395,11 +414,16 @@ def get_render(clue_id, clue):
 
     steps = clue.get("steps", [])
 
+    # Get the answer from clue data
+    answer = clue.get("clue", {}).get("answer", "")
+
     # Check if complete
     if session["step_index"] >= len(steps):
         return {
             "complete": True,
-            "highlights": session["highlights"]
+            "highlights": session["highlights"],
+            "answer": answer,
+            "actionPrompt": "Training complete!"
         }
 
     # Handle clue type identification step (step_index == -1)
@@ -425,7 +449,9 @@ def get_render(clue_id, clue):
         "stepType": step["type"],
         "phaseId": phase["id"],
         "inputMode": phase.get("inputMode", "none"),
-        "highlights": session["highlights"]
+        "highlights": session["highlights"],
+        "answer": answer,
+        "actionPrompt": phase.get("actionPrompt", "")
     }
 
     # Add intro if present

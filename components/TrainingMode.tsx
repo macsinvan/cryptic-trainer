@@ -105,6 +105,7 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
             clueId={currentItem.id}
             clueText={typeof currentItem.clue === 'string' ? currentItem.clue : currentItem.clue?.text || ''}
             enumeration={typeof currentItem.clue === 'string' ? '' : (currentItem.clue?.enumeration || '')}
+            answer={typeof currentItem.clue === 'string' ? currentItem.answer : (currentItem.clue?.answer || currentItem.answer || '')}
             clueNumber={typeof currentItem.clue === 'string' ? undefined : currentItem.clue?.number}
             onComplete={nextClue}
             onBack={onExit}
