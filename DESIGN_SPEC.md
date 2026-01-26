@@ -1,6 +1,21 @@
 # Cryptic Trainer — Design Specification
 
-*Last updated: 2026-01-25 (Predefined Step Templates)*
+*Last updated: 2026-01-26*
+
+---
+
+## Table of Contents
+
+1. [Architectural Principles](#architectural-principles)
+2. [System Architecture](#system-architecture)
+3. [UI Application Flow](#ui-application-flow)
+4. [Data Storage](#data-storage)
+5. [Import Flow](#import-flow)
+6. [Training Flow](#training-flow)
+7. [Step Templates](#step-templates)
+8. [Server API](#server-api)
+9. [React Components](#react-components)
+10. [File Inventory](#file-inventory)
 
 ---
 
@@ -27,18 +42,18 @@ This means:
 
 **The server tells the UI EXACTLY what to render. The UI has ZERO phase/operation logic.**
 
-Handler logic (~50 lines):
+Handler logic:
 1. Look up template by `step.type`
 2. Get current phase from `session.phase_index`
 3. Merge template phase with clue-specific data
 4. Substitute variables (`{result}`, `{position}`, etc.)
 5. Return render object
 
-The UI component (`InstructionPanel`) renders purely based on `render.*` fields — it never checks `currentPhase`, `operation`, or any other field to decide what to display.
+The UI component (`TemplateTrainer`) renders purely based on `render.*` fields — it never checks `currentPhase`, `operation`, or any other field to decide what to display.
 
 **Why This Architecture:**
 - **No sync bugs** — server is single source of truth for rendering
-- **No scattered conditionals** — UI doesn't have 62+ `if (phase === 'X')` checks
+- **No scattered conditionals** — UI doesn't have phase-checking logic
 - **Easy to add new step types** — just add a new template
 - **Predictable behavior** — what server returns is what user sees
 
@@ -48,12 +63,11 @@ The UI component (`InstructionPanel`) renders purely based on `render.*` fields 
 
 | Layer | Responsibility |
 |-------|----------------|
-| **Python Server** (port 5001) | ALL logic: import, validate, store, training flow, dependency checking, answer validation, state management, **render instructions** |
+| **Python Server** (port 5001) | ALL logic: import, validate, store, training flow, answer validation, state management, **render instructions** |
 | **React UI** (port 3000) | ONLY: render `RenderInstructions`, capture user input, send actions to server |
 
 **The UI does NOT:**
-- Parse or validate data
-- Check dependencies or blocked state
+- Parse or validate clue data
 - Validate user answers
 - Compute what step comes next
 - Decide what panel/buttons/highlights to show
@@ -64,67 +78,7 @@ The UI component (`InstructionPanel`) renders purely based on `render.*` fields 
 - Sends user actions to the server
 - Displays feedback from server responses
 
-This ensures:
-- Single source of truth for ALL logic
-- UI can be completely dumb — just a view layer
-- Easy debugging — check server state directly
-- No divergence between server logic and UI behavior
-
----
-
-## UI State Architecture (Minimal State)
-
-The UI holds **only 3 pieces of state**. Everything else comes from the server.
-
-### UI State Variables
-
-| State | Type | Purpose |
-|-------|------|---------|
-| `serverResponse` | `object` | **Source of truth** — full server response including `render` |
-| `selectedIndices` | `number[]` | Words user has tapped (pre-submit) |
-| `textInput` | `string` | Text user is typing (pre-submit) |
-
-### State Lifecycle
-
-```
-User taps word
-  → Update selectedIndices (local state)
-  → Show selection highlight
-
-User clicks "Check"
-  → Call server: POST /api/training/input with {indices}
-  → Server validates, updates session, returns new render
-  → setServerResponse(response)
-  → Clear selectedIndices
-  → UI re-renders from serverResponse.render
-```
-
-### Highlight Logic
-
-Highlights come from two sources:
-1. **Confirmed highlights** — from `serverResponse.render.highlights` (accumulated correct answers)
-2. **Current selection** — from local `selectedIndices` (pre-submit)
-
-```typescript
-const getWordStyle = (index: number) => {
-  // Confirmed highlights from server (green, orange, blue)
-  const highlight = serverResponse?.render?.highlights?.find(h => h.indices.includes(index));
-  if (highlight) {
-    return `bg-${highlight.color.toLowerCase()}-200`;
-  }
-
-  // Current selection (pre-submit)
-  if (selectedIndices.includes(index)) {
-    return 'bg-yellow-100';
-  }
-
-  return '';
-};
-```
-
----
-
-### 3. Constraint-First Solving (No AI Guessing)
+### 4. Constraint-First Solving (No AI Guessing)
 
 The solver derives answers using:
 - Explicit, checkable wordplay frames generated from code
@@ -143,18 +97,20 @@ The solver derives answers using:
 │  PYTHON SERVER (localhost:5001)                             │
 │  cryptic_trainer_bundle/                                    │
 ├─────────────────────────────────────────────────────────────┤
-│  • /clues/import — Import puzzle files                       │
-│  • /clues — CRUD operations for clue storage                │
-│  • /solve — Solve clues with proof traces                   │
-│  • Storage: clues_db.json                                   │
+│  server.py          — HTTP server, routing, clue storage    │
+│  training_handler.py — Step templates, session management   │
+│  cryptic_trainer.py  — Solver engine                        │
+│  clues_db.json       — Data storage                         │
 └─────────────────────────────────────────────────────────────┘
                               ↓ HTTP
 ┌─────────────────────────────────────────────────────────────┐
 │  REACT UI (localhost:3000)                                  │
 ├─────────────────────────────────────────────────────────────┤
-│  • ManualEntryMode — Import clues (sends raw JSON)          │
-│  • ClueTrainer — Step-by-step training interface            │
-│  • TrainingMode — Practice queue                            │
+│  App.tsx           — Main app, navigation, view state       │
+│  TrainingMode.tsx  — Training queue management              │
+│  TemplateTrainer.tsx — Server-driven training UI            │
+│  ManualEntryMode.tsx — Clue entry and puzzle import         │
+│  SolverMode.tsx    — AI-assisted solving                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -170,67 +126,166 @@ npm run dev
 
 ---
 
-## Import Flow
+## UI Application Flow
 
-### Import Steps
-
-1. **Receive** puzzle JSON from UI (`POST /clues/import`)
-2. **Validate JSON integrity** — valid JSON, has `metadata` and `clues` objects
-3. **For each clue**, validate against step-based schema:
-   - `clue` — number, text, enumeration, answer (all required)
-   - `words` — array of words matching clue text (required)
-   - `steps` — non-empty array of step objects (required)
-   - Each step must have a `type` that matches an available template
-4. **Skip invalid clues** — log actionable errors, continue with remaining clues
-5. **Check for duplicates** — skip if clue ID already exists in database
-6. **Store valid clues** in flat format with metadata
-7. **Return response**:
-   - Success count (saved, skipped, failed)
-   - Error list with actionable details for each failed clue
-
-### Validation Rules
-
-| Field | Requirement |
-|-------|-------------|
-| `clue.number` | Required string |
-| `clue.text` | Required string |
-| `clue.enumeration` | Required string |
-| `clue.answer` | Required string |
-| `words` | Required array, must be non-empty |
-| `steps` | Required array, must be non-empty |
-| `steps[].type` | Must match an available template |
-
-### Template Availability Check
-
-Each step's `type` must have a corresponding template in `training_handler.STEP_TEMPLATES`. If a step type has no template, the clue is skipped with an actionable error message:
+### Screen Hierarchy
 
 ```
-Clue "1A": Step 0 has type "reversal" but no template exists for this type.
-Available templates: standard_definition, anagram_find, letter_selection, container, anagram_solve, double_definition
+HOME
+ │
+ ├─→ Community Bloggers (external links)
+ │
+ └─→ PUBLICATION (select a dojo)
+      │
+      ├─→ TRAINING MODE
+      │    └─→ TemplateTrainer (step-by-step guided training)
+      │
+      ├─→ AI SOLVER
+      │    └─→ ClueSolver (scan/paste clues for AI analysis)
+      │
+      └─→ MANUAL ENTRY
+           └─→ Import puzzle files, enter clues manually
 ```
 
-### UI Display
+### View States
 
-- Show success count (saved / skipped / failed)
-- Show error logs with **copy** button for fixing at source
-- Errors are viewable and copyable at end of import
+| View | Component | Purpose |
+|------|-----------|---------|
+| `HOME` | `App.tsx` | Landing page with publication tiles and external blog links |
+| `PUBLICATION` | `App.tsx` | Publication detail with Training/Solver/Manual Entry buttons |
+| `TRAINING` | `TrainingMode.tsx` | Practice queue with TemplateTrainer |
+| `SOLVER` | `SolverMode.tsx` | AI-assisted clue solving |
+| `MANUAL_ENTRY` | `ManualEntryMode.tsx` | Clue entry and puzzle file import |
 
-### Key Principles
+### Home Screen
 
-- **Skip on failure**: Invalid clues are skipped, not rejected — import continues
-- **Actionable errors**: Each error identifies the clue, field, and what to fix
-- **No transformation**: Store exactly as received — no field renaming
-- **Fix at source**: If validation fails, fix the puzzle file — not import code
+- **Header**: "Cryptic Trainer" title and tagline
+- **Database Button**: Opens DataManager (password protected: `dojoMaster`)
+- **Community Bloggers**: Links to Big Dave's Blog, FifteenSquared, Times for the Times, Reddit r/crosswords
+- **Publication Tiles**: Grid of available dojos (Times, Guardian, etc.) showing setter count and clue count
 
-### Import Log Storage
+### Publication Screen
 
-Import logs are persisted in `clues_db.json` under the `import_logs` collection. Each import attempt creates a log entry with:
-- Timestamp and import ID
-- Publication and puzzle metadata
-- Summary (saved/skipped/failed counts)
-- Detailed error list for failed clues
+Three action buttons:
+1. **Training Mode** — Practice with imported clues
+2. **AI Solver** — Scan/paste clues for AI help
+3. **Manual Entry** — Type clues or import puzzle files
 
-**Log Entry Schema:**
+### Training Mode
+
+1. Loads training queue from server (`GET /clues`)
+2. Filters to clues with `steps` array (V3 format)
+3. Displays header with publication name, progress (1/N), streak, score, skip button
+4. Renders `TemplateTrainer` for current clue
+5. On complete, advances to next clue or shows completion alert
+
+### TemplateTrainer (Core Training UI)
+
+**State:**
+- `render` — Server response (source of truth)
+- `selectedIndices` — Words user has tapped (pre-submit)
+- `textInput` — Text user is typing (pre-submit)
+- `selectedOption` — Multiple choice selection (pre-submit)
+- `feedback` — Error message after wrong answer
+
+**Lifecycle:**
+1. On mount: `POST /training/start` with clueId
+2. User taps words / enters text / selects option
+3. User clicks "Check": `POST /training/input` with value
+4. If correct: update render, clear selection
+5. If wrong: show feedback message
+6. On teaching phase: user clicks "Continue": `POST /training/continue`
+7. When `render.complete === true`: call `onComplete()`
+
+**Visual Layout:**
+```
+┌─────────────────────────────────────────┐
+│ ← Back                           [1A]   │
+├─────────────────────────────────────────┤
+│                                         │
+│   Drawing  blood  lymph  too  busy ...  │  ← Clue words (tappable)
+│   (10)                                  │
+│                                         │
+├─────────────────────────────────────────┤
+│ ┌─────────────────────────────────────┐ │
+│ │ 📖 Intro Card (if present)          │ │  ← Blue background
+│ │ Title, explanation, example         │ │
+│ └─────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│ ┌─────────────────────────────────────┐ │
+│ │ FIND DEFINITION                     │ │  ← Instruction panel
+│ │ Tap the definition words above...   │ │
+│ │                                     │ │
+│ │ [Feedback message if wrong]         │ │
+│ │                                     │ │
+│ │ [Text input if inputMode=text]      │ │
+│ │ [Options if inputMode=multi_choice] │ │
+│ │                                     │ │
+│ │ [ Check ] or [ Continue → ]         │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+**Highlight Colors:**
+| Color | Hex | Role |
+|-------|-----|------|
+| Green | #22c55e | Definition |
+| Orange | #f97316 | Indicator |
+| Blue | #3b82f6 | Fodder |
+| Purple | #a855f7 | Special |
+| Gray | #94a3b8 | Current selection (pre-submit) |
+
+---
+
+## Data Storage
+
+### Database File
+
+`cryptic_trainer_bundle/clues_db.json`
+
+```json
+{
+  "version": 3,
+  "training_items": {
+    "<clue_id>": TrainingItem,
+    ...
+  },
+  "parser_issues": { ... },
+  "import_logs": {
+    "<import_id>": ImportLog,
+    ...
+  }
+}
+```
+
+### TrainingItem Schema
+
+```json
+{
+  "id": "times-2025-1a",
+  "clue": {
+    "number": "1A",
+    "text": "Drawing blood, lymph too, busy nurses conclude job at last",
+    "enumeration": "10",
+    "answer": "PHLEBOTOMY"
+  },
+  "words": ["Drawing", "blood", "lymph", "too", "busy", "nurses", "conclude", "job", "at", "last"],
+  "steps": [
+    { "type": "standard_definition", ... },
+    { "type": "anagram_find", ... },
+    ...
+  ],
+  "metadata": {
+    "publisher": "Times",
+    "puzzle_number": "2025",
+    "setter": "Unknown"
+  },
+  "publicationId": "times"
+}
+```
+
+### ImportLog Schema
+
 ```json
 {
   "id": "1706300000-times-2025",
@@ -254,7 +309,79 @@ Import logs are persisted in `clues_db.json` under the `import_logs` collection.
 }
 ```
 
-**Endpoints:**
+---
+
+## Import Flow
+
+### Source Puzzle File Format
+
+```json
+{
+  "metadata": {
+    "file": "Times_2025.json",
+    "publisher": "Times",
+    "puzzle_number": "2025",
+    "setter": "Unknown"
+  },
+  "clues": {
+    "times-2025-1a": {
+      "clue": {
+        "number": "1A",
+        "text": "...",
+        "enumeration": "10",
+        "answer": "PHLEBOTOMY"
+      },
+      "words": ["..."],
+      "steps": [...]
+    }
+  }
+}
+```
+
+### Import Steps
+
+1. **Receive** puzzle JSON from UI (`POST /clues/import`)
+2. **Validate JSON integrity** — valid JSON, has `metadata` and `clues` objects
+3. **For each clue**, validate against step-based schema:
+   - `clue` — number, text, enumeration, answer (all required)
+   - `words` — array of words matching clue text (required)
+   - `steps` — non-empty array of step objects (required)
+   - Each step must have a `type` that matches an available template
+4. **Skip invalid clues** — log actionable errors, continue with remaining clues
+5. **Check for duplicates** — skip if clue ID already exists in database
+6. **Store valid clues** in flat format with metadata
+7. **Create import log** — save to `import_logs` collection
+8. **Return response** — success count (saved, skipped, failed) + error list
+
+### Validation Rules
+
+| Field | Requirement |
+|-------|-------------|
+| `clue.number` | Required string |
+| `clue.text` | Required string |
+| `clue.enumeration` | Required string |
+| `clue.answer` | Required string |
+| `words` | Required array, must be non-empty |
+| `steps` | Required array, must be non-empty |
+| `steps[].type` | Must match an available template |
+
+### Template Availability Check
+
+Each step's `type` must have a corresponding template in `training_handler.STEP_TEMPLATES`. Available templates:
+- `clue_type_identify`
+- `standard_definition`
+- `anagram_find`
+- `letter_selection`
+- `container`
+- `anagram_solve`
+- `double_definition`
+
+If a step type has no template, the clue is skipped with an actionable error:
+```
+steps[0] has type "reversal" but no template exists. Available: clue_type_identify, standard_definition, anagram_find, letter_selection, container, anagram_solve, double_definition
+```
+
+### Import Log Endpoints
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -262,536 +389,302 @@ Import logs are persisted in `clues_db.json` under the `import_logs` collection.
 | `/import-logs/<id>` | DELETE | Delete single log entry |
 | `/import-logs?clearAll=true` | DELETE | Clear all logs |
 
-**User workflows:**
-- **Review logs**: GET `/import-logs` to see all past imports
-- **Action errors**: Use error details to fix source puzzle file, re-import
-- **Clear resolved**: DELETE `/import-logs/<id>` after fixing
-- **Fresh start**: DELETE `/import-logs?clearAll=true`
+### Key Principles
 
-### Metadata is READ-ONLY
-
-**The imported clue metadata is READ-ONLY and must NEVER be modified.**
-
-The stored ClueEntry in `clues_db.json` is the source of truth for clue structure:
-- Clue text, answer, enumeration
-- Definition text and position
-- Wordplay structure (indicators, fodder, results, dependencies, blockedHint)
-- Initial state (all `false`)
-
-**This data is NEVER mutated by the server.**
-
-### Session-Based Progress Tracking
-
-Training progress is tracked in **session copies**, not in the source metadata:
-
-1. **On session start**: Server creates a deep copy of the ClueEntry for this session
-2. **During training**: Server updates `state` fields in the SESSION COPY only
-3. **UI rendering**: UI receives the session copy with current progress
-4. **Session ends**: Copy is discarded — source metadata remains unchanged
-
-```
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│  SOURCE (clues_db.json)     │     │  SESSION COPY (in memory)   │
-│  - READ ONLY                │────▶│  - Mutable during training  │
-│  - state fields all false   │     │  - state updated as user    │
-│  - Never modified           │     │    progresses               │
-└─────────────────────────────┘     └─────────────────────────────┘
-```
-
-This ensures:
-- Multiple users can train on same clue simultaneously
-- Restarting training always starts fresh
-- Source data integrity is preserved
-
-### Source Puzzle File Format (Complete Schema)
-
-#### Top Level
-```json
-{
-  "metadata": {
-    "file": "string",
-    "publisher": "string",
-    "puzzle_number": "string",
-    "setter": "string"
-  },
-  "clues": { "<clue_number>": ClueEntry }
-}
-```
-
-#### ClueEntry (Step-Based Schema)
-```json
-{
-  "clue": {
-    "number": "string",      // e.g., "1A"
-    "text": "string",        // Full clue text
-    "enumeration": "string", // e.g., "10"
-    "answer": "string"       // e.g., "PHLEBOTOMY"
-  },
-  "words": ["Drawing", "blood", ...],  // Clue split into words
-  "steps": [                           // Training steps (see Step Templates)
-    {
-      "type": "standard_definition",
-      "expected": {"indices": [0, 1], "text": "Drawing blood"},
-      "position": "start"
-    },
-    // ... more steps
-  ]
-}
-```
-
-#### Stored Format (in clues_db.json)
-```json
-{
-  "id": "times-2025-1a",           // Clue ID from source file
-  "clue": { ... },                  // As above
-  "words": [ ... ],                 // As above
-  "steps": [ ... ],                 // As above
-  "metadata": {                     // Puzzle metadata
-    "publisher": "Times",
-    "puzzle_number": "2025",
-    "setter": "Unknown"
-  },
-  "publicationId": "times"
-}
-```
+- **Skip on failure**: Invalid clues are skipped, not rejected — import continues
+- **Actionable errors**: Each error identifies the clue, field, and what to fix
+- **No transformation**: Store exactly as received — no field renaming
+- **Fix at source**: If validation fails, fix the puzzle file — not import code
 
 ---
 
-## Training Flow: Predefined Step Templates
+## Training Flow
 
-### Overview
-
-Replace complex per-clue metadata with **predefined step templates**. Each template defines the complete flow for a step type (90% generic), with clue data providing only the specific values (10%).
-
-### Step Templates
-
-#### standard_definition
-
-```python
-"standard_definition": {
-    "phases": [
-        {
-            "id": "select",
-            "intro": {
-                "title": "Standard",
-                "text": "Do you see a definition at the start or end, with wordplay indicators in the rest?",
-                "example": "\"Crazy golf equipment (7)\" → PUTTERS (anagram of \"putters\")"
-            },
-            "panel": {
-                "title": "FIND DEFINITION",
-                "instruction": "Tap the definition words above. It's always at the **start** or **end** of the clue."
-            },
-            "inputMode": "tap_words",
-            "onCorrect": {"highlight": {"color": "GREEN", "role": "definition"}},
-            "onWrong": {"message": "Not quite - look at the start or end"}
-        },
-        {
-            "id": "teaching",
-            "panel": {
-                "title": "🎓 Definition Found",
-                "instruction": "The definition is always at the start or end — never buried in the middle. Here you found '{result}' at the {position}."
-            },
-            "inputMode": "none",
-            "button": {"label": "Continue →", "action": "next_step"}
-        }
-    ]
-}
-```
-
-**Clue data:**
-```json
-{
-    "type": "standard_definition",
-    "expected": {"indices": [0, 1], "text": "Drawing blood"},
-    "position": "start"
-}
-```
-
-#### anagram_find
-
-```python
-"anagram_find": {
-    "phases": [
-        {
-            "id": "indicator",
-            "intro": {
-                "title": "Anagram",
-                "text": "An anagram indicator signals that letters need rearranging.",
-                "example": "\"crazy\", \"wild\", \"broken\", \"mixed\" all suggest anagrams"
-            },
-            "panel": {
-                "title": "FIND INDICATOR",
-                "instruction": "Tap the anagram indicator - a word suggesting disorder or change."
-            },
-            "inputMode": "tap_words",
-            "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
-            "onWrong": {"message": "Look for a word suggesting rearrangement"}
-        },
-        {
-            "id": "fodder",
-            "panel": {
-                "title": "FIND FODDER",
-                "instruction": "Tap the fodder - the letters to be rearranged. It's adjacent to the indicator."
-            },
-            "inputMode": "tap_words",
-            "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
-            "onWrong": {"message": "Look for words adjacent to the indicator"}
-        },
-        {
-            "id": "teaching",
-            "panel": {
-                "title": "🎓 Anagram Identified",
-                "instruction": "'{indicator}' tells us to rearrange '{fodder}' → {result} ({letterCount} letters)"
-            },
-            "inputMode": "none",
-            "button": {"label": "Continue →", "action": "next_step"}
-        }
-    ]
-}
-```
-
-**Clue data:**
-```json
-{
-    "type": "anagram_find",
-    "indicator": {"indices": [4], "text": "busy"},
-    "fodder": {"indices": [2, 3], "text": "lymph too"},
-    "result": "LYMPHTOO"
-}
-```
-
-#### letter_selection
-
-```python
-"letter_selection": {
-    "phases": [
-        {
-            "id": "indicator",
-            "intro": {
-                "title": "Letter Selection",
-                "text": "Some indicators tell you to extract specific letters from words.",
-                "example": "\"at last\" = final letters, \"initially\" = first letters"
-            },
-            "panel": {
-                "title": "FIND INDICATOR",
-                "instruction": "Tap the letter selection indicator."
-            },
-            "inputMode": "tap_words",
-            "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
-            "onWrong": {"message": "Look for a phrase about which letters to take"}
-        },
-        {
-            "id": "fodder",
-            "panel": {
-                "title": "FIND SOURCE WORDS",
-                "instruction": "Tap the words we extract letters from."
-            },
-            "inputMode": "tap_words",
-            "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
-            "onWrong": {"message": "Which words contribute letters?"}
-        },
-        {
-            "id": "result",
-            "panel": {
-                "title": "EXTRACT LETTERS",
-                "instruction": "Type the extracted letters from '{fodder}'."
-            },
-            "inputMode": "text",
-            "onCorrect": {"message": "Correct!"},
-            "onWrong": {"message": "Take the {extractionType} of each word"}
-        },
-        {
-            "id": "teaching",
-            "panel": {
-                "title": "🎓 Letters Extracted",
-                "instruction": "'{indicator}' tells us to take {extractionType}s from '{fodder}' → {result}"
-            },
-            "inputMode": "none",
-            "button": {"label": "Continue →", "action": "next_step"}
-        }
-    ]
-}
-```
-
-**Clue data:**
-```json
-{
-    "type": "letter_selection",
-    "indicator": {"indices": [7, 8], "text": "at last"},
-    "fodder": {"indices": [5, 6], "text": "conclude job"},
-    "extractionType": "last letter",
-    "result": "EB"
-}
-```
-
-#### anagram_solve
-
-```python
-"anagram_solve": {
-    "phases": [
-        {
-            "id": "result",
-            "intro": {
-                "title": "Solve the Anagram",
-                "text": "You've gathered all the letters. Now rearrange them to find the answer."
-            },
-            "panel": {
-                "title": "SOLVE",
-                "instruction": "Rearrange {fodder} to form a {letterCount}-letter word meaning '{definition}'."
-            },
-            "inputMode": "text",
-            "onCorrect": {"message": "Correct!"},
-            "onWrong": {"message": "Try rearranging the letters differently"}
-        },
-        {
-            "id": "teaching",
-            "panel": {
-                "title": "🎓 Solved!",
-                "instruction": "{fodder} rearranges to {result} - {definition}."
-            },
-            "inputMode": "none",
-            "button": {"label": "Complete →", "action": "complete"}
-        }
-    ]
-}
-```
-
-**Clue data:**
-```json
-{
-    "type": "anagram_solve",
-    "fodder": "LYMPHEBTOO",
-    "result": "PHLEBOTOMY",
-    "letterCount": 10,
-    "definition": "drawing blood"
-}
-```
-
-#### container
-
-```python
-"container": {
-    "phases": [
-        {
-            "id": "indicator",
-            "intro": {
-                "title": "Container",
-                "text": "A container indicator tells you one thing goes inside another.",
-                "example": "\"nurses\", \"holds\", \"contains\", \"swallows\" all suggest insertion"
-            },
-            "panel": {
-                "title": "FIND INDICATOR",
-                "instruction": "Tap the container indicator - a word suggesting something goes inside something else."
-            },
-            "inputMode": "tap_words",
-            "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
-            "onWrong": {"message": "Look for a word meaning 'holds' or 'contains'"}
-        },
-        {
-            "id": "order",
-            "panel": {
-                "title": "WHAT GOES WHERE?",
-                "instruction": "Which element goes inside which?"
-            },
-            "inputMode": "multiple_choice",
-            "onCorrect": {"message": "Correct!"},
-            "onWrong": {"message": "Think about what '{indicator}' means - who is doing the holding?"}
-        },
-        {
-            "id": "result",
-            "panel": {
-                "title": "SHOW INSERTION",
-                "instruction": "Type the result of inserting {inner} into {outer}."
-            },
-            "inputMode": "text",
-            "onCorrect": {"message": "Correct!"},
-            "onWrong": {"message": "Insert {inner} into {outer}"}
-        },
-        {
-            "id": "teaching",
-            "panel": {
-                "title": "Container Complete",
-                "instruction": "'{indicator}' tells us {inner} goes inside {outer} → {result}"
-            },
-            "inputMode": "none",
-            "button": {"label": "Continue →", "action": "next_step"}
-        }
-    ]
-}
-```
-
-**Clue data:**
-```json
-{
-    "type": "container",
-    "indicator": {"indices": [5], "text": "nurses"},
-    "inner": "EB",
-    "outer": "LYMPHTOO",
-    "options": [
-        {"label": "EB goes inside LYMPHTOO", "correct": true},
-        {"label": "LYMPHTOO goes inside EB", "correct": false}
-    ],
-    "result": "LYMPH EB TOO"
-}
-```
-
----
-
-## Complete Clue Example (PHLEBOTOMY)
-
-```json
-{
-    "id": "phlebotomy-1",
-    "clue": {
-        "number": "1A",
-        "text": "Drawing blood, lymph too, busy nurses conclude job at last",
-        "enumeration": "10",
-        "answer": "PHLEBOTOMY"
-    },
-    "steps": [
-        {
-            "type": "standard_definition",
-            "expected": {"indices": [0, 1], "text": "Drawing blood"},
-            "position": "start"
-        },
-        {
-            "type": "anagram_find",
-            "indicator": {"indices": [4], "text": "busy"},
-            "fodder": {"indices": [2, 3], "text": "lymph too"},
-            "result": "LYMPHTOO",
-            "letterCount": 8
-        },
-        {
-            "type": "letter_selection",
-            "indicator": {"indices": [8, 9], "text": "at last"},
-            "fodder": {"indices": [6, 7], "text": "conclude job"},
-            "extractionType": "last letter",
-            "result": "EB"
-        },
-        {
-            "type": "container",
-            "indicator": {"indices": [5], "text": "nurses"},
-            "inner": "EB",
-            "outer": "LYMPHTOO",
-            "options": [
-                {"label": "EB goes inside LYMPHTOO", "correct": true},
-                {"label": "LYMPHTOO goes inside EB", "correct": false}
-            ],
-            "result": "LYMPH EB TOO"
-        },
-        {
-            "type": "anagram_solve",
-            "fodder": "LYMPHEBTOO",
-            "result": "PHLEBOTOMY",
-            "letterCount": 10,
-            "definition": "drawing blood"
-        }
-    ]
-}
-```
-
----
-
-## Session State
+### Session State
 
 ```python
 session = {
     "clue_id": "phlebotomy-1",
-    "step_index": 0,      # Which step (0-3)
-    "phase_index": 0,     # Which phase within step
-    "highlights": []      # Accumulated highlights
+    "step_index": -1,     # -1 = clue type identify, 0+ = clue steps
+    "phase_index": 0,     # Which phase within current step
+    "highlights": []      # Accumulated highlights from correct answers
 }
 ```
 
----
+### Flow Diagram
 
-## Handler Implementation
-
-The handler is ~80 lines total:
-
-```python
-STEP_TEMPLATES = { ... }  # ~60 lines
-
-def get_render(session, clue):
-    step = clue["steps"][session["step_index"]]
-    template = STEP_TEMPLATES[step["type"]]
-    phase = template["phases"][session["phase_index"]]
-
-    # Merge template with clue data, substitute variables
-    render = substitute_variables(phase, step, session)
-    render["highlights"] = session["highlights"]
-    return render
-
-def handle_input(session, clue, value):
-    step = clue["steps"][session["step_index"]]
-    template = STEP_TEMPLATES[step["type"]]
-    phase = template["phases"][session["phase_index"]]
-
-    if check_answer(phase, step, value):
-        # Add highlight if applicable
-        if "onCorrect" in phase and "highlight" in phase["onCorrect"]:
-            session["highlights"].append({
-                "indices": get_expected_indices(phase, step),
-                "color": phase["onCorrect"]["highlight"]["color"]
-            })
-        # Advance phase
-        session["phase_index"] += 1
-        if session["phase_index"] >= len(template["phases"]):
-            session["step_index"] += 1
-            session["phase_index"] = 0
-
-    return get_render(session, clue)
-
-def handle_continue(session, clue):
-    # Button pressed - advance to next phase/step
-    step = clue["steps"][session["step_index"]]
-    template = STEP_TEMPLATES[step["type"]]
-
-    session["phase_index"] += 1
-    if session["phase_index"] >= len(template["phases"]):
-        session["step_index"] += 1
-        session["phase_index"] = 0
-
-    if session["step_index"] >= len(clue["steps"]):
-        return {"complete": True}
-
-    return get_render(session, clue)
+```
+Session Start (step_index = -1)
+    │
+    ▼
+┌─────────────────────────┐
+│ CLUE TYPE IDENTIFICATION│  ← Synthetic step, always first
+│ (multiple choice)       │
+└────────────┬────────────┘
+             │ correct
+             ▼
+┌─────────────────────────┐
+│ STEP 0 (from clue data) │  ← e.g., standard_definition
+│ Phase 0: select         │
+│ Phase 1: teaching       │
+└────────────┬────────────┘
+             │ continue
+             ▼
+┌─────────────────────────┐
+│ STEP 1 (from clue data) │  ← e.g., anagram_find
+│ Phase 0: indicator      │
+│ Phase 1: fodder         │
+│ Phase 2: teaching       │
+└────────────┬────────────┘
+             │ continue
+             ▼
+         ... more steps ...
+             │
+             ▼
+┌─────────────────────────┐
+│ COMPLETE                │
+│ render.complete = true  │
+└─────────────────────────┘
 ```
 
+### Clue Type Identification
+
+Every training session starts with a synthetic "clue type identify" step (step_index = -1). This step is not in the clue's `steps` array — it's generated automatically.
+
+The correct answer is derived from the first step type:
+- `standard_definition`, `anagram_find`, etc. → "Standard"
+- `double_definition` → "Double Definition"
+
+Options presented:
+1. **Standard** — Definition at start or end, with wordplay indicators in the rest
+2. **Double Definition** — Two separate meanings with no wordplay indicators
+3. **Cryptic Definition** — Whole clue is one whimsical description with no obvious wordplay
+4. **&lit** — Whole clue both describes AND constructs the answer simultaneously
+
+### Render Object
+
+Every API response includes a `render` object:
+
+```json
+{
+  "stepIndex": 0,
+  "phaseIndex": 0,
+  "stepType": "standard_definition",
+  "phaseId": "select",
+  "inputMode": "tap_words",
+  "highlights": [
+    {"indices": [0, 1], "color": "GREEN", "role": "definition"}
+  ],
+  "intro": {
+    "title": "Standard",
+    "text": "Do you see a definition at the start or end...",
+    "example": "Tip: look at the start or end"
+  },
+  "panel": {
+    "title": "FIND DEFINITION",
+    "instruction": "Tap the definition words above."
+  },
+  "button": {"label": "Continue →", "action": "next_step"},
+  "expected": [0, 1],
+  "options": [...],
+  "complete": false
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `stepIndex` | number | Current step (-1 for clue type, 0+ for clue steps) |
+| `phaseIndex` | number | Current phase within step |
+| `stepType` | string | Template type (e.g., "anagram_find") |
+| `phaseId` | string | Phase identifier (e.g., "indicator", "teaching") |
+| `inputMode` | string | `tap_words`, `text`, `multiple_choice`, or `none` |
+| `highlights` | array | Accumulated highlights from correct answers |
+| `intro` | object? | Intro card (title, text, example) — shown on first phase |
+| `panel` | object | Instruction panel (title, instruction) |
+| `button` | object? | Button to display (for teaching/complete phases) |
+| `expected` | any? | Expected answer (indices for tap, text for typing) |
+| `options` | array? | Multiple choice options |
+| `complete` | boolean | True when training is finished |
+
 ---
 
-## Files to Modify
+## Step Templates
 
-| File | Changes |
-|------|---------|
-| `cryptic_trainer_bundle/training_handler.py` | New file: templates + handler (~100 lines) |
-| `cryptic_trainer_bundle/server.py` | Replace training endpoints to use new handler |
-| `cryptic_trainer_bundle/clues_db.json` | Convert PHLEBOTOMY to new steps format |
+Templates are defined in `training_handler.py`. Each template has multiple phases.
+
+### clue_type_identify
+
+**Purpose:** Identify the type of clue before solving.
+
+**Phases:**
+1. `choose` — Multiple choice: Standard, Double Definition, Cryptic Definition, &lit
+
+**Clue data:** None (synthetic step generated automatically)
+
+### standard_definition
+
+**Purpose:** Find the definition at start or end of clue.
+
+**Phases:**
+1. `select` — Tap the definition words (inputMode: tap_words)
+2. `teaching` — Shows where definition was found (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "standard_definition",
+  "expected": {"indices": [0, 1], "text": "Drawing blood"},
+  "position": "start"
+}
+```
+
+### anagram_find
+
+**Purpose:** Identify anagram indicator and fodder.
+
+**Phases:**
+1. `indicator` — Tap the anagram indicator (inputMode: tap_words)
+2. `fodder` — Tap the fodder to be rearranged (inputMode: tap_words)
+3. `teaching` — Shows the anagram components (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "anagram_find",
+  "indicator": {"indices": [4], "text": "busy"},
+  "fodder": {"indices": [2, 3], "text": "lymph too"},
+  "result": "LYMPHTOO",
+  "letterCount": 8
+}
+```
+
+**Special behavior:** Teaching message varies based on whether letter count matches enumeration (complete vs partial anagram).
+
+### letter_selection
+
+**Purpose:** Extract specific letters from words.
+
+**Phases:**
+1. `indicator` — Tap the letter selection indicator (inputMode: tap_words)
+2. `fodder` — Tap the source words (inputMode: tap_words)
+3. `result` — Type the extracted letters (inputMode: text)
+4. `teaching` — Shows the extraction (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "letter_selection",
+  "indicator": {"indices": [8, 9], "text": "at last"},
+  "fodder": {"indices": [6, 7], "text": "conclude job"},
+  "extractionType": "last letter",
+  "result": "EB"
+}
+```
+
+### container
+
+**Purpose:** One thing goes inside another.
+
+**Phases:**
+1. `indicator` — Tap the container indicator (inputMode: tap_words)
+2. `order` — Multiple choice: what goes inside what (inputMode: multiple_choice)
+3. `teaching` — Shows the insertion (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "container",
+  "indicator": {"indices": [5], "text": "nurses"},
+  "inner": "EB",
+  "outer": "LYMPHTOO",
+  "options": [
+    {"label": "EB goes inside LYMPHTOO", "correct": true},
+    {"label": "LYMPHTOO goes inside EB", "correct": false}
+  ],
+  "result": "LYMPH EB TOO"
+}
+```
+
+### anagram_solve
+
+**Purpose:** Rearrange gathered letters to find the answer.
+
+**Phases:**
+1. `result` — Type the final answer (inputMode: text)
+2. `teaching` — Confirms the solution (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "anagram_solve",
+  "fodder": "LYMPHEBTOO",
+  "result": "PHLEBOTOMY",
+  "letterCount": 10,
+  "definition": "drawing blood"
+}
+```
+
+### double_definition
+
+**Purpose:** Find two definitions that both mean the same word.
+
+**Phases:**
+1. `first_def` — Tap the first definition (inputMode: tap_words)
+2. `second_def` — Tap the second definition (inputMode: tap_words)
+3. `solve` — Type the word that matches both (inputMode: text)
+4. `teaching` — Confirms both definitions (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "double_definition",
+  "definitions": [
+    {"indices": [0], "text": "Dog"},
+    {"indices": [1], "text": "lead"}
+  ],
+  "result": "POINTER"
+}
+```
 
 ---
 
 ## Server API
 
+### Clue Storage
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/solve` | POST | Solve a clue `{clue, length, knownAnswer?}` |
-| `/clues/import` | POST | Import puzzle file `{puzzle, publicationId}` |
-| `/clues` | GET | List all saved clues |
-| `/clues` | POST | Save/update a clue |
+| `/clues` | GET | List all training items |
+| `/clues` | POST | Save/update a single clue |
 | `/clues/<id>` | DELETE | Delete a clue by ID |
-| `/clues/bulk` | POST | Bulk import `{items: [...]}` |
+| `/clues/import` | POST | Import puzzle file |
+| `/clues/bulk` | POST | Bulk import clues |
 | `/clues/clear` | POST | Clear all clues |
-| `/parser-issues` | GET/POST | Parser issue tracking |
-| `/api/training/start` | POST | Start training session |
-| `/api/training/input` | POST | Submit user input (tap/text) |
-| `/api/training/continue` | POST | Continue through teaching |
 
-### Training Flow API
+### Training Flow
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/training/start` | POST | Start training session |
+| `/training/input` | POST | Submit user input (tap/text/choice) |
+| `/training/continue` | POST | Continue through teaching phase |
+
+### Other
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/solve` | POST | Solve a clue with proof trace |
+| `/parser-issues` | GET/POST | Parser issue tracking |
+| `/import-logs` | GET | List import logs |
+| `/import-logs/<id>` | DELETE | Delete single import log |
+| `/import-logs?clearAll=true` | DELETE | Clear all import logs |
+
+### Training API Details
 
 #### Start Session
 
 ```bash
-curl -X POST localhost:5001/api/training/start \
+curl -X POST localhost:5001/training/start \
   -H "Content-Type: application/json" \
   -d '{"clueId":"phlebotomy-1"}'
 ```
@@ -800,12 +693,6 @@ curl -X POST localhost:5001/api/training/start \
 ```json
 {
   "success": true,
-  "session": {
-    "clue_id": "phlebotomy-1",
-    "step_index": 0,
-    "phase_index": 0,
-    "highlights": []
-  },
   "render": { ... }
 }
 ```
@@ -813,25 +700,45 @@ curl -X POST localhost:5001/api/training/start \
 #### Submit Input
 
 ```bash
-curl -X POST localhost:5001/api/training/input \
+# Tap words (indices)
+curl -X POST localhost:5001/training/input \
   -H "Content-Type: application/json" \
-  -d '{"clueId":"phlebotomy-1","value":{"indices":[0,1]}}'
+  -d '{"clueId":"phlebotomy-1","value":[0,1]}'
+
+# Text input
+curl -X POST localhost:5001/training/input \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1","value":"PHLEBOTOMY"}'
+
+# Multiple choice (option index)
+curl -X POST localhost:5001/training/input \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1","value":0}'
 ```
 
-**Response:**
+**Response (correct):**
 ```json
 {
   "success": true,
   "correct": true,
-  "session": { ... },
   "render": { ... }
 }
 ```
 
-#### Continue (Teaching)
+**Response (wrong):**
+```json
+{
+  "success": true,
+  "correct": false,
+  "message": "Not quite - look at the start or end",
+  "render": { ... }
+}
+```
+
+#### Continue (Teaching Phase)
 
 ```bash
-curl -X POST localhost:5001/api/training/continue \
+curl -X POST localhost:5001/training/continue \
   -H "Content-Type: application/json" \
   -d '{"clueId":"phlebotomy-1"}'
 ```
@@ -840,122 +747,231 @@ curl -X POST localhost:5001/api/training/continue \
 ```json
 {
   "success": true,
-  "session": { ... },
-  "render": { ... },
-  "complete": false
-}
-```
-
-### Render Object
-
-Every response includes a `render` object built from template + clue data:
-
-```json
-{
-  "render": {
-    "intro": {
-      "title": "Anagram",
-      "text": "An anagram indicator signals that letters need rearranging.",
-      "example": "\"crazy\", \"wild\", \"broken\", \"mixed\" all suggest anagrams"
-    },
-    "panel": {
-      "title": "FIND INDICATOR",
-      "instruction": "Tap the anagram indicator - a word suggesting disorder or change."
-    },
-    "inputMode": "tap_words",
-    "button": {"label": "Continue →", "action": "next_step"},
-    "highlights": [
-      {"indices": [0, 1], "color": "GREEN"},
-      {"indices": [4], "color": "ORANGE"}
-    ],
-    "feedback": {"message": "Not quite - look at the start or end"}
-  }
-}
-```
-
-**Key Fields:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `intro` | object? | Shown once at step start (title, text, example) |
-| `panel.title` | string | Phase title (e.g., "FIND INDICATOR") |
-| `panel.instruction` | string | What user should do (with variable substitution) |
-| `inputMode` | string | `tap_words`, `text`, or `none` |
-| `button` | object? | Button to display (label, action) |
-| `highlights` | array | Accumulated highlights from session |
-| `feedback` | object? | Error message on wrong answer |
-
-### Storage Format
-
-Clues stored in `cryptic_trainer_bundle/clues_db.json`:
-
-```json
-{
-  "version": 3,
-  "clues": {
-    "phlebotomy-1": {
-      "id": "phlebotomy-1",
-      "clue": { "number": "1A", "text": "...", "enumeration": "10", "answer": "PHLEBOTOMY" },
-      "steps": [ ... ]
-    }
-  }
+  "render": { ... }
 }
 ```
 
 ---
 
-## Color System
+## React Components
 
-| Element | Color | Purpose |
-|---------|-------|---------|
-| Definition | Green | `bg-green-*` |
-| Indicator | Orange | `bg-orange-*` |
-| Fodder | Blue | `bg-blue-*` |
+### App.tsx
 
----
+**Purpose:** Main application shell, routing, view state management.
 
-## Validation Checklist
+**State:**
+- `viewState` — Current screen (HOME, PUBLICATION, TRAINING, SOLVER, MANUAL_ENTRY)
+- `isDbReady` — Database initialization complete
+- `isAdminUnlocked` — Admin mode enabled (password: `dojoMaster`)
+- `showDataManager` — DataManager modal visible
 
-Before saving a clue, verify:
+**Renders:**
+- Home screen with publication tiles
+- Publication detail with mode buttons
+- TrainingMode, SolverMode, ManualEntryMode based on viewState
+- DataManager modal
+- Password modal for admin access
 
-1. **clue** has number, text, enumeration, answer
-2. **steps** array is non-empty
-3. Each step has a valid **type** matching a template
-4. Each step has required fields for its type (indices, text, result, etc.)
-5. **indices** arrays contain valid word positions for the clue text
+### TrainingMode.tsx
+
+**Purpose:** Manages training queue and progress.
+
+**Props:**
+- `publicationId` — Which publication's clues to load
+- `onExit` — Called when user exits training
+
+**State:**
+- `queue` — Array of TrainingItems with steps
+- `currentIndex` — Current position in queue
+- `score`, `streak` — Progress tracking
+
+**Behavior:**
+1. Loads clues from server, filters to V3 format (has `steps`)
+2. Renders header with progress, score, skip button
+3. Renders TemplateTrainer for current clue
+4. Advances on complete, shows alert when queue exhausted
+
+### TemplateTrainer.tsx
+
+**Purpose:** Server-driven training UI component.
+
+**Props:**
+- `clueId` — Clue identifier
+- `clueText` — Full clue text
+- `enumeration` — Letter count (e.g., "10")
+- `clueNumber` — Optional clue number (e.g., "1A")
+- `onComplete` — Called when training complete
+- `onBack` — Called when user exits
+
+**State:**
+- `render` — Server response (source of truth)
+- `selectedIndices` — Tapped word indices (pre-submit)
+- `textInput` — Typed text (pre-submit)
+- `selectedOption` — Selected choice index (pre-submit)
+- `feedback` — Error message after wrong answer
+
+**API Calls:**
+- `trainingStart(clueId)` — On mount
+- `trainingInput(clueId, value)` — On check button
+- `trainingContinue(clueId)` — On continue button
+
+### services/clueManager.ts
+
+**Purpose:** API client for server communication.
+
+**Functions:**
+- `initializeClues()` — Load initial clue data
+- `getTrainingQueue(publicationId)` — Get clues for training
+- `getClueCount(publicationId)` — Count clues
+- `trainingStart(clueId)` — Start training session
+- `trainingInput(clueId, value)` — Submit user input
+- `trainingContinue(clueId)` — Continue through teaching
 
 ---
 
 ## File Inventory
 
-### Core Files
-- `cryptic_trainer_bundle/server.py` — HTTP server + clue storage
-- `cryptic_trainer_bundle/training_handler.py` — Step templates + handler (~100 lines)
-- `cryptic_trainer_bundle/cryptic_trainer.py` — Solver engine
+### Python Server (cryptic_trainer_bundle/)
 
-### Data Storage
-- `cryptic_trainer_bundle/clues_db.json` — Server-side clue storage
+| File | Purpose |
+|------|---------|
+| `server.py` | HTTP server, routing, clue storage, training endpoints |
+| `training_handler.py` | Step templates (STEP_TEMPLATES), session management, render generation |
+| `cryptic_trainer.py` | Solver engine |
+| `clues_db.json` | Data storage (training_items, import_logs, parser_issues) |
 
-### Learned Cache (auto-generated)
-- `learned_synonyms.json` — Validated AI-provided synonyms
-- `learned_abbreviations.json` — Validated abbreviations
+### React UI (root)
+
+| File | Purpose |
+|------|---------|
+| `App.tsx` | Main app, navigation, view state |
+| `components/TrainingMode.tsx` | Training queue management |
+| `components/TemplateTrainer.tsx` | Server-driven training UI |
+| `components/SolverMode.tsx` | AI-assisted solving |
+| `components/ManualEntryMode.tsx` | Clue entry, puzzle import |
+| `components/DataManager.tsx` | Admin data management |
+| `services/clueManager.ts` | API client |
+| `types.ts` | TypeScript type definitions |
+| `data/index.ts` | Publication/setter data |
 
 ### Documentation
-- `DESIGN_SPEC.md` — This document
-- `CLAUDE.md` — Claude Code rules
-- `README.md` — Quick start guide
+
+| File | Purpose |
+|------|---------|
+| `DESIGN_SPEC.md` | This document — complete system design |
+| `CLAUDE.md` | Claude Code rules and conventions |
+| `README.md` | Quick start guide |
 
 ---
 
-## Key Concepts Summary
+## Complete Clue Example
 
-| Concept | Purpose |
-|---------|---------|
-| **Step Templates** | Predefined flows for each step type (90% generic) |
-| **Clue Data** | Specific values for a clue (10% — indices, text, results) |
-| **Session State** | Tracks step_index, phase_index, highlights |
-| **Handler** | Merges template + clue data, substitutes variables |
-| **Thin Client** | UI sends raw input to server, server returns render object |
+### PHLEBOTOMY
+
+**Clue:** "Drawing blood, lymph too, busy nurses conclude job at last" (10)
+
+**Answer:** PHLEBOTOMY
+
+**Training Flow:**
+
+| Step | Type | Action |
+|------|------|--------|
+| -1 | clue_type_identify | Select "Standard" |
+| 0 | standard_definition | Tap "Drawing blood" |
+| 1 | anagram_find | Tap indicator "busy", fodder "lymph too" |
+| 2 | letter_selection | Tap indicator "at last", fodder "conclude job", type "EB" |
+| 3 | container | Tap indicator "nurses", select "EB goes inside LYMPHTOO" |
+| 4 | anagram_solve | Type "PHLEBOTOMY" |
+
+**Stored Data:**
+```json
+{
+  "id": "phlebotomy-1",
+  "clue": {
+    "number": "1A",
+    "text": "Drawing blood, lymph too, busy nurses conclude job at last",
+    "enumeration": "10",
+    "answer": "PHLEBOTOMY"
+  },
+  "words": ["Drawing", "blood", "lymph", "too", "busy", "nurses", "conclude", "job", "at", "last"],
+  "steps": [
+    {
+      "type": "standard_definition",
+      "expected": {"indices": [0, 1], "text": "Drawing blood"},
+      "position": "start"
+    },
+    {
+      "type": "anagram_find",
+      "indicator": {"indices": [4], "text": "busy"},
+      "fodder": {"indices": [2, 3], "text": "lymph too"},
+      "result": "LYMPHTOO",
+      "letterCount": 8
+    },
+    {
+      "type": "letter_selection",
+      "indicator": {"indices": [8, 9], "text": "at last"},
+      "fodder": {"indices": [6, 7], "text": "conclude job"},
+      "extractionType": "last letter",
+      "result": "EB"
+    },
+    {
+      "type": "container",
+      "indicator": {"indices": [5], "text": "nurses"},
+      "inner": "EB",
+      "outer": "LYMPHTOO",
+      "options": [
+        {"label": "EB goes inside LYMPHTOO", "correct": true},
+        {"label": "LYMPHTOO goes inside EB", "correct": false}
+      ],
+      "result": "LYMPH EB TOO"
+    },
+    {
+      "type": "anagram_solve",
+      "fodder": "LYMPHEBTOO",
+      "result": "PHLEBOTOMY",
+      "letterCount": 10,
+      "definition": "drawing blood"
+    }
+  ]
+}
+```
+
+### POINTER (Double Definition)
+
+**Clue:** "Dog lead" (7)
+
+**Answer:** POINTER
+
+**Training Flow:**
+
+| Step | Type | Action |
+|------|------|--------|
+| -1 | clue_type_identify | Select "Double Definition" |
+| 0 | double_definition | Tap "Dog", tap "lead", type "POINTER" |
+
+**Stored Data:**
+```json
+{
+  "id": "times-2025-27a",
+  "clue": {
+    "number": "27A",
+    "text": "Dog lead",
+    "enumeration": "7",
+    "answer": "POINTER"
+  },
+  "words": ["Dog", "lead"],
+  "steps": [
+    {
+      "type": "double_definition",
+      "definitions": [
+        {"indices": [0], "text": "Dog"},
+        {"indices": [1], "text": "lead"}
+      ],
+      "result": "POINTER"
+    }
+  ]
+}
+```
 
 ---
 
@@ -963,53 +979,48 @@ Before saving a clue, verify:
 
 ### Manual Testing
 
-1. Start server:
+1. Start servers:
 ```bash
+# Terminal 1
 cd cryptic_trainer_bundle && python3 server.py
-```
 
-2. Test via curl:
-```bash
-# Start session
-curl -X POST localhost:5001/api/training/start \
-  -H "Content-Type: application/json" \
-  -d '{"clueId":"phlebotomy-1"}'
-
-# Submit definition selection
-curl -X POST localhost:5001/api/training/input \
-  -H "Content-Type: application/json" \
-  -d '{"clueId":"phlebotomy-1","value":{"indices":[0,1]}}'
-
-# Continue through teaching
-curl -X POST localhost:5001/api/training/continue \
-  -H "Content-Type: application/json" \
-  -d '{"clueId":"phlebotomy-1"}'
-```
-
-3. Start UI:
-```bash
+# Terminal 2
 npm run dev
 ```
 
-4. Complete full PHLEBOTOMY training flow in browser
+2. Test training API:
+```bash
+# Start session
+curl -X POST localhost:5001/training/start \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1"}'
 
-### Golden Clue: PHLEBOTOMY
+# Submit clue type (index 0 = Standard)
+curl -X POST localhost:5001/training/input \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1","value":0}'
 
-**Clue:** "Drawing blood, lymph too, busy nurses conclude job at last" (10)
+# Continue through teaching
+curl -X POST localhost:5001/training/continue \
+  -H "Content-Type: application/json" \
+  -d '{"clueId":"phlebotomy-1"}'
+```
 
-**Steps:**
-1. `standard_definition` — Find "Drawing blood" at start
-2. `anagram_find` — Find indicator "busy", fodder "lymph too"
-3. `letter_selection` — Find indicator "at last", fodder "conclude job", enter "EB"
-4. `anagram_solve` — Solve "LYMPHTOO + EB" → PHLEBOTOMY
+3. Test in browser:
+   - Open http://localhost:3000
+   - Select a publication
+   - Click "Training Mode"
+   - Complete the training flow
 
-### Test Coverage
+### Test Checklist
 
 | Test | Verifies |
 |------|----------|
-| Session start | Returns step 0, phase 0 |
+| Session start | Returns step -1 (clue type), phase 0 |
+| Clue type select | Correct choice advances to step 0 |
 | Definition select | Correct indices advance to teaching |
 | Wrong selection | Returns feedback message, stays on phase |
 | Teaching continue | Advances to next step |
-| Full flow | All 4 steps complete correctly |
+| Full flow | All steps complete correctly |
 | Highlights accumulate | Each correct answer adds to highlights array |
+| Complete state | `render.complete = true` at end |
