@@ -376,6 +376,7 @@ export interface NewTrainingRender {
     complete?: boolean;
     actionPrompt: string;  // Short instruction for Section 3 (e.g., "Tap the definition words")
     answer: string;        // The correct answer for early solve attempts
+    learnings?: Array<{ title: string; text: string }>;  // Accumulated teaching summaries for solved view
 }
 
 export interface NewTrainingResponse {
