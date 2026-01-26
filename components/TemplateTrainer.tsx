@@ -154,10 +154,7 @@ export function TemplateTrainer({
           setSelectedOption(null);
           setFeedback(null);
 
-          // Check if complete
-          if (response.render.complete) {
-            onComplete?.();
-          }
+          // Note: Don't auto-advance when complete - show solved view first
         } else {
           // Wrong - show feedback
           setFeedback({
@@ -186,16 +183,14 @@ export function TemplateTrainer({
         setSelectedOption(null);
         setFeedback(null);
 
-        if (response.render.complete) {
-          onComplete?.();
-        }
+        // Note: Don't auto-advance when complete - show solved view first
       } else {
         setError(response.error || 'Server error');
       }
     } catch (e) {
       setError(String(e));
     }
-  }, [clueId, onComplete]);
+  }, [clueId]);
 
   // ---------------------------------------------------------------------------
   // Handle back/exit - clear session so it starts fresh next time
@@ -265,6 +260,72 @@ export function TemplateTrainer({
     ? selectedOption !== null
     : textInput.trim().length > 0;
 
+  // Solved view - show congratulations with all learnings
+  if (isComplete) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        {/* ===== SOLVED HEADER ===== */}
+        <div className="bg-green-600 rounded-t-xl p-6 text-center">
+          <div className="text-4xl mb-2">🎉</div>
+          <h2 className="text-2xl font-bold text-white">Solved!</h2>
+          <p className="text-green-100 mt-1 text-lg font-serif">{answer}</p>
+        </div>
+
+        {/* ===== CLUE WITH HIGHLIGHTS ===== */}
+        <div className="bg-white border-x p-4">
+          <div className="flex flex-wrap gap-2 text-lg font-serif leading-relaxed">
+            {words.map((word, index) => {
+              const bgColor = getWordColor(index);
+              return (
+                <span
+                  key={index}
+                  className="px-1.5 py-0.5 rounded"
+                  style={bgColor ? { backgroundColor: bgColor, color: 'white' } : undefined}
+                >
+                  {word}
+                </span>
+              );
+            })}
+            <span className="text-gray-400">({enumeration})</span>
+          </div>
+        </div>
+
+        {/* ===== LEARNINGS SECTION ===== */}
+        <div className="bg-slate-50 border-x border-t p-4">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">What You Learned</h3>
+          <div className="space-y-3">
+            {render.learnings && render.learnings.length > 0 ? (
+              render.learnings.map((learning, idx) => (
+                <div key={idx} className="bg-white border border-slate-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-500">🎓</span>
+                    <div>
+                      <h4 className="font-bold text-slate-700 text-sm">{learning.title}</h4>
+                      <p className="text-slate-600 text-sm mt-1">{learning.text}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-500 text-sm italic">Great work completing this clue!</p>
+            )}
+          </div>
+        </div>
+
+        {/* ===== NEXT BUTTON ===== */}
+        <div className="bg-green-50 border border-green-300 rounded-b-xl p-4 flex items-center justify-between">
+          <p className="text-green-700 font-medium">Ready for the next clue?</p>
+          <button
+            onClick={onComplete}
+            className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Next Clue →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* ===== SECTION 1: CLUE (fixed height) ===== */}
@@ -329,24 +390,14 @@ export function TemplateTrainer({
       </div>
 
       {/* ===== SECTION 3: ACTION REQUIRED + BUTTON (fixed height) ===== */}
-      <div className={`
-        border rounded-b-xl p-4 min-h-[70px] flex items-center justify-between gap-4
-        ${isComplete ? 'bg-green-50 border-green-300' : 'bg-white'}
-      `}>
-        <p className={`flex-1 font-medium ${isComplete ? 'text-green-700' : 'text-gray-700'}`}>
+      <div className="border rounded-b-xl p-4 min-h-[70px] flex items-center justify-between gap-4 bg-white">
+        <p className="flex-1 font-medium text-gray-700">
           {/* For text input mode, show generic prompt since specific prompt is in Section 2 */}
           {render.inputMode === 'text' && !isTeaching ? 'Enter letters above' : render.actionPrompt}
         </p>
 
         {/* Button */}
-        {isComplete ? (
-          <button
-            onClick={handleBack}
-            className="px-5 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
-          >
-            Done
-          </button>
-        ) : render.button ? (
+        {render.button ? (
           <button
             onClick={handleContinue}
             className="px-5 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"

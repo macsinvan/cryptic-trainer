@@ -18,9 +18,8 @@ STEP_TEMPLATES = {
                 "id": "choose",
                 "actionPrompt": "Select clue type",
                 "intro": {
-                    "title": "What Type of Clue Is This?",
-                    "text": "Before solving, identify the clue structure. Look for a clean split between the definition (always at start or end) and wordplay (the rest). Stay flexible — let the clue tell you how it wants to be read.",
-                    "example": "Tip: ? often signals wordplay or a cryptic definition. ! traditionally marks an &lit clue."
+                    "title": "Before solving, identify the clue type",
+                    "text": "Start by scanning the clue, not solving it. Look for instruction words (e.g. rearranged, inside, about, sounds like). If you see them, it's almost certainly a standard clue with definition + wordplay. Check the ends of the clue. A clear, straight definition at the start or end usually means standard. If the clue is short and has no instruction words, suspect a double definition. If the whole clue reads like a single playful description, with no clear split, it may be a cryptic definition. If every word contributes to both meaning and wordplay, it's likely an &lit clue."
                 },
                 "panel": {
                     "title": "IDENTIFY CLUE TYPE",
@@ -358,7 +357,8 @@ def start_session(clue_id, clue):
         "clue_id": clue_id,
         "step_index": -1,  # Start at -1 for clue type identification step
         "phase_index": 0,
-        "highlights": []
+        "highlights": [],
+        "learnings": []  # Accumulated teaching summaries
     }
     return get_render(clue_id, clue)
 
@@ -430,7 +430,9 @@ def get_render(clue_id, clue):
             "complete": True,
             "highlights": session["highlights"],
             "answer": answer,
-            "actionPrompt": "Training complete!"
+            "actionPrompt": "Solved!",
+            "learnings": session.get("learnings", []),
+            "inputMode": "none"
         }
 
     # Handle clue type identification step (step_index == -1)
@@ -627,6 +629,31 @@ def handle_continue(clue_id, clue):
         step = steps[session["step_index"]]
 
     template = STEP_TEMPLATES[step["type"]]
+    phase = template["phases"][session["phase_index"]]
+
+    # If this is a teaching phase, capture the learning before advancing
+    if phase["id"] == "teaching" and "panel" in phase:
+        learning_text = substitute_variables(phase["panel"].get("instruction", ""), step, session)
+        # Apply same special handling as in get_render for anagram_find and double_definition
+        if step["type"] == "anagram_find":
+            letter_count = step.get("letterCount", 0)
+            enumeration = int(clue.get("clue", {}).get("enumeration", "0"))
+            if letter_count == enumeration:
+                learning_text = f"'{step['indicator']['text']}' tells us to rearrange '{step['fodder']['text']}' → {step['result']} ({letter_count} letters). This is our full anagram!"
+            else:
+                learning_text = f"\"{step['indicator']['text'].capitalize()}\" is an anagram indicator, telling us to rearrange {step['fodder']['text'].upper()}. That gives {letter_count} letters, but the answer requires {enumeration}, so we know additional letters must be added from elsewhere in the clue."
+        elif step["type"] == "double_definition":
+            definitions = step.get("definitions", [])
+            def1_text = definitions[0]["text"] if len(definitions) > 0 else ""
+            def2_text = definitions[1]["text"] if len(definitions) > 1 else ""
+            result = step.get("result", "")
+            learning_text = f"Both '{def1_text}' and '{def2_text}' define {result}. No wordplay needed — just two meanings!"
+
+        if learning_text:
+            session["learnings"].append({
+                "title": phase["panel"].get("title", ""),
+                "text": learning_text
+            })
 
     # Advance to next phase
     session["phase_index"] += 1
