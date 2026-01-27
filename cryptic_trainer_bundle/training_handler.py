@@ -779,6 +779,18 @@ def get_render(clue_id, clue):
     if "button" in phase:
         render["button"] = phase["button"]
 
+    # Special handling for letter_selection result phase - use training.explanation if available
+    if step["type"] == "letter_selection" and phase["id"] == "result":
+        training = step.get("training", {})
+        if training.get("explanation"):
+            render["panel"]["instruction"] = training["explanation"]
+
+    # Special handling for container order phase - use training.explanation if available
+    if step["type"] == "container" and phase["id"] == "order":
+        training = step.get("training", {})
+        if training.get("explanation"):
+            render["panel"]["instruction"] = training["explanation"]
+
     # Special handling for anagram_find teaching phase
     if step["type"] == "anagram_find" and phase["id"] == "teaching":
         letter_count = step.get("letterCount", 0)

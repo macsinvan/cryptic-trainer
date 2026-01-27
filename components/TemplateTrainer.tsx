@@ -440,8 +440,8 @@ export function TemplateTrainer({
       {/* ===== SECTION 3: ACTION REQUIRED + BUTTON (fixed height) ===== */}
       <div className="border rounded-b-xl p-4 min-h-[70px] flex items-center justify-between gap-4 bg-white">
         <p className="flex-1 font-medium text-gray-700">
-          {/* For text input mode, show generic prompt since specific prompt is in Section 2 */}
-          {render.inputMode === 'text' && !isTeaching ? 'Enter letters above' : render.actionPrompt}
+          {/* Use panel instruction from server when available (teaching explanation), fall back to actionPrompt */}
+          {isTeaching ? render.actionPrompt : (render.panel?.instruction || render.actionPrompt)}
         </p>
 
         {/* Button */}
