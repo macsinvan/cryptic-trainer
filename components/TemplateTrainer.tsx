@@ -403,9 +403,6 @@ export function TemplateTrainer({
           })}
           <span className="text-gray-400">({enumeration})</span>
         </div>
-        {clueNumber && (
-          <div className="mt-2 text-sm text-blue-600 font-mono font-bold">{clueNumber}</div>
-        )}
       </div>
 
       {/* ===== SECTION 2: INPUT AREA (fixed height) ===== */}
@@ -414,18 +411,13 @@ export function TemplateTrainer({
       <div className="bg-slate-50 border border-b-0 p-4 min-h-[80px] flex flex-col justify-center">
         {render.inputMode === 'text' && !isTeaching && render.stepType !== 'anagram_solve' && render.stepType !== 'double_definition' ? (
           /* Transitory input for intermediate steps (e.g., typing "EB" for letter extraction) */
-          <>
-            <CrosswordInput
-              length={typeof render.expected === 'string' ? render.expected.length : 5}
-              value={textInput}
-              onChange={setTextInput}
-              onSubmit={() => canSubmit && handleSubmit()}
-              autoFocus
-            />
-            <p className="text-center text-xs text-slate-500 mt-2">
-              {render.actionPrompt}
-            </p>
-          </>
+          <CrosswordInput
+            length={typeof render.expected === 'string' ? render.expected.length : 5}
+            value={textInput}
+            onChange={setTextInput}
+            onSubmit={() => canSubmit && handleSubmit()}
+            autoFocus
+          />
         ) : (
           /* Default: Answer entry (always available for "solve anytime") */
           <>

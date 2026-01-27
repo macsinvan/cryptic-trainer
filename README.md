@@ -13,6 +13,7 @@ A training app for learning to solve Times-style cryptic crosswords.
 - **Fixed 3-section layout**: Clue, answer entry, and action area with consistent button placement
 - **Letter checking**: Green/red feedback as you type the answer (configurable via Settings)
 - **Progress tracking**: Collapsed learnings show what you've discovered in previous steps
+- **Improved header**: Shows publication name, puzzle number, and clue number (e.g., "The Times 2025, clue 1A")
 
 ### Architecture
 

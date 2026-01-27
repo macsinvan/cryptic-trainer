@@ -86,9 +86,7 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
             <ArrowLeft size={16} className="mr-1" /> Exit
           </button>
           <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span>{pubName}</span>
-            <span>•</span>
-            <span>{currentIndex + 1}/{queue.length}</span>
+            <span>{pubName} {typeof currentItem.clue === 'object' && (currentItem as any).metadata?.puzzle_number ? (currentItem as any).metadata.puzzle_number : ''}, clue {typeof currentItem.clue === 'object' ? currentItem.clue.number : ''}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="bg-white px-2 py-0.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600">
