@@ -289,6 +289,277 @@ STEP_TEMPLATES = {
                 "button": {"label": "Complete →", "action": "complete"}
             }
         ]
+    },
+
+    "synonym": {
+        "phases": [
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the word to find a synonym for",
+                "intro": {
+                    "title": "Synonym",
+                    "text": "A synonym is a word with the same or similar meaning.",
+                    "example": '"Mums" → MOTHERS, "like" → AS'
+                },
+                "panel": {
+                    "title": "FIND WORD",
+                    "instruction": "Tap the word we need to find a synonym for."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Look for a word that has a synonym"}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the synonym",
+                "panel": {
+                    "title": "ENTER SYNONYM",
+                    "instruction": "Type a synonym for '{fodder}'."
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Correct!"},
+                "onWrong": {"message": "Think of another word that means '{fodder}'"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "SYNONYM: {result}",
+                    "instruction": "'{fodder}' gives us {result}."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "abbreviation": {
+        "phases": [
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the word to abbreviate",
+                "intro": {
+                    "title": "Abbreviation",
+                    "text": "Common words can be abbreviated to single letters or short forms.",
+                    "example": '"hot" → H, "east" → E, "quiet" → P (piano)'
+                },
+                "panel": {
+                    "title": "FIND WORD",
+                    "instruction": "Tap the word that abbreviates to a letter."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Look for a word with a common abbreviation"}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the abbreviation",
+                "panel": {
+                    "title": "ENTER ABBREVIATION",
+                    "instruction": "Type the abbreviation for '{fodder}'."
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Correct!"},
+                "onWrong": {"message": "What letter or short form represents '{fodder}'?"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "ABBREVIATION: {result}",
+                    "instruction": "'{fodder}' abbreviates to {result}."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "deletion": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the deletion indicator",
+                "intro": {
+                    "title": "Deletion",
+                    "text": "A deletion indicator tells you to remove letters from a word.",
+                    "example": '"dropping", "losing", "without" all suggest deletion'
+                },
+                "panel": {
+                    "title": "FIND INDICATOR",
+                    "instruction": "Tap the word that signals deletion."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Look for a word meaning 'remove' or 'without'"}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type what remains",
+                "panel": {
+                    "title": "ENTER RESULT",
+                    "instruction": "After removing '{deleteTarget}' from {fodder}, what's left?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Correct!"},
+                "onWrong": {"message": "Remove '{deleteTarget}' from {fodder}"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "DELETION: {result}",
+                    "instruction": "'{indicator}' tells us to remove '{deleteTarget}' from {fodder}, leaving {result}."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "charade": {
+        "phases": [
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "intro": {
+                    "title": "Charade",
+                    "text": "The components join together in sequence to form the answer."
+                },
+                "panel": {
+                    "title": "CHARADE: {result}",
+                    "instruction": "Joining {components} gives us {result}."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "hidden": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the hidden word indicator",
+                "intro": {
+                    "title": "Hidden Word",
+                    "text": "The answer is hidden within the consecutive letters of other words.",
+                    "example": '"some", "in", "partly", "held by" all suggest hidden words'
+                },
+                "panel": {
+                    "title": "FIND INDICATOR",
+                    "instruction": "Tap the word that signals a hidden answer."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Look for a word suggesting something is hidden inside"}
+            },
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the words hiding the answer",
+                "panel": {
+                    "title": "FIND HIDING PLACE",
+                    "instruction": "Tap the words that contain the hidden answer."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Look at the words adjacent to the indicator"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "HIDDEN: {result}",
+                    "instruction": "'{indicator}' tells us the answer is hidden in '{fodder}' → {result}."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "homophone": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the homophone indicator",
+                "intro": {
+                    "title": "Homophone",
+                    "text": "A homophone is a word that sounds like another word.",
+                    "example": '"sounds like", "heard", "spoken", "say" all suggest homophones'
+                },
+                "panel": {
+                    "title": "FIND INDICATOR",
+                    "instruction": "Tap the word that signals a sound-alike."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Look for a word about speaking or hearing"}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the sound-alike word",
+                "panel": {
+                    "title": "ENTER HOMOPHONE",
+                    "instruction": "What word sounds like '{fodder}'?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Correct!"},
+                "onWrong": {"message": "Say '{fodder}' aloud - what other word sounds the same?"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "HOMOPHONE: {result}",
+                    "instruction": "'{indicator}' tells us '{fodder}' sounds like {result}."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "reversal": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the reversal indicator",
+                "intro": {
+                    "title": "Reversal",
+                    "text": "A reversal indicator tells you to reverse the letters.",
+                    "example": '"back", "up" (in down clues), "west" (in across clues) suggest reversal'
+                },
+                "panel": {
+                    "title": "FIND INDICATOR",
+                    "instruction": "Tap the word that signals reversal."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Look for a word suggesting backwards direction"}
+            },
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the words to reverse",
+                "panel": {
+                    "title": "FIND FODDER",
+                    "instruction": "Tap the words whose letters get reversed."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Look at the words adjacent to the indicator"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "REVERSAL: {result}",
+                    "instruction": "'{indicator}' tells us to reverse '{fodder}' → {result}."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
     }
 }
 
@@ -304,7 +575,13 @@ STEP_TO_CLUE_TYPE = {
     "letter_selection": "standard",
     "container": "standard",
     "double_definition": "double_definition",
-    # Add more mappings as needed
+    "synonym": "standard",
+    "abbreviation": "standard",
+    "deletion": "standard",
+    "charade": "standard",
+    "hidden": "standard",
+    "homophone": "standard",
+    "reversal": "standard",
 }
 
 CLUE_TYPE_OPTIONS = [
@@ -406,7 +683,7 @@ def substitute_variables(text, step, session, clue=None):
             subs["def2"] = definitions[1].get("text", "")
 
     # Direct fields
-    for key in ["position", "result", "fodder", "indicator", "extractionType", "letterCount", "definition", "inner", "outer"]:
+    for key in ["position", "result", "fodder", "indicator", "extractionType", "letterCount", "definition", "inner", "outer", "deleteTarget"]:
         if key in step:
             val = step[key]
             # Handle dict with text field
@@ -414,6 +691,11 @@ def substitute_variables(text, step, session, clue=None):
                 subs[key] = val["text"]
             else:
                 subs[key] = str(val)
+
+    # Handle components array for charade
+    if "components" in step:
+        components = step["components"]
+        subs["components"] = " + ".join(components)
 
     # Get letterCount from clue enumeration if not in step (for double_definition)
     if "letterCount" not in subs and clue:

@@ -83,6 +83,7 @@ npm run dev
 ### Data Storage
 - Clues stored in `cryptic_trainer_bundle/clues_db.json` (server-side, not browser)
 - Each clue has `puzzleNumber`, `publication`, `setter` metadata
+- Solved puzzle files for import: `/Users/andrewmackenzie/Desktop/Times_Puzzle_Import/solved/`
 
 ---
 

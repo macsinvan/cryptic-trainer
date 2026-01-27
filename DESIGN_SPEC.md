@@ -387,10 +387,17 @@ Each step's `type` must have a corresponding template in `training_handler.STEP_
 - `container`
 - `anagram_solve`
 - `double_definition`
+- `synonym`
+- `abbreviation`
+- `deletion`
+- `charade`
+- `hidden`
+- `homophone`
+- `reversal`
 
 If a step type has no template, the clue is skipped with an actionable error:
 ```
-steps[0] has type "reversal" but no template exists. Available: clue_type_identify, standard_definition, anagram_find, letter_selection, container, anagram_solve, double_definition
+steps[0] has type "spoonerism" but no template exists. Available: clue_type_identify, standard_definition, anagram_find, letter_selection, container, anagram_solve, double_definition, synonym, abbreviation, deletion, charade, hidden, homophone, reversal
 ```
 
 ### Import Log Endpoints
@@ -703,6 +710,135 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
     {"indices": [1], "text": "lead"}
   ],
   "result": "POINTER"
+}
+```
+
+### synonym
+
+**Purpose:** Find a synonym for a word.
+
+**Phases:**
+1. `fodder` — Tap the word to find a synonym for (inputMode: tap_words)
+2. `result` — Type the synonym (inputMode: text)
+3. `teaching` — Shows the synonym relationship (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "synonym",
+  "fodder": {"indices": [0], "text": "Mums"},
+  "result": "MOTHERS"
+}
+```
+
+### abbreviation
+
+**Purpose:** Recognize a standard abbreviation.
+
+**Phases:**
+1. `fodder` — Tap the word to abbreviate (inputMode: tap_words)
+2. `result` — Type the abbreviation (inputMode: text)
+3. `teaching` — Shows the abbreviation (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "abbreviation",
+  "fodder": {"indices": [4], "text": "hot"},
+  "result": "H"
+}
+```
+
+### deletion
+
+**Purpose:** Remove letters from a word.
+
+**Phases:**
+1. `indicator` — Tap the deletion indicator (inputMode: tap_words)
+2. `result` — Type what remains after deletion (inputMode: text)
+3. `teaching` — Shows the deletion (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "deletion",
+  "indicator": {"indices": [1], "text": "dropping"},
+  "fodder": "MOTHERS",
+  "deleteTarget": "others",
+  "result": "M"
+}
+```
+
+### charade
+
+**Purpose:** Join components in sequence.
+
+**Phases:**
+1. `teaching` — Shows how components join (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "charade",
+  "components": ["M", "AS", "H"],
+  "result": "MASH"
+}
+```
+
+### hidden
+
+**Purpose:** Find answer hidden within consecutive letters.
+
+**Phases:**
+1. `indicator` — Tap the hidden word indicator (inputMode: tap_words)
+2. `fodder` — Tap the words containing the hidden answer (inputMode: tap_words)
+3. `teaching` — Shows where answer is hidden (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "hidden",
+  "indicator": {"indices": [0], "text": "Some"},
+  "fodder": {"indices": [1,2,3,4], "text": "impor tant Ra stafarian"},
+  "result": "TANTRA"
+}
+```
+
+### homophone
+
+**Purpose:** Sound-alike of another word.
+
+**Phases:**
+1. `indicator` — Tap the homophone indicator (inputMode: tap_words)
+2. `result` — Type the sound-alike word (inputMode: text)
+3. `teaching` — Shows the homophone (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "homophone",
+  "indicator": {"indices": [0,1], "text": "Delivery of"},
+  "fodder": "THROUGH",
+  "result": "THREW"
+}
+```
+
+### reversal
+
+**Purpose:** Reverse letters of a word/phrase.
+
+**Phases:**
+1. `indicator` — Tap the reversal indicator (inputMode: tap_words)
+2. `fodder` — Tap the words to reverse (inputMode: tap_words)
+3. `teaching` — Shows the reversal (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "reversal",
+  "indicator": {"indices": [0,1], "text": "Travelling west"},
+  "fodder": {"indices": [3,4,5,6,7], "text": "Nav arre I s pot"},
+  "result": "TOPSIERRAVAN"
 }
 ```
 
