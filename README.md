@@ -44,6 +44,8 @@ The system has two components:
 
 Clues are stored server-side in `cryptic_trainer_bundle/clues_db.json` (auto-created).
 
+Puzzles are imported from: `/Users/andrewmackenzie/Desktop/Times_Puzzle_Import/solved`
+
 ## Quick Start
 
 ```bash
