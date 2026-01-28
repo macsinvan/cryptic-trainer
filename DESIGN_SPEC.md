@@ -1,6 +1,6 @@
 # Cryptic Trainer — Design Specification
 
-*Last updated: 2026-01-26*
+*Last updated: 2026-01-28*
 
 ---
 
@@ -175,9 +175,11 @@ Three action buttons:
 
 1. Loads training queue from server (`GET /clues`)
 2. Filters to clues with `steps` array (V3 format)
-3. Displays header with publication name, progress (1/N), streak, score, skip button
+3. Displays header with publication name, progress (1/N), streak, score, **Solve** button, Skip button
 4. Renders `TemplateTrainer` for current clue
 5. On complete, advances to next clue or shows completion alert
+
+**Solve Button:** Clicking "Solve" immediately shows the completed view with answer and all learnings. Useful for reviewing clues without working through each step.
 
 ### TemplateTrainer (Core Training UI)
 
@@ -243,6 +245,31 @@ Three action buttons:
 | Blue background | Letter entered (checking disabled) |
 
 Letter checking is configurable via the Settings panel on the publication page.
+
+### Enumeration Parsing
+
+Enumerations like "(3-4)" represent multi-word answers (3 letters + 4 letters = 7 total).
+
+**Parsing Rule:** Split by non-digits, sum the numbers.
+- `"10"` → 10 boxes
+- `"3-4"` → 7 boxes (3 + 4)
+- `"2,3,4"` → 9 boxes (2 + 3 + 4)
+
+**Implementation:** `parse_enumeration()` helper in `training_handler.py`
+
+### Answer Validation
+
+Answers may contain hyphens (e.g., "LET-DOWN") but user input is compared as letters only.
+
+**Validation Rule:** Strip non-alpha characters before comparing.
+- Answer: "LET-DOWN" → "LETDOWN"
+- User input: "LETDOWN" → "LETDOWN"
+- Match: ✓
+
+This applies to:
+- Final answer entry (CrosswordInput)
+- Intermediate step results (text input)
+- Letter checking colors
 
 ---
 
@@ -527,6 +554,15 @@ Every API response includes a `render` object:
 | `answer` | string | Correct answer for "solve anytime" feature |
 | `actionPrompt` | string | Short instruction for Section 3 |
 
+### Learnings Accumulation
+
+As the user progresses through training:
+1. Each teaching phase has a panel with instruction text
+2. When user clicks "Continue", the learning is captured to `session.learnings[]`
+3. Special formatting applies for certain step types (anagram_find, double_definition)
+4. When training completes (or user solves early), all learnings display in the solved view
+5. For early solve, `/training/learnings` generates all learnings without requiring step completion
+
 ### Training UX — Fixed 3-Section Layout
 
 **CRITICAL: Sections 1-3 must ALWAYS be the same size and position. No jumpiness as user navigates between steps.**
@@ -626,6 +662,24 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
 ```
 
 **Special behavior:** Teaching message varies based on whether letter count matches enumeration (complete vs partial anagram).
+
+### training.explanation Override
+
+Steps can include a `training.explanation` field to override the template's panel instruction for specific phases. This allows clue-specific educational text.
+
+**Supported phases:**
+- `letter_selection` → `result` phase
+- `container` → `order` phase
+
+**Example:**
+```json
+{
+  "type": "letter_selection",
+  "training": {
+    "explanation": "The indicator 'at last' tells you to take the final letters of 'conclude' and 'job'."
+  }
+}
+```
 
 ### letter_selection
 
@@ -864,8 +918,8 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
 | `/training/start` | POST | Start training session |
 | `/training/input` | POST | Submit user input (tap/text/choice) |
 | `/training/continue` | POST | Continue through teaching phase |
-| `/training/clear` | POST | Clear session (on exit) for fresh start |
-| `/training/learnings` | POST | Get all learnings for a clue (for early solve) |
+| `/training/clear` | POST | Clear session (on exit) — returns `{success, cleared}` |
+| `/training/learnings` | POST | Get all learnings for a clue — returns `{success, learnings[]}` |
 
 ### Settings
 
@@ -989,6 +1043,7 @@ curl -X POST localhost:5001/training/continue \
 - `queue` — Array of TrainingItems with steps
 - `currentIndex` — Current position in queue
 - `score`, `streak` — Progress tracking
+- `forceSolved` — When true, triggers immediate solved view
 
 **Behavior:**
 1. Loads clues from server, filters to V3 format (has `steps`)
@@ -1003,10 +1058,13 @@ curl -X POST localhost:5001/training/continue \
 **Props:**
 - `clueId` — Clue identifier
 - `clueText` — Full clue text
-- `enumeration` — Letter count (e.g., "10")
+- `enumeration` — Letter count (e.g., "10" or "3-4")
+- `answer` — Correct answer string (required)
 - `clueNumber` — Optional clue number (e.g., "1A")
 - `onComplete` — Called when training complete
 - `onBack` — Called when user exits
+- `forceSolved` — When true, immediately shows solved view with all learnings
+- `letterChecking` — Enable green/red letter feedback (default: true)
 
 **State:**
 - `render` — Server response (source of truth)
@@ -1019,6 +1077,28 @@ curl -X POST localhost:5001/training/continue \
 - `trainingStart(clueId)` — On mount
 - `trainingInput(clueId, value)` — On check button
 - `trainingContinue(clueId)` — On continue button
+- `trainingLearnings(clueId)` — When forceSolved or early answer solve
+- `trainingClear(clueId)` — On exit (allows fresh start next time)
+
+### CrosswordInput.tsx
+
+**Purpose:** Crossword-style letter boxes for answer entry.
+
+**Props:**
+- `length` — Number of letter boxes
+- `value` — Current input string
+- `onChange` — Called when input changes
+- `onSubmit` — Called when Enter pressed
+- `disabled` — Disable input
+- `autoFocus` — Focus first empty box on mount
+- `correctAnswer` — If provided, enables letter checking
+- `letterChecking` — Show green/red feedback per letter
+
+**Behavior:**
+- Arrow keys navigate between boxes
+- Backspace moves to previous box when empty
+- Paste fills boxes from clipboard
+- Letter checking compares against `correctAnswer` (strips non-alpha first)
 
 ### services/clueManager.ts
 
@@ -1031,6 +1111,8 @@ curl -X POST localhost:5001/training/continue \
 - `trainingStart(clueId)` — Start training session
 - `trainingInput(clueId, value)` — Submit user input
 - `trainingContinue(clueId)` — Continue through teaching
+- `trainingLearnings(clueId)` — Get all learnings for a clue (early solve)
+- `trainingClear(clueId)` — Clear session on exit
 
 ---
 
@@ -1041,7 +1123,7 @@ curl -X POST localhost:5001/training/continue \
 | File | Purpose |
 |------|---------|
 | `server.py` | HTTP server, routing, clue storage, training endpoints |
-| `training_handler.py` | Step templates (STEP_TEMPLATES), session management, render generation |
+| `training_handler.py` | Step templates (STEP_TEMPLATES), session management, render generation, `parse_enumeration()` helper |
 | `cryptic_trainer.py` | Solver engine |
 | `clues_db.json` | Data storage (training_items, import_logs, parser_issues) |
 
