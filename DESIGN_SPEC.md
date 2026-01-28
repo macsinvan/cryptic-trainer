@@ -306,7 +306,10 @@ This applies to:
     "number": "1A",
     "text": "Drawing blood, lymph too, busy nurses conclude job at last",
     "enumeration": "10",
-    "answer": "PHLEBOTOMY"
+    "answer": "PHLEBOTOMY",
+    "definition": [                    // Optional: definition location(s)
+      { "text": "Drawing blood", "position": "start" }
+    ]
   },
   "words": ["Drawing", "blood", "lymph", "too", "busy", "nurses", "conclude", "job", "at", "last"],
   "steps": [
@@ -319,7 +322,11 @@ This applies to:
     "puzzle_number": "2025",
     "setter": "Unknown"
   },
-  "publicationId": "times"
+  "publicationId": "times",
+  "difficulty": {                      // Optional: clue difficulty rating
+    "rating": "hard",                  // "easy" | "medium" | "hard"
+    "reasoning": "Complex nested structure with obscure medical term"
+  }
 }
 ```
 
@@ -368,10 +375,15 @@ This applies to:
         "number": "1A",
         "text": "...",
         "enumeration": "10",
-        "answer": "PHLEBOTOMY"
+        "answer": "PHLEBOTOMY",
+        "definition": [...]           // Optional
       },
       "words": ["..."],
-      "steps": [...]
+      "steps": [...],
+      "difficulty": {                 // Optional
+        "rating": "hard",
+        "reasoning": "..."
+      }
     }
   }
 }

@@ -324,6 +324,10 @@ class SolverHandler(BaseHTTPRequestHandler):
                     'publicationId': publication_id
                 }
 
+                # Copy optional fields if present
+                if 'difficulty' in clue_entry:
+                    training_item['difficulty'] = clue_entry['difficulty']
+
                 db['training_items'][clue_key] = training_item
                 saved += 1
 

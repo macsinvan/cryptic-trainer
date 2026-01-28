@@ -769,6 +769,12 @@ def get_render(clue_id, clue):
         "learnings": session.get("learnings", [])
     }
 
+    # Add difficulty for clue type identification step (step_index == -1)
+    if session["step_index"] == -1:
+        difficulty = clue.get("difficulty")
+        if difficulty:
+            render["difficulty"] = difficulty
+
     # Add intro if present
     if "intro" in phase:
         render["intro"] = {

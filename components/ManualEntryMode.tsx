@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Brain, Sparkles, Check, AlertCircle, Loader2, Send, Upload, ChevronLeft, ChevronRight, FileJson } from 'lucide-react';
-import { getClueCount, saveClue, saveParserIssue, ParserIssue, clueExists } from '../services/clueManager';
+import { getClueCount, saveClue, saveParserIssue, ParserIssue, clueExists, initializeClues } from '../services/clueManager';
 import { parseFreeformInput, FreeformParseResult } from '../services/freeformParser';
 import { SolvedClue } from '../services/aiService';
 import { solveCluePython } from '../services/pythonSolverService';
@@ -229,7 +229,8 @@ export const ManualEntryMode: React.FC<ManualEntryModeProps> = ({ onExit, public
         return;
       }
 
-      // Update UI with server response
+      // Refresh the local clue cache from server, then update count
+      await initializeClues();
       setTotalClueCount(getClueCount(publicationId));
 
       // Show import result from server (use correct field names from server)

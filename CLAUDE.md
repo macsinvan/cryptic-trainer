@@ -28,6 +28,8 @@ Before doing anything, summarize your understanding of the user's input in plain
 | Run tests | ✅ No permission needed |
 | **Edit any file** | ❌ **MUST ASK FIRST** |
 
+**NO PERMISSION OR "GO" REQUIRED FOR ANY READ OPERATION.** You may freely read files, search the codebase, and run tests at any time without asking. Just do it.
+
 ### Step 4: Ask for Go
 
 Before editing ANY file, you MUST:

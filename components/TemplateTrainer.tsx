@@ -27,6 +27,7 @@ interface TemplateTrainerProps {
   onComplete?: () => void;
   onBack?: () => void;
   letterChecking?: boolean;
+  forceSolved?: boolean;  // When true, immediately show solved view
 }
 
 interface Highlight {
@@ -47,7 +48,8 @@ export function TemplateTrainer({
   clueNumber,
   onComplete,
   onBack,
-  letterChecking = true
+  letterChecking = true,
+  forceSolved = false
 }: TemplateTrainerProps) {
   // Server state (source of truth)
   const [render, setRender] = useState<NewTrainingRender | null>(null);
@@ -63,6 +65,7 @@ export function TemplateTrainer({
   const [textInput, setTextInput] = useState('');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null);
+  const [difficultyExpanded, setDifficultyExpanded] = useState(false);
 
   // Parse enumeration to get letter count (fallback to answer length from server)
   // "(3-4)" → split into ["3", "4"] → sum to 7
@@ -94,6 +97,36 @@ export function TemplateTrainer({
     };
     startSession();
   }, [clueId]);
+
+  // ---------------------------------------------------------------------------
+  // Handle forceSolved prop - immediately show solved view
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!forceSolved || !render || render.complete) return;
+
+    // Fetch all learnings and show solved view
+    trainingLearnings(clueId).then(response => {
+      if (response.success) {
+        setRender(prev => prev ? {
+          ...prev,
+          complete: true,
+          learnings: response.learnings
+        } : null);
+      } else {
+        setRender(prev => prev ? {
+          ...prev,
+          complete: true,
+          learnings: prev.learnings || []
+        } : null);
+      }
+    }).catch(() => {
+      setRender(prev => prev ? {
+        ...prev,
+        complete: true,
+        learnings: prev.learnings || []
+      } : null);
+    });
+  }, [forceSolved, clueId, render?.complete]);
 
   // ---------------------------------------------------------------------------
   // Auto-detect correct answer and show solved view
@@ -478,6 +511,29 @@ export function TemplateTrainer({
             ${feedback.correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
           `}>
             {feedback.message}
+          </div>
+        )}
+
+        {/* Difficulty badge - only on clue type step (stepIndex === -1) */}
+        {render.stepIndex === -1 && render.difficulty && (
+          <div className="mb-2">
+            <button
+              onClick={() => setDifficultyExpanded(!difficultyExpanded)}
+              className={`
+                inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all
+                ${render.difficulty.rating === 'easy' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
+                  render.difficulty.rating === 'medium' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' :
+                  'bg-red-100 text-red-800 hover:bg-red-200'}
+              `}
+            >
+              <span className="capitalize">{render.difficulty.rating}</span>
+              <span className="text-xs">{difficultyExpanded ? '▲' : '▼'}</span>
+            </button>
+            {difficultyExpanded && (
+              <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700">
+                {render.difficulty.reasoning}
+              </div>
+            )}
           </div>
         )}
 
