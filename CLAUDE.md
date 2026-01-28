@@ -34,7 +34,14 @@ Before editing ANY file, you MUST:
 
 1. Provide a plain English summary of what you will change
 2. Ask: **"Want me to go ahead?"** (or similar)
-3. **WAIT** for user approval
+3. **WAIT** for user approval - do NOT proceed until user says "GO"
+
+### CRITICAL: Pause at Each Step
+
+- **STOP after Step 1** (summarize understanding) and wait for user confirmation
+- **STOP after Step 2** (analyze/plan) and wait for user confirmation
+- **STOP after Step 4** (ask for go) and wait for "GO"
+- Never chain multiple steps together without user check-in
 
 ---
 
@@ -57,6 +64,14 @@ Before editing ANY file, you MUST:
 - Define success criteria BEFORE starting
 
 **Binary done check:** Can you run a test that proves the task is complete? YES/NO
+
+---
+
+## KEY PRINCIPLES
+
+1. **Teaching Tone**: This is a teaching app. Everything the user sees should be educational and instructive.
+
+2. **Server Restart Required**: The Python server must be restarted after every Python code change.
 
 ---
 

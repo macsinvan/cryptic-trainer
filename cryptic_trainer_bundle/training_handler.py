@@ -8,6 +8,15 @@ Clue data provides only specific values (10%).
 import re
 
 # =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+def parse_enumeration(enum_str):
+    """Parse enumeration like '3-4' or '10' to total letter count."""
+    numbers = re.findall(r'\d+', str(enum_str))
+    return sum(int(n) for n in numbers) if numbers else 0
+
+# =============================================================================
 # STEP TEMPLATES
 # =============================================================================
 
@@ -794,7 +803,7 @@ def get_render(clue_id, clue):
     # Special handling for anagram_find teaching phase
     if step["type"] == "anagram_find" and phase["id"] == "teaching":
         letter_count = step.get("letterCount", 0)
-        enumeration = int(clue.get("clue", {}).get("enumeration", "0"))
+        enumeration = parse_enumeration(clue.get("clue", {}).get("enumeration", "0"))
 
         if letter_count == enumeration:
             # Complete anagram - can solve directly
@@ -888,9 +897,12 @@ def handle_input(clue_id, clue, value):
         if isinstance(value, list) and isinstance(expected, list):
             correct = set(value) == set(expected)
     elif phase.get("inputMode") == "text":
-        # Compare text (case-insensitive)
+        # Compare text (case-insensitive, letters only - strip hyphens/spaces)
         if isinstance(value, str) and expected:
-            correct = value.upper().strip() == expected
+            import re
+            user_letters = re.sub(r'[^A-Z]', '', value.upper())
+            expected_letters = re.sub(r'[^A-Z]', '', expected)
+            correct = user_letters == expected_letters
     elif phase.get("inputMode") == "multiple_choice":
         # Compare selected option index
         correct = value == expected
@@ -946,7 +958,7 @@ def handle_continue(clue_id, clue):
         # Apply same special handling as in get_render for anagram_find and double_definition
         if step["type"] == "anagram_find":
             letter_count = step.get("letterCount", 0)
-            enumeration = int(clue.get("clue", {}).get("enumeration", "0"))
+            enumeration = parse_enumeration(clue.get("clue", {}).get("enumeration", "0"))
             if letter_count == enumeration:
                 learning_text = f"'{step['indicator']['text']}' tells us to rearrange '{step['fodder']['text']}' → {step['result']} ({letter_count} letters). This is our full anagram!"
             else:
@@ -991,7 +1003,7 @@ def get_all_learnings(clue):
 
                 if step["type"] == "anagram_find":
                     letter_count = step.get("letterCount", 0)
-                    enumeration = int(clue.get("clue", {}).get("enumeration", "0"))
+                    enumeration = parse_enumeration(clue.get("clue", {}).get("enumeration", "0"))
                     if letter_count == enumeration:
                         learning_text = f"'{step['indicator']['text']}' tells us to rearrange '{step['fodder']['text']}' → {step['result']} ({letter_count} letters). This is our full anagram!"
                     else:

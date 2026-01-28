@@ -65,8 +65,9 @@ export function TemplateTrainer({
   const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null);
 
   // Parse enumeration to get letter count (fallback to answer length from server)
+  // "(3-4)" → split into ["3", "4"] → sum to 7
   const answerFromServer = render?.answer || answer;
-  const letterCount = parseInt(enumeration.replace(/[^0-9]/g, ''), 10) || answerFromServer.replace(/[^A-Za-z]/g, '').length || 10;
+  const letterCount = enumeration.split(/[^0-9]+/).filter(Boolean).reduce((sum, n) => sum + parseInt(n, 10), 0) || answerFromServer.replace(/[^A-Za-z]/g, '').length || 10;
 
   // Split clue into words
   const words = clueText.replace(/[,;:]/g, ' ').split(/\s+/).filter(Boolean);
@@ -100,8 +101,8 @@ export function TemplateTrainer({
   useEffect(() => {
     if (!render || render.complete) return;
 
-    const normalizedInput = answerInput.toUpperCase().replace(/\s/g, '');
-    const normalizedAnswer = answer.toUpperCase().replace(/\s/g, '');
+    const normalizedInput = answerInput.toUpperCase().replace(/[^A-Z]/g, '');
+    const normalizedAnswer = answer.toUpperCase().replace(/[^A-Z]/g, '');
 
     if (normalizedInput.length === normalizedAnswer.length && normalizedInput === normalizedAnswer) {
       // Correct! Fetch all learnings and show solved view
@@ -138,8 +139,8 @@ export function TemplateTrainer({
   // Handle answer submission (can happen at any time)
   // ---------------------------------------------------------------------------
   const handleAnswerSubmit = useCallback(() => {
-    const normalizedInput = answerInput.toUpperCase().replace(/\s/g, '');
-    const normalizedAnswer = answer.toUpperCase().replace(/\s/g, '');
+    const normalizedInput = answerInput.toUpperCase().replace(/[^A-Z]/g, '');
+    const normalizedAnswer = answer.toUpperCase().replace(/[^A-Z]/g, '');
 
     if (normalizedInput === normalizedAnswer) {
       // Correct! Show solved view with accumulated learnings

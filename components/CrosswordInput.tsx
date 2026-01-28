@@ -110,7 +110,9 @@ export function CrosswordInput({
       return { bg: letter && letter !== ' ' ? 'bg-blue-50' : '', border: '', text: '' };
     }
 
-    const correctLetter = correctAnswer[index]?.toUpperCase();
+    // Strip non-alpha from correctAnswer (e.g., "LET-DOWN" → "LETDOWN")
+    const correctLettersOnly = correctAnswer.replace(/[^A-Za-z]/g, '').toUpperCase();
+    const correctLetter = correctLettersOnly[index];
     if (letter === correctLetter) {
       return { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700' };
     } else {
