@@ -675,9 +675,9 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
 
 **Special behavior:** Teaching message varies based on whether letter count matches enumeration (complete vs partial anagram).
 
-### training.explanation Override
+### training.hint Override
 
-Steps can include a `training.explanation` field to override the template's panel instruction for specific phases. This allows clue-specific educational text.
+Steps can include a `training.hint` field to override the template's panel instruction for specific phases. This provides pedagogically-focused guidance on how to approach the step (rather than just stating the result).
 
 **Supported phases:**
 - `letter_selection` → `result` phase
@@ -688,7 +688,7 @@ Steps can include a `training.explanation` field to override the template's pane
 {
   "type": "letter_selection",
   "training": {
-    "explanation": "The indicator 'at last' tells you to take the final letters of 'conclude' and 'job'."
+    "hint": "Look for a phrase that suggests taking the final letters of specific words in the clue."
   }
 }
 ```

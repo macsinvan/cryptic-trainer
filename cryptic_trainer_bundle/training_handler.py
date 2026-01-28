@@ -794,17 +794,17 @@ def get_render(clue_id, clue):
     if "button" in phase:
         render["button"] = phase["button"]
 
-    # Special handling for letter_selection result phase - use training.explanation if available
+    # Special handling for letter_selection result phase - use training.hint if available
     if step["type"] == "letter_selection" and phase["id"] == "result":
         training = step.get("training", {})
-        if training.get("explanation"):
-            render["panel"]["instruction"] = training["explanation"]
+        if training.get("hint"):
+            render["panel"]["instruction"] = training["hint"]
 
-    # Special handling for container order phase - use training.explanation if available
+    # Special handling for container order phase - use training.hint if available
     if step["type"] == "container" and phase["id"] == "order":
         training = step.get("training", {})
-        if training.get("explanation"):
-            render["panel"]["instruction"] = training["explanation"]
+        if training.get("hint"):
+            render["panel"]["instruction"] = training["hint"]
 
     # Special handling for anagram_find teaching phase
     if step["type"] == "anagram_find" and phase["id"] == "teaching":
