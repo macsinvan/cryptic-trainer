@@ -4,7 +4,7 @@ import { ArrowLeft, Trophy, ChevronRight } from 'lucide-react';
 import { PUBLICATIONS } from '../data';
 import { ScannedClue, TrainingItem } from '../types';
 import { TemplateTrainer } from './TemplateTrainer';
-import { getTrainingQueue, trainingClear, User } from '../services/clueManager';
+import { getTrainingQueue, trainingClear, getSettings, User, AdminFilters } from '../services/clueManager';
 
 interface TrainingModeProps {
   onExit: () => void;
@@ -34,11 +34,39 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
         return;
     }
 
-    const items = getTrainingQueue(publicationId);
-    // Filter to only clues with steps (V3 template-based format)
-    const trainableItems = items.filter(item => item.steps);
-    setQueue(trainableItems);
-  }, [publicationId, isCustomMode, customClues]);
+    const loadQueue = async () => {
+      const items = getTrainingQueue(publicationId);
+      // Filter to only clues with steps (V3 template-based format)
+      let trainableItems = items.filter(item => item.steps);
+
+      // If admin, apply admin filters; otherwise show only verified clues
+      if (user?.role === 'admin') {
+        try {
+          const settings = await getSettings();
+          const filters: AdminFilters = settings.adminFilters || {
+            showOnlyUnverified: false,
+            showOnlyWithIssues: false
+          };
+
+          if (filters.showOnlyUnverified) {
+            trainableItems = trainableItems.filter(item => !(item as any).verified);
+          }
+          if (filters.showOnlyWithIssues) {
+            trainableItems = trainableItems.filter(item => !!(item as any).reported_issue);
+          }
+        } catch {
+          // Use unfiltered queue on error
+        }
+      } else {
+        // Regular users only see verified clues
+        trainableItems = trainableItems.filter(item => (item as any).verified === true);
+      }
+
+      setQueue(trainableItems);
+    };
+
+    loadQueue();
+  }, [publicationId, isCustomMode, customClues, user?.role]);
 
   const currentItem = queue[currentIndex];
 
@@ -131,6 +159,8 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
             letterChecking={letterChecking}
             forceSolved={forceSolved}
             user={user}
+            initialVerified={(currentItem as any).verified || false}
+            initialReportedIssue={(currentItem as any).reported_issue || null}
           />
         </div>
       </div>

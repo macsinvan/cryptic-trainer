@@ -292,7 +292,11 @@ This applies to:
     ...
   },
   "settings": {
-    "letterChecking": true
+    "letterChecking": true,
+    "adminFilters": {
+      "showOnlyUnverified": false,
+      "showOnlyWithIssues": false
+    }
   }
 }
 ```
@@ -326,9 +330,29 @@ This applies to:
   "difficulty": {                      // Optional: clue difficulty rating
     "rating": "hard",                  // "easy" | "medium" | "hard"
     "reasoning": "Complex nested structure with obscure medical term"
-  }
+  },
+  "verified": false,                   // Optional: admin verification status
+  "reported_issue": null               // Optional: admin-reported problem description
 }
 ```
+
+### TrainingItem Admin Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `verified` | boolean | false | Admin has verified clue is correct |
+| `reported_issue` | string \| null | null | Description of any problem with the clue |
+
+### Admin Filter Settings
+
+Admin filter settings control which clues appear in TrainingMode:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `showOnlyUnverified` | boolean | false | Filter training queue to unverified clues only |
+| `showOnlyWithIssues` | boolean | false | Filter training queue to clues with reported issues |
+
+These settings are configured in AdminSetup and stored in `settings.adminFilters`.
 
 ### ImportLog Schema
 
@@ -1130,6 +1154,7 @@ curl -X POST localhost:5001/training/continue \
 **Props:**
 - `publicationId` — Which publication's clues to load
 - `onExit` — Called when user exits training
+- `user` — Logged-in user (for admin filtering)
 
 **State:**
 - `queue` — Array of TrainingItems with steps
@@ -1139,9 +1164,12 @@ curl -X POST localhost:5001/training/continue \
 
 **Behavior:**
 1. Loads clues from server, filters to V3 format (has `steps`)
-2. Renders header with progress, score, skip button
-3. Renders TemplateTrainer for current clue
-4. Advances on complete, shows alert when queue exhausted
+2. **If admin**: Loads admin filter settings and applies them:
+   - `showOnlyUnverified`: filters to clues where `verified !== true`
+   - `showOnlyWithIssues`: filters to clues where `reported_issue` is set
+3. Renders header with progress, score, skip button
+4. Renders TemplateTrainer for current clue
+5. Advances on complete, shows alert when queue exhausted
 
 ### TemplateTrainer.tsx
 
@@ -1198,6 +1226,23 @@ curl -X POST localhost:5001/training/continue \
 - Paste fills boxes from clipboard
 - Letter checking compares against `correctAnswer` (strips non-alpha first)
 
+### AdminSetup.tsx
+
+**Purpose:** Admin settings page for configuring training queue filters.
+
+**Props:**
+- `onExit` — Called when user exits to home
+- `username` — Logged-in admin username
+
+**Features:**
+- **Filter: Show only unverified** — Toggle to filter training queue to clues where `verified !== true`
+- **Filter: Show only with issues** — Toggle to filter training queue to clues where `reported_issue` is set
+
+**Behavior:**
+1. Loads current settings on mount (`GET /settings`)
+2. Toggle changes save immediately (`POST /settings`)
+3. TrainingMode respects these filters when loading queue
+
 ### services/clueManager.ts
 
 **Purpose:** API client for server communication.
@@ -1243,6 +1288,7 @@ curl -X POST localhost:5001/training/continue \
 | `components/SolverMode.tsx` | AI-assisted solving |
 | `components/ManualEntryMode.tsx` | Clue entry, puzzle import |
 | `components/DataManager.tsx` | Admin data management |
+| `components/AdminSetup.tsx` | Admin filter settings |
 | `services/clueManager.ts` | API client |
 | `types.ts` | TypeScript type definitions |
 | `data/index.ts` | Publication/setter data |

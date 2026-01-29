@@ -114,15 +114,24 @@ export const updateClueAdmin = async (
 };
 
 // --- Settings Functions ---
+export interface AdminFilters {
+    showOnlyUnverified: boolean;
+    showOnlyWithIssues: boolean;
+}
+
 export interface AppSettings {
     letterChecking: boolean;
+    adminFilters?: AdminFilters;
 }
 
 export const getSettings = async (): Promise<AppSettings> => {
     try {
         return await fetchJson<AppSettings>('/settings');
     } catch {
-        return { letterChecking: true };
+        return {
+            letterChecking: true,
+            adminFilters: { showOnlyUnverified: false, showOnlyWithIssues: false }
+        };
     }
 };
 

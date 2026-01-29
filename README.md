@@ -27,6 +27,16 @@ A training app for learning to solve Times-style cryptic crosswords.
 ### Known Issues
 - None currently
 
+### TODO — Admin Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Login system | ✅ Done | `/auth/login`, credentials: andrew/cryptic |
+| Admin controls in solved view | ✅ Done | Verified checkbox, report issue input |
+| PATCH endpoint for admin fields | ✅ Done | `/clues/<id>/admin` |
+| AdminSetup page | ✅ Done | Filter toggles for unverified/issues |
+| Training queue filtering | ✅ Done | Respects admin filter settings |
+
 ---
 
 ## Architecture

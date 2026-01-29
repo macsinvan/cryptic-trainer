@@ -29,6 +29,8 @@ interface TemplateTrainerProps {
   letterChecking?: boolean;
   forceSolved?: boolean;  // When true, immediately show solved view
   user?: User | null;
+  initialVerified?: boolean;
+  initialReportedIssue?: string | null;
 }
 
 interface Highlight {
@@ -51,7 +53,9 @@ export function TemplateTrainer({
   onBack,
   letterChecking = true,
   forceSolved = false,
-  user
+  user,
+  initialVerified = false,
+  initialReportedIssue = null
 }: TemplateTrainerProps) {
   // Server state (source of truth)
   const [render, setRender] = useState<NewTrainingRender | null>(null);
@@ -70,8 +74,8 @@ export function TemplateTrainer({
   const [difficultyExpanded, setDifficultyExpanded] = useState(false);
 
   // Admin controls state
-  const [verified, setVerified] = useState(false);
-  const [reportedIssue, setReportedIssue] = useState('');
+  const [verified, setVerified] = useState(initialVerified);
+  const [reportedIssue, setReportedIssue] = useState(initialReportedIssue || '');
   const [adminSaving, setAdminSaving] = useState(false);
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const isAdmin = user?.role === 'admin';
@@ -329,8 +333,7 @@ export function TemplateTrainer({
     try {
       const result = await updateClueAdmin(clueId, { reported_issue: reportedIssue.trim() });
       if (result.success) {
-        setAdminMessage('Issue reported');
-        setReportedIssue('');
+        setAdminMessage('Saved');
       } else {
         setAdminMessage(result.error || 'Failed to save');
       }
@@ -479,27 +482,25 @@ export function TemplateTrainer({
             {/* Report issue input */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-600">Report an issue</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={reportedIssue}
-                  onChange={(e) => setReportedIssue(e.target.value)}
-                  placeholder="Describe the issue..."
-                  disabled={adminSaving}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
-                />
-                <button
-                  onClick={handleReportIssue}
-                  disabled={adminSaving || !reportedIssue.trim()}
-                  className={`px-4 py-2 font-medium rounded-lg transition-colors text-sm ${
-                    adminSaving || !reportedIssue.trim()
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}
-                >
-                  Submit
-                </button>
-              </div>
+              <textarea
+                rows={3}
+                value={reportedIssue}
+                onChange={(e) => setReportedIssue(e.target.value)}
+                placeholder="Describe the issue..."
+                disabled={adminSaving}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm resize-none"
+              />
+              <button
+                onClick={handleReportIssue}
+                disabled={adminSaving || !reportedIssue.trim()}
+                className={`px-4 py-2 font-medium rounded-lg transition-colors text-sm ${
+                  adminSaving || !reportedIssue.trim()
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                }`}
+              >
+                Save
+              </button>
             </div>
 
             {/* Status message */}
