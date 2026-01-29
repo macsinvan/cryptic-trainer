@@ -765,7 +765,7 @@ def substitute_variables(text, step, session, clue=None):
             subs["def2"] = definitions[1].get("text", "")
 
     # Direct fields
-    for key in ["position", "result", "fodder", "indicator", "extractionType", "letterCount", "definition", "inner", "outer", "deleteTarget"]:
+    for key in ["position", "result", "fodder", "indicator", "extractionType", "letterCount", "definition", "inner", "outer", "deleteTarget", "text"]:
         if key in step:
             val = step[key]
             # Handle dict with text field
