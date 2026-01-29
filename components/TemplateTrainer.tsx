@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { trainingStart, trainingInput, trainingContinue, trainingClear, trainingLearnings, NewTrainingRender } from '../services/clueManager';
+import { trainingStart, trainingInput, trainingContinue, trainingClear, trainingLearnings, updateClueAdmin, NewTrainingRender, User } from '../services/clueManager';
 import { CrosswordInput } from './CrosswordInput';
 
 // =============================================================================
@@ -28,6 +28,7 @@ interface TemplateTrainerProps {
   onBack?: () => void;
   letterChecking?: boolean;
   forceSolved?: boolean;  // When true, immediately show solved view
+  user?: User | null;
 }
 
 interface Highlight {
@@ -49,7 +50,8 @@ export function TemplateTrainer({
   onComplete,
   onBack,
   letterChecking = true,
-  forceSolved = false
+  forceSolved = false,
+  user
 }: TemplateTrainerProps) {
   // Server state (source of truth)
   const [render, setRender] = useState<NewTrainingRender | null>(null);
@@ -66,6 +68,13 @@ export function TemplateTrainer({
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null);
   const [difficultyExpanded, setDifficultyExpanded] = useState(false);
+
+  // Admin controls state
+  const [verified, setVerified] = useState(false);
+  const [reportedIssue, setReportedIssue] = useState('');
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const isAdmin = user?.role === 'admin';
 
   // Parse enumeration to get letter count (fallback to answer length from server)
   // "(3-4)" → split into ["3", "4"] → sum to 7
@@ -286,6 +295,54 @@ export function TemplateTrainer({
   }, [clueId, onBack]);
 
   // ---------------------------------------------------------------------------
+  // Handle admin verified checkbox
+  // ---------------------------------------------------------------------------
+  const handleVerifiedChange = useCallback(async (newValue: boolean) => {
+    setVerified(newValue);
+    setAdminSaving(true);
+    setAdminMessage(null);
+    try {
+      const result = await updateClueAdmin(clueId, { verified: newValue });
+      if (result.success) {
+        setAdminMessage(newValue ? 'Marked as verified' : 'Verification removed');
+      } else {
+        setAdminMessage(result.error || 'Failed to save');
+        setVerified(!newValue); // Revert on failure
+      }
+    } catch {
+      setAdminMessage('Failed to save');
+      setVerified(!newValue);
+    } finally {
+      setAdminSaving(false);
+      // Clear message after 2 seconds
+      setTimeout(() => setAdminMessage(null), 2000);
+    }
+  }, [clueId]);
+
+  // ---------------------------------------------------------------------------
+  // Handle admin report issue submit
+  // ---------------------------------------------------------------------------
+  const handleReportIssue = useCallback(async () => {
+    if (!reportedIssue.trim()) return;
+    setAdminSaving(true);
+    setAdminMessage(null);
+    try {
+      const result = await updateClueAdmin(clueId, { reported_issue: reportedIssue.trim() });
+      if (result.success) {
+        setAdminMessage('Issue reported');
+        setReportedIssue('');
+      } else {
+        setAdminMessage(result.error || 'Failed to save');
+      }
+    } catch {
+      setAdminMessage('Failed to save');
+    } finally {
+      setAdminSaving(false);
+      setTimeout(() => setAdminMessage(null), 2000);
+    }
+  }, [clueId, reportedIssue]);
+
+  // ---------------------------------------------------------------------------
   // Get word highlight color
   // ---------------------------------------------------------------------------
   const getWordColor = (index: number): string | null => {
@@ -398,6 +455,59 @@ export function TemplateTrainer({
             )}
           </div>
         </div>
+
+        {/* ===== ADMIN CONTROLS (only for admin users) ===== */}
+        {isAdmin && (
+          <div className="bg-slate-100 border-x p-4 space-y-4">
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Admin Controls</h3>
+
+            {/* Verified checkbox */}
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={verified}
+                  onChange={(e) => handleVerifiedChange(e.target.checked)}
+                  disabled={adminSaving}
+                  className="w-5 h-5 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                />
+                <span className="font-medium text-slate-700">Verified</span>
+              </label>
+              {adminSaving && <span className="text-slate-400 text-sm">Saving...</span>}
+            </div>
+
+            {/* Report issue input */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-600">Report an issue</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={reportedIssue}
+                  onChange={(e) => setReportedIssue(e.target.value)}
+                  placeholder="Describe the issue..."
+                  disabled={adminSaving}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
+                />
+                <button
+                  onClick={handleReportIssue}
+                  disabled={adminSaving || !reportedIssue.trim()}
+                  className={`px-4 py-2 font-medium rounded-lg transition-colors text-sm ${
+                    adminSaving || !reportedIssue.trim()
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+
+            {/* Status message */}
+            {adminMessage && (
+              <p className="text-sm text-indigo-600 font-medium">{adminMessage}</p>
+            )}
+          </div>
+        )}
 
         {/* ===== NEXT BUTTON ===== */}
         <div className="bg-green-50 border border-green-300 rounded-b-xl p-4 flex items-center justify-between">

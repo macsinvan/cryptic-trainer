@@ -64,6 +64,55 @@ export const getParserIssueCount = async (): Promise<number> => {
     return issues.length;
 };
 
+// --- Auth Functions ---
+export interface User {
+    username: string;
+    role: 'admin' | 'guest';
+}
+
+export interface LoginResponse {
+    success: boolean;
+    user?: User;
+    error?: string;
+}
+
+export const login = async (username: string, password: string): Promise<LoginResponse> => {
+    try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        return response.json();
+    } catch {
+        return { success: false, error: 'Connection failed' };
+    }
+};
+
+// --- Admin Functions ---
+export interface UpdateClueAdminResponse {
+    success: boolean;
+    verified?: boolean;
+    reported_issue?: string | null;
+    error?: string;
+}
+
+export const updateClueAdmin = async (
+    clueId: string,
+    data: { verified?: boolean; reported_issue?: string | null }
+): Promise<UpdateClueAdminResponse> => {
+    try {
+        const response = await fetch(`${API_BASE}/clues/${encodeURIComponent(clueId)}/admin`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return response.json();
+    } catch {
+        return { success: false, error: 'Connection failed' };
+    }
+};
+
 // --- Settings Functions ---
 export interface AppSettings {
     letterChecking: boolean;

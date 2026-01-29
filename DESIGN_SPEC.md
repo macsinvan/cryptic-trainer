@@ -1,6 +1,6 @@
 # Cryptic Trainer — Design Specification
 
-*Last updated: 2026-01-28*
+*Last updated: 2026-01-29*
 
 ---
 
@@ -912,6 +912,78 @@ Steps can include a `training.hint` field to override the template's panel instr
 
 ## Server API
 
+### Authentication
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/auth/login` | POST | Authenticate user |
+
+**Credentials:**
+- Username: `andrew`
+- Password: `cryptic`
+- Role: `admin`
+
+**Request:**
+```json
+{
+  "username": "andrew",
+  "password": "cryptic"
+}
+```
+
+**Response (success):**
+```json
+{
+  "success": true,
+  "user": {
+    "username": "andrew",
+    "role": "admin"
+  }
+}
+```
+
+**Response (failure):**
+```json
+{
+  "success": false,
+  "error": "Invalid credentials"
+}
+```
+
+### Admin Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clues/<id>/admin` | PATCH | Update admin fields on a clue |
+
+**Request:**
+```json
+{
+  "verified": true,
+  "reported_issue": "Definition seems incorrect"
+}
+```
+
+Both fields are optional. `verified` is a boolean, `reported_issue` is a string (or null to clear).
+
+**Response:**
+```json
+{
+  "success": true,
+  "verified": true,
+  "reported_issue": "Definition seems incorrect"
+}
+```
+
+**TrainingItem Admin Fields:**
+
+These fields are stored on training items for admin review:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `verified` | boolean | Admin has verified clue is correct |
+| `reported_issue` | string \| null | Description of any issue with the clue |
+
 ### Clue Storage
 
 | Endpoint | Method | Purpose |
@@ -1028,13 +1100,15 @@ curl -X POST localhost:5001/training/continue \
 
 ### App.tsx
 
-**Purpose:** Main application shell, routing, view state management.
+**Purpose:** Main application shell, routing, view state management, user authentication.
 
 **State:**
 - `viewState` — Current screen (HOME, PUBLICATION, TRAINING, SOLVER, MANUAL_ENTRY)
 - `isDbReady` — Database initialization complete
 - `isAdminUnlocked` — Admin mode enabled (password: `dojoMaster`)
 - `showDataManager` — DataManager modal visible
+- `user` — Logged-in user object (`{ username, role }`) or null
+- `showLoginModal` — Login modal visible
 
 **Renders:**
 - Home screen with publication tiles
@@ -1042,6 +1116,12 @@ curl -X POST localhost:5001/training/continue \
 - TrainingMode, SolverMode, ManualEntryMode based on viewState
 - DataManager modal
 - Password modal for admin access
+- Login modal for user authentication
+
+**User Authentication:**
+- Login button in header opens login modal
+- On successful login, `user` state is set and passed to child components
+- Admin users (role: `admin`) see admin controls in training views
 
 ### TrainingMode.tsx
 
@@ -1077,6 +1157,7 @@ curl -X POST localhost:5001/training/continue \
 - `onBack` — Called when user exits
 - `forceSolved` — When true, immediately shows solved view with all learnings
 - `letterChecking` — Enable green/red letter feedback (default: true)
+- `user` — Logged-in user object (enables admin controls if role is `admin`)
 
 **State:**
 - `render` — Server response (source of truth)
@@ -1091,6 +1172,11 @@ curl -X POST localhost:5001/training/continue \
 - `trainingContinue(clueId)` — On continue button
 - `trainingLearnings(clueId)` — When forceSolved or early answer solve
 - `trainingClear(clueId)` — On exit (allows fresh start next time)
+- `updateClueAdmin(clueId, data)` — When admin updates verified/reported_issue
+
+**Admin Controls (solved view only, admin users):**
+- **Verified checkbox** — Mark clue as verified correct
+- **Report issue input** — Submit description of any problem with the clue
 
 ### CrosswordInput.tsx
 
@@ -1116,6 +1202,11 @@ curl -X POST localhost:5001/training/continue \
 
 **Purpose:** API client for server communication.
 
+**Types:**
+- `User` — `{ username: string, role: 'admin' | 'guest' }`
+- `LoginResponse` — `{ success: boolean, user?: User, error?: string }`
+- `UpdateClueAdminResponse` — `{ success: boolean, verified?: boolean, reported_issue?: string | null, error?: string }`
+
 **Functions:**
 - `initializeClues()` — Load initial clue data
 - `getTrainingQueue(publicationId)` — Get clues for training
@@ -1125,6 +1216,8 @@ curl -X POST localhost:5001/training/continue \
 - `trainingContinue(clueId)` — Continue through teaching
 - `trainingLearnings(clueId)` — Get all learnings for a clue (early solve)
 - `trainingClear(clueId)` — Clear session on exit
+- `login(username, password)` — Authenticate user, returns `LoginResponse`
+- `updateClueAdmin(clueId, data)` — Update admin fields (verified, reported_issue)
 
 ---
 

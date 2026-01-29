@@ -232,7 +232,8 @@ export type ViewState =
   | { type: 'SETTER'; publicationId: string; setterId: string }
   | { type: 'TRAINING'; publicationId: string; customClues?: ScannedClue[]; initialIndex?: number }
   | { type: 'SOLVER'; publicationId: string }
-  | { type: 'MANUAL_ENTRY'; publicationId: string };
+  | { type: 'MANUAL_ENTRY'; publicationId: string }
+  | { type: 'ADMIN_SETUP' };
 
 // ========== SERVER-DRIVEN RENDER INSTRUCTIONS ==========
 

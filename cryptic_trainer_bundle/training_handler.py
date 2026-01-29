@@ -193,7 +193,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Complete training",
                 "panel": {
                     "title": "SOLVED: {result}",
-                    "instruction": "{fodder} rearranges to form {result} = '{definition}'"
+                    "instruction": "'{indicator}' tells us to rearrange {fodder} → {result} = '{definition}'"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -569,6 +569,76 @@ STEP_TEMPLATES = {
                 "button": {"label": "Continue →", "action": "next_step"}
             }
         ]
+    },
+
+    "connector": {
+        "phases": [
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "intro": {
+                    "title": "Connector Word",
+                    "text": "Some words in a clue are structural connectors — they link parts together but don't contribute letters to the answer."
+                },
+                "panel": {
+                    "title": "CONNECTOR: {text}",
+                    "instruction": "'{text}' is a connector word — it links the wordplay components but doesn't add any letters to the answer."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "literal": {
+        "phases": [
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the literal letter",
+                "intro": {
+                    "title": "Literal Letter",
+                    "text": "Sometimes a letter in the clue represents itself literally — it's used directly in the answer.",
+                    "example": '"A" means the letter A, not "one" or another interpretation'
+                },
+                "panel": {
+                    "title": "FIND LITERAL",
+                    "instruction": "Tap the letter that appears literally in the answer."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "PURPLE", "role": "literal"}},
+                "onWrong": {"message": "Look for a letter used directly"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "LITERAL: {result}",
+                    "instruction": "'{text}' is used literally — it contributes the letter(s) {result} directly to the answer."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "cryptic_definition": {
+        "phases": [
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to solve",
+                "intro": {
+                    "title": "Cryptic Definition",
+                    "text": "This entire clue is a cryptic definition — a whimsical or punning description of the answer with no standard wordplay.",
+                    "example": "The whole clue describes the answer in a playful, misleading way"
+                },
+                "panel": {
+                    "title": "CRYPTIC DEFINITION",
+                    "instruction": "{explanation}"
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
     }
 }
 
@@ -591,6 +661,9 @@ STEP_TO_CLUE_TYPE = {
     "hidden": "standard",
     "homophone": "standard",
     "reversal": "standard",
+    "connector": "standard",
+    "literal": "standard",
+    "cryptic_definition": "cryptic_definition",
 }
 
 CLUE_TYPE_OPTIONS = [
@@ -806,6 +879,12 @@ def get_render(clue_id, clue):
         if training.get("hint"):
             render["panel"]["instruction"] = training["hint"]
 
+    # Special handling for standard_definition teaching phase - use training.hint if available
+    if step["type"] == "standard_definition" and phase["id"] == "teaching":
+        training = step.get("training", {})
+        if training.get("hint"):
+            render["panel"]["instruction"] = training["hint"]
+
     # Special handling for anagram_find teaching phase
     if step["type"] == "anagram_find" and phase["id"] == "teaching":
         letter_count = step.get("letterCount", 0)
@@ -975,6 +1054,10 @@ def handle_continue(clue_id, clue):
             def2_text = definitions[1]["text"] if len(definitions) > 1 else ""
             result = step.get("result", "")
             learning_text = f"Both '{def1_text}' and '{def2_text}' define {result}. No wordplay needed — just two meanings!"
+        elif step["type"] == "standard_definition":
+            training = step.get("training", {})
+            if training.get("hint"):
+                learning_text = training["hint"]
 
         if learning_text:
             learning_title = substitute_variables(phase["panel"].get("title", ""), step, session, clue)
@@ -993,7 +1076,8 @@ def handle_continue(clue_id, clue):
 
 def get_all_learnings(clue):
     """Generate all learnings for a clue (used when user solves early)."""
-    learnings = []
+    definition_learnings = []
+    other_learnings = []
     steps = clue.get("steps", [])
 
     for step in steps:
@@ -1020,13 +1104,23 @@ def get_all_learnings(clue):
                     def2_text = definitions[1]["text"] if len(definitions) > 1 else ""
                     result = step.get("result", "")
                     learning_text = f"Both '{def1_text}' and '{def2_text}' define {result}. No wordplay needed — just two meanings!"
+                elif step["type"] == "standard_definition":
+                    training = step.get("training", {})
+                    if training.get("hint"):
+                        learning_text = training["hint"]
 
                 if learning_text:
                     learning_title = substitute_variables(phase["panel"].get("title", ""), step, {}, clue)
-                    learnings.append({
+                    learning = {
                         "title": learning_title,
                         "text": learning_text
-                    })
+                    }
+                    # Definition steps go first
+                    if step["type"] in ("standard_definition", "double_definition"):
+                        definition_learnings.append(learning)
+                    else:
+                        other_learnings.append(learning)
                 break  # Only one teaching phase per step
 
-    return learnings
+    # Definition learnings first, then others
+    return definition_learnings + other_learnings

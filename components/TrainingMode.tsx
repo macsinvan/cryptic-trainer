@@ -4,7 +4,7 @@ import { ArrowLeft, Trophy, ChevronRight } from 'lucide-react';
 import { PUBLICATIONS } from '../data';
 import { ScannedClue, TrainingItem } from '../types';
 import { TemplateTrainer } from './TemplateTrainer';
-import { getTrainingQueue, trainingClear } from '../services/clueManager';
+import { getTrainingQueue, trainingClear, User } from '../services/clueManager';
 
 interface TrainingModeProps {
   onExit: () => void;
@@ -13,14 +13,16 @@ interface TrainingModeProps {
   initialIndex?: number;
   onProgress?: (idx: number) => void;
   letterChecking?: boolean;
+  user?: User | null;
 }
 
-export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationId, customClues, initialIndex = 0, onProgress, letterChecking = true }) => {
+export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationId, customClues, initialIndex = 0, onProgress, letterChecking = true, user }) => {
   const [queue, setQueue] = useState<TrainingItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
-  
+  const [forceSolved, setForceSolved] = useState(false);
+
   const isCustomMode = !!customClues && customClues.length > 0;
 
   // Initialize Training Queue
@@ -41,6 +43,7 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
   const currentItem = queue[currentIndex];
 
   const nextClue = () => {
+    setForceSolved(false);  // Reset for next clue
     if (currentIndex < queue.length - 1) {
       const nextIdx = currentIndex + 1;
       setCurrentIndex(nextIdx);
@@ -53,6 +56,10 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
   const skipClue = () => {
       setStreak(0);
       nextClue();
+  };
+
+  const solveClue = () => {
+      setForceSolved(true);
   };
 
   // Handle exit - clear current session so it starts fresh next time
@@ -97,6 +104,12 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
               {score}
             </div>
             <button
+              onClick={solveClue}
+              className="flex items-center gap-0.5 text-xs font-bold text-green-600 hover:text-green-800"
+            >
+              Solve
+            </button>
+            <button
               onClick={skipClue}
               className="flex items-center gap-0.5 text-xs font-bold text-slate-400 hover:text-slate-600"
             >
@@ -116,6 +129,8 @@ export const TrainingMode: React.FC<TrainingModeProps> = ({ onExit, publicationI
             onComplete={nextClue}
             onBack={onExit}
             letterChecking={letterChecking}
+            forceSolved={forceSolved}
+            user={user}
           />
         </div>
       </div>

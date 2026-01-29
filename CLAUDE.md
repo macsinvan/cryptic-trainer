@@ -1,158 +1,23 @@
-# Claude Code Rules for Cryptic Trainer
+# Cryptic Trainer
 
-**READ THIS FILE AT THE START OF EVERY SESSION**
-
----
-
-## INTERACTIVE PROTOCOL
-
-This is the mandatory workflow for every interaction. No exceptions.
-
-### Step 1: Summarize Understanding
-
-Before doing anything, summarize your understanding of the user's input in plain English.
-
-### Step 2: Analyze & Plan
-
-| If Bug | If Feature |
-|--------|------------|
-| Find the root cause | Explain your plan |
-| Plain English summary | Plain English summary |
-
-### Step 3: Permissions
-
-| Action | Permission |
-|--------|------------|
-| Read files | ✅ No permission needed |
-| Search codebase | ✅ No permission needed |
-| Run tests | ✅ No permission needed |
-| **Edit any file** | ❌ **MUST ASK FIRST** |
-
-**NO PERMISSION OR "GO" REQUIRED FOR ANY READ OPERATION.** You may freely read files, search the codebase, and run tests at any time without asking. Just do it.
-
-### Step 4: Ask for Go
-
-Before editing ANY file, you MUST:
-
-1. Provide a plain English summary of what you will change
-2. Ask: **"Want me to go ahead?"** (or similar)
-3. **WAIT** for user approval - do NOT proceed until user says "GO"
-
-### CRITICAL: Pause at Each Step
-
-- **STOP after Step 1** (summarize understanding) and wait for user confirmation
-- **STOP after Step 2** (analyze/plan) and wait for user confirmation
-- **STOP after Step 4** (ask for go) and wait for "GO"
-- Never chain multiple steps together without user check-in
-
----
-
-## WHAT NOT TO DO
-
-- Do not edit first and explain later
-- Do not make multiple file edits without checking in
-- Do not assume approval from previous session
-- Do not skip the summary step
-- **NO HALLUCINATION** - If you lack evidence, say "I don't know"
-- **NO REWORKING/REFACTORING** - Only change what user explicitly tells you. Do not rework, do not refactor unless explicitly asked.
-- **DO NOT COMPENSATE FOR BAD METADATA** - If issues are due to bad metadata in puzzle files, point this out instead of working around it.
-
----
-
-## COMPLETION VERIFICATION
-
-- Do NOT self-report "done" without verification
-- Run tests to prove completion
-- Define success criteria BEFORE starting
-
-**Binary done check:** Can you run a test that proves the task is complete? YES/NO
-
----
-
-## KEY PRINCIPLES
-
-1. **Teaching Tone**: This is a teaching app. Everything the user sees should be educational and instructive.
-
-2. **Server Restart Required**: The Python server must be restarted after every Python code change.
-
----
-
-## ARCHITECTURE
-
-The system has two components that must BOTH be running:
-
-| Component | Location | Port | Start Command |
-|-----------|----------|------|---------------|
-| Python Backend | `cryptic_trainer_bundle/` | 5001 | `python3 server.py` |
-| React UI | Root directory | 3000 | `npm run dev` |
-
-**Golden Rule:** The solver derives answers using lexicon lookups and positional logic — no AI guessing.
-
-### Quick Start (two terminals)
+IMPORTANT: After editing any `.py` file, YOU MUST restart the server:
 ```bash
-# Terminal 1: Python backend
-cd cryptic_trainer_bundle && python3 server.py
-
-# Terminal 2: React UI (from project root)
-npm run dev
+pkill -f "python3 server.py" 2>/dev/null; sleep 1; cd /Users/andrewmackenzie/Desktop/cryptic-trainer/cryptic_trainer_bundle && python3 server.py &
 ```
 
-### Data Storage
-- Clues stored in `cryptic_trainer_bundle/clues_db.json` (server-side, not browser)
-- Each clue has `puzzleNumber`, `publication`, `setter` metadata
-- Solved puzzle files for import: `/Users/andrewmackenzie/Desktop/Times_Puzzle_Import/solved/`
+IMPORTANT: Ask before editing files. Summarize changes, then wait for "GO".
 
----
+IMPORTANT: Do not refactor or rework code unless explicitly asked.
 
-## DESIGN DOCUMENTATION
+IMPORTANT: If bad metadata causes issues, say so instead of working around it.
 
-| Document | Purpose |
-|----------|---------|
-| `DESIGN_SPEC.md` | Complete system design (architecture, schema, training flow) |
+## Architecture
 
----
+- Python backend: `cryptic_trainer_bundle/` on port 5001
+- React UI: root directory on port 3000
+- Clues DB: `cryptic_trainer_bundle/clues_db.json`
+- Import folder: `/Users/andrewmackenzie/Desktop/Times_Puzzle_Import/solved/`
 
-## CORE DESIGN PRINCIPLE: NO CLUE IS LOGICALLY HARD
+## Key Files
 
-**CRITICAL**: If you find yourself analyzing hundreds of combinations, EXIT IMMEDIATELY.
-
-Cryptic clues are solved by pattern recognition and positional logic, not brute force.
-
-### Key Insight: Positional Information
-
-Indicators tell you the RELATIONSHIP between adjacent words:
-- `[word] conceals` → word BEFORE indicator is the outer container
-- `conceals [word]` → word AFTER indicator is the inner content
-- Fodder is ALWAYS adjacent to its indicator
-
-### When Stuck
-
-1. STOP trying combinations
-2. Ask: "What does the indicator tell me about word positions?"
-3. Use that to constrain the search to 1-3 possibilities max
-4. If still stuck, ask the user
-
----
-
-## DEBUGGING THE SOLVER
-
-### Test a clue directly:
-
-```bash
-cd cryptic_trainer_bundle
-python3 cryptic_trainer.py solve --clue "Clue text here" --length 8 --pretty
-```
-
-### Test against scraped puzzles:
-
-```bash
-python3 puzzle_tester.py puzzle.json --stop-on-fail
-```
-
-### Training workflow:
-
-See `DESIGN_SPEC.md` for the full training flow and metadata schema.
-
----
-
-*Last updated: 2026-01-24*
+- @DESIGN_SPEC.md — Full system design and schema

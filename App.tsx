@@ -7,7 +7,8 @@ import { TrainingMode } from './components/TrainingMode';
 import { SolverMode } from './components/SolverMode';
 import { ManualEntryMode } from './components/ManualEntryMode';
 import { DataManager } from './components/DataManager';
-import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus, getSettings, saveSettings } from './services/clueManager';
+import { AdminSetup } from './components/AdminSetup';
+import { getClueCount, getSetterClueCount, initializeClues, subscribeToClues, getCloudConnectionStatus, getSettings, saveSettings, login, User as AuthUser } from './services/clueManager';
 
 const EXTERNAL_BLOGGERS = [
   {
@@ -56,6 +57,13 @@ export default function App() {
   const [passError, setPassError] = useState(false);
   const [letterChecking, setLetterChecking] = useState(true);
 
+  // Auth state
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   useEffect(() => {
     const init = async () => {
         await initializeClues();
@@ -102,6 +110,27 @@ export default function App() {
           setPassError(true);
           setPassInput('');
       }
+  };
+
+  const handleLogin = async (e?: React.FormEvent) => {
+      e?.preventDefault();
+      setLoginError('');
+      const result = await login(loginUsername, loginPassword);
+      if (result.success && result.user) {
+          setUser(result.user);
+          setShowLoginModal(false);
+          setLoginUsername('');
+          setLoginPassword('');
+          // Navigate to admin setup after login
+          setViewState({ type: 'ADMIN_SETUP' });
+      } else {
+          setLoginError(result.error || 'Login failed');
+      }
+  };
+
+  const handleLogout = () => {
+      setUser(null);
+      setViewState({ type: 'HOME' });
   };
 
   const handleDownloadSchema = () => {
@@ -213,14 +242,48 @@ export default function App() {
 
   const renderHome = () => (
     <div className="max-w-4xl mx-auto px-4 py-8 relative">
-      <div className="absolute top-4 right-4">
-         <button 
+      <div className="absolute top-4 right-4 flex gap-2">
+         {/* Login/User button */}
+         {user ? (
+           <div className="flex items-center gap-2">
+             <button
+               onClick={() => setViewState({ type: 'ADMIN_SETUP' })}
+               className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg shadow-sm transition-colors text-sm font-medium hover:bg-indigo-700"
+             >
+               <Settings size={16} />
+               Admin
+             </button>
+             <button
+               onClick={handleLogout}
+               className="flex items-center gap-2 px-3 py-2 bg-white text-slate-500 hover:text-red-600 rounded-lg shadow-sm border border-slate-200 transition-colors text-sm font-medium"
+             >
+               <User size={16} />
+               {user.username}
+             </button>
+           </div>
+         ) : (
+           <button
+             onClick={() => {
+               setShowLoginModal(true);
+               setLoginError('');
+               setLoginUsername('');
+               setLoginPassword('');
+             }}
+             className="flex items-center gap-2 px-3 py-2 bg-white text-slate-500 hover:text-indigo-600 rounded-lg shadow-sm border border-slate-200 transition-colors text-sm font-medium"
+           >
+             <User size={16} />
+             Login
+           </button>
+         )}
+
+         {/* Database button */}
+         <button
            onClick={handleOpenDatabase}
            className="flex items-center gap-2 px-3 py-2 bg-white text-slate-500 hover:text-indigo-600 rounded-lg shadow-sm border border-slate-200 transition-colors text-sm font-medium relative group"
          >
             {isAdminUnlocked ? <Database size={16} /> : <Lock size={16} className="text-slate-300 group-hover:text-indigo-400" />}
             {isAdminUnlocked ? 'Database' : 'Owner Area'}
-            
+
             {/* Status light is always visible regardless of lock state */}
             {cloudStatus === 'connected' && <span className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white -mt-1 -mr-1"></span>}
             {cloudStatus === 'disconnected' && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white -mt-1 -mr-1"></span>}
@@ -371,6 +434,7 @@ export default function App() {
             initialIndex={viewState.initialIndex}
             onExit={() => setViewState({ type: 'PUBLICATION', publicationId: viewState.publicationId })}
             letterChecking={letterChecking}
+            user={user}
          />
       )}
       
@@ -390,6 +454,13 @@ export default function App() {
          />
       )}
 
+      {viewState.type === 'ADMIN_SETUP' && user && (
+         <AdminSetup
+            onExit={() => setViewState({ type: 'HOME' })}
+            username={user.username}
+         />
+      )}
+
       {showDataManager && (
          <DataManager onClose={() => setShowDataManager(false)} />
       )}
@@ -404,9 +475,9 @@ export default function App() {
               </div>
               <h3 className="text-xl font-bold text-center mb-2">Owner Access</h3>
               <p className="text-slate-500 text-center text-sm mb-6">Enter the master key to access the database.</p>
-              
-              <input 
-                 type="password" 
+
+              <input
+                 type="password"
                  autoFocus
                  value={passInput}
                  onChange={(e) => setPassInput(e.target.value)}
@@ -414,10 +485,46 @@ export default function App() {
                  placeholder="Password..."
               />
               {passError && <p className="text-red-500 text-xs font-bold mb-4 text-center">Incorrect password.</p>}
-              
+
               <div className="flex gap-3">
                  <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
                  <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">Unlock</button>
+              </div>
+           </form>
+        </div>
+      )}
+
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+           <form onSubmit={handleLogin} className="bg-white rounded-xl p-8 max-w-sm w-full shadow-2xl">
+              <div className="flex justify-center mb-6">
+                 <div className="bg-indigo-100 p-3 rounded-full text-indigo-600">
+                    <User size={24} />
+                 </div>
+              </div>
+              <h3 className="text-xl font-bold text-center mb-2">Login</h3>
+              <p className="text-slate-500 text-center text-sm mb-6">Sign in to access admin features.</p>
+
+              <input
+                 type="text"
+                 autoFocus
+                 value={loginUsername}
+                 onChange={(e) => setLoginUsername(e.target.value)}
+                 className="w-full border border-slate-300 rounded-lg px-4 py-3 mb-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                 placeholder="Username"
+              />
+              <input
+                 type="password"
+                 value={loginPassword}
+                 onChange={(e) => setLoginPassword(e.target.value)}
+                 className="w-full border border-slate-300 rounded-lg px-4 py-3 mb-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                 placeholder="Password"
+              />
+              {loginError && <p className="text-red-500 text-xs font-bold mb-4 text-center">{loginError}</p>}
+
+              <div className="flex gap-3">
+                 <button type="button" onClick={() => setShowLoginModal(false)} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
+                 <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">Login</button>
               </div>
            </form>
         </div>

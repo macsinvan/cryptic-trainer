@@ -31,6 +31,11 @@ if _script_dir not in sys.path:
 from cryptic_trainer import solve
 import training_handler
 
+# --- User Authentication ---
+USERS = {
+    "andrew": {"password": "cryptic", "role": "admin"}
+}
+
 # --- Clue Storage ---
 DB_FILE = os.path.join(_script_dir, 'clues_db.json')
 _db_lock = threading.Lock()
@@ -59,7 +64,7 @@ class SolverHandler(BaseHTTPRequestHandler):
         """Handle CORS preflight."""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, PATCH, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
@@ -85,6 +90,17 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._handle_get_import_logs()
         elif self.path == '/settings':
             self._handle_get_settings()
+        else:
+            self.send_error(404)
+
+    def do_PATCH(self):
+        """Handle PATCH requests."""
+        path = self.path.split('?')[0]
+
+        # PATCH /clues/<id>/admin - Update admin fields (verified, reported_issue)
+        if path.startswith('/clues/') and path.endswith('/admin'):
+            clue_id = path[7:-6]  # Remove '/clues/' prefix and '/admin' suffix
+            self._handle_update_clue_admin(clue_id)
         else:
             self.send_error(404)
 
@@ -142,6 +158,8 @@ class SolverHandler(BaseHTTPRequestHandler):
             self._handle_training_learnings()
         elif self.path == '/settings':
             self._handle_save_settings()
+        elif self.path == '/auth/login':
+            self._handle_login()
         else:
             self.send_error(404)
 
@@ -436,6 +454,58 @@ class SolverHandler(BaseHTTPRequestHandler):
             _save_db(db)
 
             self._send_json({'success': True, 'settings': db['settings']})
+        except Exception as e:
+            self._send_json({'success': False, 'error': str(e)}, 500)
+
+    def _handle_login(self):
+        """Handle user login."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            username = data.get('username', '').strip().lower()
+            password = data.get('password', '')
+
+            user = USERS.get(username)
+            if user and user['password'] == password:
+                self._send_json({
+                    'success': True,
+                    'user': {'username': username, 'role': user['role']}
+                })
+            else:
+                self._send_json({'success': False, 'error': 'Invalid credentials'}, 401)
+        except Exception as e:
+            self._send_json({'success': False, 'error': str(e)}, 500)
+
+    def _handle_update_clue_admin(self, clue_id):
+        """Update admin fields (verified, reported_issue) on a clue."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+
+            db = _load_db()
+            if clue_id not in db.get('training_items', {}):
+                self._send_json({'success': False, 'error': 'Clue not found'}, 404)
+                return
+
+            item = db['training_items'][clue_id]
+
+            # Update admin fields
+            if 'verified' in data:
+                item['verified'] = bool(data['verified'])
+            if 'reported_issue' in data:
+                item['reported_issue'] = data['reported_issue'] if data['reported_issue'] else None
+
+            db['training_items'][clue_id] = item
+            _save_db(db)
+
+            self._send_json({
+                'success': True,
+                'verified': item.get('verified', False),
+                'reported_issue': item.get('reported_issue')
+            })
         except Exception as e:
             self._send_json({'success': False, 'error': str(e)}, 500)
 
