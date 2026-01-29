@@ -14,6 +14,8 @@ A training app for learning to solve Times-style cryptic crosswords.
 - **Letter checking**: Green/red feedback as you type the answer (configurable via Settings)
 - **Progress tracking**: Collapsed learnings show what you've discovered in previous steps
 - **Improved header**: Shows publication name, puzzle number, and clue number (e.g., "The Times 2025, clue 1A")
+- **Admin system**: Login, clue verification, issue reporting, queue filtering
+- **User filtering**: Regular users only see verified clues; admins can filter by unverified/issues
 
 ### Architecture
 
@@ -26,16 +28,6 @@ A training app for learning to solve Times-style cryptic crosswords.
 
 ### Known Issues
 - None currently
-
-### TODO — Admin Features
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Login system | ✅ Done | `/auth/login`, credentials: andrew/cryptic |
-| Admin controls in solved view | ✅ Done | Verified checkbox, report issue input |
-| PATCH endpoint for admin fields | ✅ Done | `/clues/<id>/admin` |
-| AdminSetup page | ✅ Done | Filter toggles for unverified/issues |
-| Training queue filtering | ✅ Done | Respects admin filter settings |
 
 ---
 
@@ -118,6 +110,7 @@ Open http://localhost:3000
 ### React UI (root directory)
 - `components/TemplateTrainer.tsx` — Server-driven training with fixed 3-section layout + solved view
 - `components/TrainingMode.tsx` — Training session wrapper with queue management
+- `components/AdminSetup.tsx` — Admin filter settings page
 - `vite.config.ts` — Dev server config with API proxy rules
 
 ### Python Backend (`cryptic_trainer_bundle/`)
@@ -125,6 +118,7 @@ Open http://localhost:3000
 - `training_handler.py` — Step templates + handler (~100 lines)
 - `cryptic_trainer.py` — Core solver logic
 - `clues_db.json` — Clue storage (auto-created)
+- `find_issues.py` — Utility to find clues with reported issues
 
 ## Testing
 
