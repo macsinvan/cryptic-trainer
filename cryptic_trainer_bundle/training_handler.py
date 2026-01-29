@@ -613,7 +613,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "LITERAL: {result}",
-                    "instruction": "'{text}' is used literally — it contributes the letter(s) {result} directly to the answer."
+                    "instruction": "'{fodder}' is used literally — it contributes the letter(s) {result} directly to the answer."
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -881,6 +881,12 @@ def get_render(clue_id, clue):
 
     # Special handling for standard_definition teaching phase - use training.hint if available
     if step["type"] == "standard_definition" and phase["id"] == "teaching":
+        training = step.get("training", {})
+        if training.get("hint"):
+            render["panel"]["instruction"] = training["hint"]
+
+    # Special handling for charade teaching phase - use training.hint if available
+    if step["type"] == "charade" and phase["id"] == "teaching":
         training = step.get("training", {})
         if training.get("hint"):
             render["panel"]["instruction"] = training["hint"]
