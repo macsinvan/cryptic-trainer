@@ -1,6 +1,6 @@
 # Cryptic Trainer — Design Specification
 
-*Last updated: 2026-01-29*
+*Last updated: 2026-01-30*
 
 ---
 
@@ -87,6 +87,88 @@ The solver derives answers using:
 - Machine-checkable proof traces
 
 **Golden Rule:** The solver produces traceable proofs, not AI-generated narratives.
+
+### 5. Hypothesis-Driven Solving (How Real Solvers Think)
+
+**Critical insight:** Our step breakdowns are reverse-engineered from known answers. Real solvers approach clues cold using a fundamentally different mental model.
+
+#### Research Sources
+
+- **Cracking the Cryptic** (YouTube masterclass series) — Expert solver walkthroughs
+- **"A Reasoning-Based Approach to Cryptic Crossword Clue Solving"** (arXiv:2506.04824)
+- **Crossword Unclued** — 7-step solving methodology
+
+#### How Expert Solvers Actually Think
+
+1. **Definition-first hypothesis** — Scan start/end for definition, generate candidate answers
+2. **Indicator recognition** — Spot recipe words (anagram, container, reversal indicators)
+3. **Candidate generation** — "Could this be IMPASSE? Let me check..."
+4. **Bi-directional verification** — Confirm answer works via BOTH definition AND wordplay
+5. **Crossing letters as constraints** — Use grid to narrow possibilities
+
+```
+Real Solving:     Definition → Hypothesis → Verify Wordplay → Confirm
+Our Steps:        Wordplay Part 1 → Part 2 → Part 3 → Answer
+```
+
+#### The "Two-Path" Verification Model
+
+Expert solvers achieve confidence when the same answer emerges from two independent routes:
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│   DEFINITION    │         │    WORDPLAY     │
+│  "blocking      │         │  IMPE around    │
+│   state" = ?    │         │  ASS = ?        │
+└────────┬────────┘         └────────┬────────┘
+         │                           │
+         ▼                           ▼
+    ┌─────────┐                ┌─────────┐
+    │ IMPASSE │◄───Confirm────►│ IMPASSE │
+    └─────────┘                └─────────┘
+```
+
+#### What This Means for Training Content
+
+The step data we generate feeds a **dumb template engine** — it has zero clue-specific intelligence. But the **pedagogical framing** in hints and teaching moments should reflect how real solvers think:
+
+| Avoid (Construction Mindset) | Prefer (Verification Mindset) |
+|------------------------------|-------------------------------|
+| "press = IMPEL" | "What 5-letter word meaning 'press' could fit here?" |
+| "Now add these parts together" | "Does this wordplay confirm your hypothesis?" |
+| "The answer is built from..." | "Can you verify the answer works both ways?" |
+
+#### Key Expert Behaviors to Teach
+
+1. **Definition hunting** — "The definition is ALWAYS at the start or end"
+2. **Indicator vocabulary** — Common signals for anagrams, containers, reversals, etc.
+3. **Short synonym library** — gold=OR, old lady=MA, church=CE, current=I
+4. **Backsolving** — "I guessed GUMDROP, then verified the recipe worked"
+5. **Admitting uncertainty** — Experts say "I don't know" frequently, then iterate
+
+#### Example: Expert vs. Constructed Approach
+
+**Clue:** "Brief press about fool blocking state" (7)
+
+**Constructed approach (what we have):**
+```
+Step 1: Find definition "blocking state"
+Step 2: press → IMPEL (how would solver know this?)
+Step 3: fool → ASS
+Step 4: Brief shortens IMPEL → IMPE
+Step 5: IMPE around ASS → IMPASSE
+```
+
+**Expert approach (what we should teach):**
+```
+Step 1: Definition at end: "blocking state" = deadlock? IMPASSE? (7 letters ✓)
+Step 2: Test hypothesis — can I build IMPASSE from the wordplay?
+Step 3: Spot indicators: "Brief" (deletion), "about" (container)
+Step 4: Verify: "fool"=ASS, "press"=IMPEL, "brief"=shorten → IMP+ASS+E ✓
+Step 5: Confirmed! Both paths lead to IMPASSE
+```
+
+**Training implication:** Steps should guide users to form hypotheses and verify them, not present pre-known synonyms as facts.
 
 ---
 
