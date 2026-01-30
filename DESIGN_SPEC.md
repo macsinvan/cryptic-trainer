@@ -170,48 +170,66 @@ This is backwards. A real solver doesn't know that "press" = IMPEL. They can't s
 
 **Rule:** Process operations in the order that available information dictates, not the order that constructs the answer.
 
-**Step 1: Identify all indicators**
-Scan remaining words for recipe signals. Each indicator tells you WHAT operation, and adjacency tells you WHAT it operates on.
+**Step 1: Scan for indicators AND common cryptic vocabulary**
+Look for two types of footholds simultaneously:
+- **Indicators** — Recipe words that signal operations (deletion, container, reversal, anagram, etc.)
+- **Common vocabulary** — Words with well-known cryptic meanings (fool=ASS, gold=OR, church=CE, etc.)
+
+Both give the solver immediate traction. Indicators tell you WHAT operation; common vocabulary gives you letters you can use right away.
 
 **Step 2: Follow adjacency**
 Indicators operate on adjacent words. "Brief press" → "Brief" operates on "press". "about fool" → "about" involves "fool".
 
-**Step 3: Process explicit operations first**
-Operations with indicators (deletion, container, reversal) have clear triggers. Process these before implicit operations (synonyms, abbreviations).
+**Step 3: Start with what you KNOW**
+Begin with the easy/certain parts:
+- Common vocabulary (fool=ASS) gives you concrete letters
+- This anchors your verification of the hypothesis
 
-**Step 4: Let implicit operations emerge**
-Synonyms and abbreviations are discovered during verification, not prescribed in advance.
+**Step 4: Use hypothesis to discover unknowns**
+With known letters in hand, work backwards from your hypothesis to find the harder synonyms:
+- "I have ASS. My hypothesis IMPASSE has ASS in it. What's around it? IMP_E."
+- "Brief press must give IMPE. What word for 'press' shortens to IMPE? IMPEL!"
+
+The hard synonym (press=IMPEL) is DISCOVERED through verification, not known in advance.
 
 #### Example: IMPASSE — Correct Solve Order
 
 **Clue:** "Brief press about fool blocking state" (7)
 **Hypothesis from definition:** IMPASSE
 
-**What a solver sees (indicators marked):**
+**What a solver sees (scanning for indicators AND common vocabulary):**
 ```
-Brief [DELETION] press about [CONTAINER] fool blocking state [DEFINITION]
-  ↓                    ↓
-operates on         involves
+Brief [DELETION] press about [CONTAINER] fool [COMMON: ASS] blocking state [DEFINITION]
+  ↓                    ↓              ↓
+operates on         involves      = ASS (known)
 "press"             "fool"
 ```
 
-**Natural solve order (driven by indicators):**
+**Natural solve order (starting with what you KNOW):**
 
-1. **Spot indicators by position:**
-   - "Brief" (position 0) → deletion indicator, adjacent to "press" (position 1)
-   - "about" (position 2) → container indicator, adjacent to "fool" (position 3)
+1. **Scan for footholds:**
+   - Indicators: "Brief" (deletion), "about" (container)
+   - Common vocabulary: "fool" = ASS (3 letters) ← immediate foothold!
 
-2. **Process deletion (has explicit indicator):**
-   - "Brief press" → something gets shortened
-   - Need a word for "press" that can be shortened
-   - Hypothesis check: IMPASSE contains IMP... could "press"=IMPEL, shortened?
+2. **Start with the known part (fool=ASS):**
+   - I have ASS (3 letters)
+   - My hypothesis IMPASSE (7 letters) contains ASS
+   - Looking at IMPASSE: IMP + ASS + E — ASS is in the middle
 
-3. **Process container (has explicit indicator):**
-   - "about fool" → something goes around something
-   - "fool" = ASS (common cryptic synonym)
-   - Container: IMPE about ASS → IMP[ASS]E = IMPASSE ✓
+3. **Use hypothesis to find the container structure:**
+   - "about" = container indicator, adjacent to "fool"
+   - Something goes ABOUT (around) ASS
+   - Need IMP_E around ASS → IMP[ASS]E
 
-**Key insight:** We don't START with "press = IMPEL". We DISCOVER it by asking "what word for 'press' could be shortened to fit my hypothesis?"
+4. **Discover the hard synonym through verification:**
+   - "Brief press" must give IMPE (4 letters)
+   - "Brief" = deletion, so we're shortening something
+   - What word for "press" shortens to IMPE? → IMPEL!
+   - Brief IMPEL = IMPE ✓
+
+5. **Verify complete:** IMPE about ASS = IMP[ASS]E = IMPASSE ✓
+
+**Key insight:** We START with "fool = ASS" (common knowledge), then DISCOVER "press = IMPEL" by asking "what fits my hypothesis?"
 
 #### Anti-Pattern: Answer-Driven Order
 
@@ -230,11 +248,12 @@ Step 4: container: IMPE about ASS
 
 **Correct approach (working from available information):**
 ```
-Step 1: Identify indicators: "Brief" (deletion), "about" (container)
-Step 2: Note adjacency: Brief→press, about→fool
-Step 3: With hypothesis IMPASSE, verify: can I build IMP+ASS+E?
-Step 4: Discovery: press=IMPEL (shortened to IMPE), fool=ASS
-Step 5: Verification: IMPE around ASS = IMPASSE ✓
+Step 1: Scan for footholds — indicators: "Brief" (deletion), "about" (container)
+                          — common vocab: "fool" = ASS (known!)
+Step 2: Start with known: ASS is in my hypothesis IMPASSE
+Step 3: Work outwards: IMP_E around ASS, so "Brief press" = IMPE
+Step 4: Discovery: what "press" word shortens to IMPE? → IMPEL!
+Step 5: Verification: IMPE (brief IMPEL) about ASS (fool) = IMPASSE ✓
 ```
 
 #### Implications for Step Metadata
@@ -902,6 +921,148 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
   "position": "start"
 }
 ```
+
+### wordplay_overview
+
+**Purpose:** After finding the definition, identify a common cryptic synonym that appears IN the hypothesis AND identify the indicator words. This anchors the verification with known letters and operations.
+
+**Phases:**
+1. `apply_vocabulary` — Find a common synonym that appears in the hypothesis (inputMode: text)
+   - Prompt: "Look at the remaining words. Does one of these words have a common cryptic synonym that appears in IMPASSE?"
+   - User types: ASS
+   - Expected: ASS
+2. `indicator_scan` — Identify indicator words (inputMode: tap_words)
+   - Prompt: "Which of the remaining words are wordplay indicators?"
+   - User taps: "Brief", "about"
+   - Expected: indices [0, 2]
+3. `teaching` — Confirms the anchor, explains indicators, and shows letter math (inputMode: none)
+   - "fool = ASS, and ASS appears in IMPASSE. You have 3 anchored letters."
+   - "Brief = deletion (shorten something)"
+   - "about = container (something surrounds something)"
+   - "IMPASSE (7) - ASS (3) = 4 letters needed from 'Brief press'"
+
+**Clue data:**
+```json
+{
+  "type": "wordplay_overview",
+  "definition_solved": true,
+  "remaining_indices": [0, 1, 2, 3],
+  "remaining_text": "Brief press about fool",
+  "common_vocabulary": {
+    "indices": [3],
+    "text": "fool",
+    "meaning": "ASS",
+    "letters": 3
+  },
+  "expected_indicators": [
+    {"indices": [0], "text": "Brief", "operation": "deletion"},
+    {"indices": [2], "text": "about", "operation": "container"}
+  ],
+  "training": {
+    "vocabulary_hint": "Look at the remaining words. Does one of these words have a common cryptic synonym that appears in IMPASSE?",
+    "indicator_hint": "Which of the remaining words are wordplay indicators?"
+  }
+}
+```
+
+**Key fields:**
+- `common_vocabulary` — The word with a well-known cryptic meaning that appears in the hypothesis
+- `expected_indicators` — The indicator words and what operations they signal
+- User must TYPE the synonym to confirm it applies
+- User must TAP the indicators to identify them
+
+**Teaching moment:**
+- "fool = ASS, and ASS appears in IMPASSE. You have 3 anchored letters."
+- "Brief = deletion (shorten something)"
+- "about = container (something surrounds something)"
+- "IMPASSE (7) - ASS (3) = 4 letters needed from 'Brief press'"
+
+### deletion_discover
+
+**Purpose:** Discover the result of a deletion operation by working backwards from the hypothesis. The user knows the indicator, the fodder word, and how many letters are needed — they must find a synonym that shortens to fit.
+
+**Phases:**
+1. `result` — Type the letters that the deletion produces (inputMode: text)
+   - Prompt: "'Brief press' = find a synonym for 'press', then shorten it. What 4 letters fit IMPASSE?"
+   - User types: IMPE
+   - Expected: IMPE
+2. `teaching` — Confirms the discovery and teaches the reusable pattern (inputMode: none)
+   - "press = IMPEL (5 letters), Brief IMPEL = IMPE (remove the L)"
+   - "You now have IMPE + ASS"
+   - **Generic learning:** "Deletion indicators work on SYNONYMS: [deletion indicator] + [word] means shorten a synonym of that word, not the word itself."
+
+**Clue data:**
+```json
+{
+  "type": "deletion_discover",
+  "indicator": {"indices": [0], "text": "Brief"},
+  "fodder_word": {"indices": [1], "text": "press"},
+  "fodder_synonym": "IMPEL",
+  "result": "IMPE",
+  "letters_needed": 4,
+  "training": {
+    "hint": "'Brief press' = find a synonym for 'press', then shorten it. What 4 letters fit IMPASSE?"
+  }
+}
+```
+
+**Key fields:**
+- `indicator` — The deletion indicator word
+- `fodder_word` — The word to find a synonym for
+- `fodder_synonym` — The synonym that gets shortened (revealed in teaching)
+- `result` — The letters after deletion
+- `letters_needed` — How many letters the result must be
+
+**Teaching moment (reusable):**
+- "press = IMPEL (5 letters), Brief IMPEL = IMPE (remove the L). You now have IMPE + ASS."
+- "**Remember:** Deletion indicators work on SYNONYMS — [deletion indicator] + [word] means shorten a synonym of that word."
+
+### container_verify
+
+**Purpose:** Combine two known components using a container operation. The user already has both pieces and knows the container indicator — they must determine which goes inside which and verify the result matches their hypothesis.
+
+**Phases:**
+1. `order` — Multiple choice: which piece goes inside which? (inputMode: multiple_choice)
+   - Prompt: "'about' means one thing goes around another. Which piece fits inside which to make IMPASSE?"
+   - User selects: "ASS goes inside IMPE"
+   - Expected: option index 0 (correct option)
+2. `result` — Type the combined result (inputMode: text)
+   - Prompt: "Put ASS inside IMPE. What do you get?"
+   - User types: IMPASSE
+   - Expected: IMPASSE
+3. `teaching` — Confirms the container operation and teaches the reusable pattern (inputMode: none)
+   - "IMP + ASS + E = IMPASSE ✓"
+   - **Generic learning:** "Container indicators (about, holds, around, inside, carries) tell you to put one piece inside another. The outer piece splits to wrap the inner piece."
+
+**Clue data:**
+```json
+{
+  "type": "container_verify",
+  "indicator": {"indices": [2], "text": "about"},
+  "inner": "ASS",
+  "outer": "IMPE",
+  "options": [
+    {"label": "ASS goes inside IMPE", "correct": true},
+    {"label": "IMPE goes inside ASS", "correct": false}
+  ],
+  "result": "IMPASSE",
+  "training": {
+    "order_hint": "'about' means one thing goes around another. Which piece fits inside which to make IMPASSE?",
+    "result_hint": "Put ASS inside IMPE. What do you get?"
+  }
+}
+```
+
+**Key fields:**
+- `indicator` — The container indicator word (already identified)
+- `inner` — The piece that goes inside
+- `outer` — The piece that wraps around
+- `options` — Multiple choice for container order
+- `result` — The final combined result
+
+**Teaching moment (reusable):**
+- "IMP + ASS + E = IMPASSE ✓"
+- "**Remember:** Container indicators (about, holds, around, inside, carries) tell you to put one piece inside another. The outer piece splits to wrap the inner piece."
 
 ### anagram_find
 
