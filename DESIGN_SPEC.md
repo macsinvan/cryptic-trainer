@@ -823,7 +823,7 @@ Every API response includes a `render` object:
 | `stepIndex` | number | Current step (-1 for clue type, 0+ for clue steps) |
 | `phaseIndex` | number | Current phase within step |
 | `stepType` | string | Template type (e.g., "anagram_find") |
-| `phaseId` | string | Phase identifier (e.g., "indicator", "teaching") |
+| `phaseId` | string | Phase identifier (e.g., "indicator_tap_1", "teaching") |
 | `inputMode` | string | `tap_words`, `text`, `multiple_choice`, or `none` |
 | `highlights` | array | Accumulated highlights from correct answers |
 | `intro` | object? | Intro card (title, text, example) — shown on first phase |
@@ -834,6 +834,9 @@ Every API response includes a `render` object:
 | `complete` | boolean | True when training is finished |
 | `answer` | string | Correct answer for "solve anytime" feature |
 | `actionPrompt` | string | Short instruction for Section 3 |
+| `autoCheck` | boolean? | If true, single-word taps auto-submit without needing Check button |
+| `stepProgress` | object? | Progress within current step: `{current, total, label}` |
+| `answerKnown` | boolean | True if user solved from definition (reviewing wordplay) |
 
 ### Learnings Accumulation
 
@@ -890,6 +893,20 @@ This eliminates layout jumping when transitioning between step types.
 4. **Experienced users** can work entirely in sections 1-3
 5. **New users** scroll down for teaching content
 
+#### Auto-Check for Single-Word Taps
+
+When `render.autoCheck === true`, tapping a word immediately submits without needing to click "Check":
+- Server sets `autoCheck: true` when `expected` array has exactly 1 index
+- UI detects this and auto-submits on tap
+- Streamlines flow for single-word selections (vocabulary, indicators)
+
+#### Step Progress Indicator
+
+Section 3 displays a yellow progress badge showing progression within a step:
+- Shows "Step 1 of 4" style label for multi-phase steps
+- Only displayed for interactive phases (not teaching)
+- Server provides `render.stepProgress = {current, total, label}`
+
 ---
 
 ## Step Templates
@@ -912,6 +929,10 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
 **Phases:**
 1. `select` — Tap the definition words (inputMode: tap_words)
 2. `teaching` — Shows where definition was found (inputMode: none)
+3. `solve` — (Optional) Type the answer if `recommendedApproach === "definition"` (inputMode: text)
+   - Added dynamically when clue difficulty indicates definition-first solving
+   - On correct answer, session continues to wordplay steps with `answerKnown: true`
+   - User reviews wordplay to verify their hypothesis
 
 **Clue data:**
 ```json
@@ -924,22 +945,33 @@ Templates are defined in `training_handler.py`. Each template has multiple phase
 
 ### wordplay_overview
 
-**Purpose:** After finding the definition, identify a common cryptic synonym that appears IN the hypothesis AND identify the indicator words. This anchors the verification with known letters and operations.
+**Purpose:** After finding the definition, identify common cryptic vocabulary (anchors) and indicator words one at a time. This builds verification incrementally.
 
-**Phases:**
-1. `apply_vocabulary` — Find a common synonym that appears in the hypothesis (inputMode: text)
-   - Prompt: "Look at the remaining words. Does one of these words have a common cryptic synonym that appears in IMPASSE?"
+**Phases (dynamically generated):**
+
+For each item in `common_vocabulary`:
+1. `vocabulary_tap_N` — Tap the word with common cryptic meaning (inputMode: tap_words, autoCheck: true)
+   - Prompt: "Tap a word with a common cryptic meaning."
+   - User taps: "fool"
+   - Expected: [3]
+2. `vocabulary_type_N` — Type the synonym (inputMode: text)
+   - Prompt: "What's the common cryptic synonym for this word?"
    - User types: ASS
    - Expected: ASS
-2. `indicator_scan` — Identify indicator words (inputMode: tap_words)
-   - Prompt: "Which of the remaining words are wordplay indicators?"
-   - User taps: "Brief", "about"
-   - Expected: indices [0, 2]
-3. `teaching` — Confirms the anchor, explains indicators, and shows letter math (inputMode: none)
-   - "fool = ASS, and ASS appears in IMPASSE. You have 3 anchored letters."
-   - "Brief = deletion (shorten something)"
-   - "about = container (something surrounds something)"
-   - "IMPASSE (7) - ASS (3) = 4 letters needed from 'Brief press'"
+
+For each item in `expected_indicators`:
+3. `indicator_tap_N` — Identify indicator words one at a time (inputMode: tap_words, autoCheck: true)
+   - Prompt: "There are 2 indicators. Find the first one." / "Find indicator 2 of 2."
+   - User taps: "Brief"
+   - Expected: [0]
+
+4. `teaching` — Confirms anchors, explains indicators, shows letter math (inputMode: none)
+   - "fool = ASS (3 letters) — your anchor"
+   - "Brief = deletion indicator"
+   - "about = container indicator"
+   - "You have 3 letters. You need 4 more."
+
+**Note:** Indicators are now processed one at a time instead of all at once, with guided prompts like "There are N indicators, find the first one."
 
 **Clue data:**
 ```json

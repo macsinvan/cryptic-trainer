@@ -143,9 +143,13 @@ export function TemplateTrainer({
 
   // ---------------------------------------------------------------------------
   // Auto-detect correct answer and show solved view
+  // EXCEPT when in solve phase of standard_definition (must go through server to continue to wordplay)
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!render || render.complete) return;
+
+    // Don't auto-complete during solve phase - user must click Check to continue to wordplay
+    if (render.phaseId === 'solve' && render.stepType === 'standard_definition') return;
 
     const normalizedInput = answerInput.toUpperCase().replace(/[^A-Z]/g, '');
     const normalizedAnswer = answer.toUpperCase().replace(/[^A-Z]/g, '');
@@ -179,18 +183,29 @@ export function TemplateTrainer({
         } : null);
       });
     }
-  }, [answerInput, answer, render?.complete, clueId]);
+  }, [answerInput, answer, render?.complete, render?.phaseId, render?.stepType, clueId]);
 
   // ---------------------------------------------------------------------------
   // Handle answer submission (can happen at any time)
   // ---------------------------------------------------------------------------
-  const handleAnswerSubmit = useCallback(() => {
+  const handleAnswerSubmit = useCallback(async () => {
     const normalizedInput = answerInput.toUpperCase().replace(/[^A-Z]/g, '');
     const normalizedAnswer = answer.toUpperCase().replace(/[^A-Z]/g, '');
 
     if (normalizedInput === normalizedAnswer) {
-      // Correct! Show solved view with accumulated learnings
+      // Correct!
       setAnswerFeedback(null);
+
+      // If in solve phase of standard_definition, submit to server to continue to wordplay
+      if (render?.phaseId === 'solve' && render?.stepType === 'standard_definition') {
+        const response = await trainingInput(clueId, normalizedInput);
+        if (response.success && response.render) {
+          setRender(response.render);
+        }
+        return;
+      }
+
+      // Otherwise show solved view with accumulated learnings
       setRender(prev => prev ? {
         ...prev,
         complete: true,
@@ -201,22 +216,42 @@ export function TemplateTrainer({
       // Wrong answer
       setAnswerFeedback('Not quite - keep working through the steps');
     }
-  }, [answerInput, answer]);
+  }, [answerInput, answer, render?.phaseId, render?.stepType, clueId]);
 
   // ---------------------------------------------------------------------------
   // Handle word tap
   // ---------------------------------------------------------------------------
-  const handleWordTap = useCallback((index: number) => {
+  const handleWordTap = useCallback(async (index: number) => {
     if (render?.inputMode !== 'tap_words') return;
 
     setFeedback(null);
+
+    // If autoCheck is true (single word expected), submit immediately
+    if (render?.autoCheck) {
+      try {
+        const response = await trainingInput(clueId, [index]);
+        if (response.success) {
+          if (response.correct) {
+            setSelectedIndices([]);
+            setRender(response.render);
+          } else {
+            setFeedback(response.message || 'Not quite - try again');
+          }
+        }
+      } catch (err) {
+        setFeedback('Error submitting');
+      }
+      return;
+    }
+
+    // Otherwise toggle selection
     setSelectedIndices(prev => {
       if (prev.includes(index)) {
         return prev.filter(i => i !== index);
       }
       return [...prev, index];
     });
-  }, [render?.inputMode]);
+  }, [render?.inputMode, render?.autoCheck, clueId]);
 
   // ---------------------------------------------------------------------------
   // Handle check/submit for current step
@@ -583,11 +618,19 @@ export function TemplateTrainer({
       </div>
 
       {/* ===== SECTION 3: ACTION REQUIRED + BUTTON (fixed height) ===== */}
-      <div className="border rounded-b-xl p-4 min-h-[70px] flex items-center justify-between gap-4 bg-white">
-        <p className="flex-1 font-medium text-gray-700">
-          {/* Use panel instruction from server when available (teaching explanation), fall back to actionPrompt */}
-          {isTeaching ? render.actionPrompt : (render.panel?.instruction || render.actionPrompt)}
-        </p>
+      <div className="border rounded-b-xl p-4 min-h-[70px] bg-white">
+        {/* Step progress indicator (yellow box) */}
+        {render.stepProgress && (
+          <div className="mb-3 inline-block px-3 py-1 bg-amber-100 text-amber-800 text-sm font-medium rounded-lg">
+            {render.stepProgress.label}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-4">
+          <p className="flex-1 font-medium text-gray-700">
+            {/* Use panel instruction from server when available (teaching explanation), fall back to actionPrompt */}
+            {isTeaching ? render.actionPrompt : (render.panel?.instruction || render.actionPrompt)}
+          </p>
 
         {/* Button */}
         {render.button ? (
@@ -611,6 +654,7 @@ export function TemplateTrainer({
             Check
           </button>
         ) : null}
+        </div>
       </div>
 
       {/* ===== SECTION 4: DETAILS (below fold, scrollable) ===== */}
@@ -632,17 +676,19 @@ export function TemplateTrainer({
               onClick={() => setDifficultyExpanded(!difficultyExpanded)}
               className={`
                 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all
-                ${render.difficulty.rating === 'easy' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
-                  render.difficulty.rating === 'medium' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' :
+                ${render.difficulty.overall === 'easy' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
+                  render.difficulty.overall === 'medium' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' :
                   'bg-red-100 text-red-800 hover:bg-red-200'}
               `}
             >
-              <span className="capitalize">{render.difficulty.rating}</span>
+              <span className="capitalize">{render.difficulty.overall}</span>
               <span className="text-xs">{difficultyExpanded ? '▲' : '▼'}</span>
             </button>
             {difficultyExpanded && (
-              <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700">
-                {render.difficulty.reasoning}
+              <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 space-y-2">
+                <div><strong>Definition:</strong> <span className="capitalize">{render.difficulty.definition?.rating}</span> — {render.difficulty.definition?.reasoning}</div>
+                <div><strong>Wordplay:</strong> <span className="capitalize">{render.difficulty.wordplay?.rating}</span> — {render.difficulty.wordplay?.reasoning}</div>
+                <div><strong>Recommended approach:</strong> <span className="capitalize">{render.difficulty.recommendedApproach}</span></div>
               </div>
             )}
           </div>
