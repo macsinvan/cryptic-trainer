@@ -38,7 +38,9 @@
       "Bash(git push:*)",
       "Bash(git checkout:*)",
       "Bash(git merge:*)",
-      "WebFetch(domain:arxiv.org)"
+      "WebFetch(domain:arxiv.org)",
+      "Bash(git stash:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

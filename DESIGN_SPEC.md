@@ -1321,6 +1321,239 @@ Steps can include a `training.hint` field to override the template's panel instr
 
 ---
 
+## Information-Driven Step Templates (V2)
+
+These templates support the hypothesis-driven solving approach where solvers:
+1. Find the definition and form a hypothesis
+2. Scan for **common vocabulary** (anchors they know cold) and **indicators**
+3. Start with what they KNOW, then discover unknowns by working from the hypothesis
+
+### charade_verify
+
+**Purpose:** Combine known components in sequence and verify they form part of (or all of) the hypothesis.
+
+**When to use:** After `wordplay_overview` when the solver has identified multiple common vocabulary items that chain together.
+
+**Phases:**
+1. `result` — Type the combined result (inputMode: text)
+   - Prompt: "Combine your known pieces: IN + SIP = ?"
+   - User types: INSIP
+   - Expected: INSIP
+2. `teaching` — Confirms the charade and shows progress (inputMode: none)
+   - "IN + SIP = INSIP (5 letters). You have 5 of 7 letters for INSIPID."
+
+**Clue data:**
+```json
+{
+  "type": "charade_verify",
+  "components": ["IN", "SIP"],
+  "result": "INSIP",
+  "letters_so_far": 5,
+  "letters_needed": 7,
+  "training": {
+    "hint": "Combine your known pieces in order. What do you get?"
+  }
+}
+```
+
+**Key fields:**
+- `components` — The known pieces to combine (from common vocabulary)
+- `result` — The combined result
+- `letters_so_far` — How many letters the combined result gives
+- `letters_needed` — Total letters needed for the answer
+
+**Teaching moment:**
+- "IN + SIP = INSIP (5 letters). You have 5 of 7 letters for INSIPID."
+
+### alternation_discover
+
+**Purpose:** Extract alternating letters from fodder to discover remaining letters needed for hypothesis.
+
+**When to use:** When solver has identified an alternation indicator (e.g., "by turns", "oddly", "evenly", "regularly") adjacent to fodder.
+
+**Phases:**
+1. `result` — Type the extracted letters (inputMode: text)
+   - Prompt: "'by turns' means take alternating letters from m-i-l-d. Which letters complete INSIPID?"
+   - User types: ID
+   - Expected: ID
+2. `teaching` — Confirms the alternation pattern (inputMode: none)
+   - "Taking alternate letters from m-i-l-d: **i**, **d** = ID"
+   - **Generic learning:** "Alternation indicators (by turns, oddly, evenly, regularly) tell you to take every other letter."
+
+**Clue data:**
+```json
+{
+  "type": "alternation_discover",
+  "indicator": {"indices": [2, 3], "text": "by turns"},
+  "fodder": {"indices": [4, 5, 6, 7], "text": "m i l d"},
+  "result": "ID",
+  "letters_needed": 2,
+  "pattern": "even",
+  "training": {
+    "hint": "'by turns' means take alternating letters. Which letters complete your hypothesis?"
+  }
+}
+```
+
+**Key fields:**
+- `indicator` — The alternation indicator word(s)
+- `fodder` — The letters to alternate through
+- `result` — The extracted letters
+- `letters_needed` — How many letters this should produce
+- `pattern` — "odd" (1st, 3rd, 5th...) or "even" (2nd, 4th, 6th...)
+
+**Teaching moment (reusable):**
+- "Taking alternate letters from m-i-l-d: **i**, **d** = ID"
+- "**Remember:** Alternation indicators (by turns, oddly, evenly, regularly) tell you to take every other letter."
+
+### anagram_discover
+
+**Purpose:** Rearrange known fodder letters to match the hypothesis. Used when anagram indicator and fodder are already identified via `wordplay_overview`.
+
+**When to use:** After identifying anagram indicator and fodder in overview step.
+
+**Phases:**
+1. `result` — Type the anagrammed result (inputMode: text)
+   - Prompt: "Rearrange DETAILMANY to match your hypothesis."
+   - User types: ANIMATEDLY
+   - Expected: ANIMATEDLY
+2. `teaching` — Confirms the anagram (inputMode: none)
+   - "DETAIL MANY rearranges to ANIMATEDLY ✓"
+
+**Clue data:**
+```json
+{
+  "type": "anagram_discover",
+  "indicator": {"indices": [2], "text": "works"},
+  "fodder": {"indices": [0, 1], "text": "Detail many"},
+  "fodder_letters": "DETAILMANY",
+  "result": "ANIMATEDLY",
+  "training": {
+    "hint": "Rearrange these letters to match your hypothesis."
+  }
+}
+```
+
+**Key fields:**
+- `indicator` — The anagram indicator word
+- `fodder` — The words providing letters
+- `fodder_letters` — The letters to rearrange (uppercase, no spaces)
+- `result` — The anagrammed answer
+
+**Teaching moment:**
+- "DETAIL MANY rearranges to ANIMATEDLY ✓"
+
+### hidden_discover
+
+**Purpose:** Find the answer hidden within consecutive letters of the fodder.
+
+**When to use:** When solver identifies a hidden word indicator (e.g., "some", "in", "part of", "within", "jails/contains").
+
+**Phases:**
+1. `result` — Type the hidden word (inputMode: text)
+   - Prompt: "Find the 4-letter word hidden in 'suspect s to p opulate'"
+   - User types: STOP
+   - Expected: STOP
+2. `teaching` — Shows where the word is hidden (inputMode: none)
+   - "suspec**t s to p** opulate contains STOP"
+
+**Clue data:**
+```json
+{
+  "type": "hidden_discover",
+  "indicator": {"indices": [6], "text": "jails"},
+  "fodder": {"indices": [1, 2, 3, 4, 5], "text": "suspect s to p opulate"},
+  "result": "STOP",
+  "training": {
+    "hint": "The answer is hidden in consecutive letters. Can you find it?"
+  }
+}
+```
+
+**Key fields:**
+- `indicator` — The hidden word indicator
+- `fodder` — The words containing the hidden answer
+- `result` — The hidden word
+
+**Teaching moment:**
+- "suspec**t s to p** opulate contains STOP"
+
+### double_definition_verify
+
+**Purpose:** For double definition clues where there's no wordplay — just two definitions pointing to the same word.
+
+**When to use:** When clue type is identified as Double Definition.
+
+**Phases:**
+1. `first_def` — Tap the first definition (inputMode: tap_words)
+2. `second_def` — Tap the second definition (inputMode: tap_words)
+3. `result` — Type the word that matches both (inputMode: text)
+4. `teaching` — Confirms both definitions (inputMode: none)
+   - "DUCK = to dodge AND a zero score in cricket ✓"
+
+**Clue data:**
+```json
+{
+  "type": "double_definition_verify",
+  "definitions": [
+    {"indices": [0, 1, 2], "text": "Manage to avoid"},
+    {"indices": [3, 4, 5, 6], "text": "ignominious score in test"}
+  ],
+  "result": "DUCK",
+  "training": {
+    "hint": "What single word means both of these things?"
+  }
+}
+```
+
+**Key fields:**
+- `definitions` — Array of two definition objects with indices and text
+- `result` — The word that matches both definitions
+
+**Teaching moment:**
+- "DUCK = to dodge AND a zero score in cricket ✓"
+
+### reversal_discover
+
+**Purpose:** Reverse known letters to discover part of the answer.
+
+**When to use:** When reversal indicator is identified and operates on common vocabulary.
+
+**Phases:**
+1. `result` — Type the reversed letters (inputMode: text)
+   - Prompt: "'withdrawing' reverses EG. What do you get?"
+   - User types: GE
+   - Expected: GE
+2. `teaching` — Confirms the reversal (inputMode: none)
+   - "EG reversed = GE"
+   - **Generic learning:** "Reversal indicators (back, returning, up [down clues], west [across clues]) tell you to reverse the letters."
+
+**Clue data:**
+```json
+{
+  "type": "reversal_discover",
+  "indicator": {"indices": [5], "text": "withdrawing"},
+  "fodder": "EG",
+  "fodder_source": {"indices": [3, 4], "text": "for one"},
+  "result": "GE",
+  "training": {
+    "hint": "Reverse the letters. What do you get?"
+  }
+}
+```
+
+**Key fields:**
+- `indicator` — The reversal indicator word
+- `fodder` — The letters to reverse
+- `fodder_source` — Where the fodder came from in the clue
+- `result` — The reversed letters
+
+**Teaching moment (reusable):**
+- "EG reversed = GE"
+- "**Remember:** Reversal indicators (back, returning, up [down clues], west [across clues]) tell you to reverse the letters."
+
+---
+
 ## Server API
 
 ### Authentication
