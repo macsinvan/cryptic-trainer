@@ -1554,6 +1554,46 @@ These templates support the hypothesis-driven solving approach where solvers:
 
 ---
 
+## Generic Hints (V2 Templates)
+
+Hints should NOT give away the answer. They should guide the user's thinking process.
+
+| Template | Phase | Generic Hint |
+|----------|-------|--------------|
+| `standard_definition` | select | "The definition is always at the start or end of the clue." |
+| `wordplay_overview` | vocabulary_tap | "Look for a word with a synonym that might appear in your answer." |
+| `wordplay_overview` | vocabulary_type | "What's the common cryptic synonym for this word?" |
+| `wordplay_overview` | indicator_scan | "Which remaining words signal wordplay operations (deletion, container, reversal, anagram, etc.)?" |
+| `deletion_discover` | fodder_tap | "Indicators operate on adjacent words." |
+| `deletion_discover` | result | "If the shortened word does not fit your hypothesis, you likely need to find a synonym before shortening." |
+| `container_verify` | order | "'about' means one thing surrounds another. Which arrangement fits your hypothesis?" |
+| `container_verify` | result | "The outer piece splits to wrap the inner piece." |
+| `charade_verify` | result | "Combine your known pieces in order. What do you get?" |
+| `alternation_discover` | result | "Take alternating letters. Which letters complete your hypothesis?" |
+| `anagram_discover` | result | "Rearrange these letters to match your hypothesis." |
+| `hidden_discover` | result | "The answer is hidden in consecutive letters. Can you find it?" |
+| `reversal_discover` | result | "Reverse the letters. What do you get?" |
+
+**Key principle:** Hints are generic and reusable across clues. They guide the solving PROCESS, not the specific answer.
+
+---
+
+## Training Sequence Simulator
+
+For a complete walkthrough of how training flows work in practice, see:
+
+**[TRAINING_SEQUENCE_1A.md](./TRAINING_SEQUENCE_1A.md)** — Full simulation of 1A IMPASSE
+
+This document shows:
+- Exact UI layout at each phase
+- What the user sees (clue, highlights, input area, hints)
+- Expected user response at each step
+- Teaching content displayed after correct answers
+
+Use this as a reference when creating new clue metadata to ensure the flow is pedagogically sound.
+
+---
+
 ## Server API
 
 ### Authentication
