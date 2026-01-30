@@ -146,6 +146,107 @@ The step data we generate feeds a **dumb template engine** — it has zero clue-
 4. **Backsolving** — "I guessed GUMDROP, then verified the recipe worked"
 5. **Admitting uncertainty** — Experts say "I don't know" frequently, then iterate
 
+#### Information-Driven Solve Order (Not Answer-Driven)
+
+**Critical principle:** The order of solving operations must be determined by AVAILABLE INFORMATION, not by working backwards from the known answer.
+
+**The Fatal Mistake:**
+When creating step metadata, it's tempting to think: "The answer is IMPASSE, which is IMP+ASS+E, so first we need IMPEL, then shorten it..."
+
+This is backwards. A real solver doesn't know that "press" = IMPEL. They can't start there.
+
+**What Information IS Available:**
+- Indicator words and their positions ("Brief", "about")
+- Adjacency relationships (what's next to what)
+- Structural patterns (what indicators typically operate on)
+- The hypothesis from the definition (IMPASSE)
+
+**What Information is NOT Available:**
+- Which synonym to use (press → IMPEL vs press → URGE vs press → MEDIA)
+- Which abbreviation applies (hot → H vs hot → SEXY)
+- The "correct" decomposition of the answer
+
+#### Determining Natural Solve Order
+
+**Rule:** Process operations in the order that available information dictates, not the order that constructs the answer.
+
+**Step 1: Identify all indicators**
+Scan remaining words for recipe signals. Each indicator tells you WHAT operation, and adjacency tells you WHAT it operates on.
+
+**Step 2: Follow adjacency**
+Indicators operate on adjacent words. "Brief press" → "Brief" operates on "press". "about fool" → "about" involves "fool".
+
+**Step 3: Process explicit operations first**
+Operations with indicators (deletion, container, reversal) have clear triggers. Process these before implicit operations (synonyms, abbreviations).
+
+**Step 4: Let implicit operations emerge**
+Synonyms and abbreviations are discovered during verification, not prescribed in advance.
+
+#### Example: IMPASSE — Correct Solve Order
+
+**Clue:** "Brief press about fool blocking state" (7)
+**Hypothesis from definition:** IMPASSE
+
+**What a solver sees (indicators marked):**
+```
+Brief [DELETION] press about [CONTAINER] fool blocking state [DEFINITION]
+  ↓                    ↓
+operates on         involves
+"press"             "fool"
+```
+
+**Natural solve order (driven by indicators):**
+
+1. **Spot indicators by position:**
+   - "Brief" (position 0) → deletion indicator, adjacent to "press" (position 1)
+   - "about" (position 2) → container indicator, adjacent to "fool" (position 3)
+
+2. **Process deletion (has explicit indicator):**
+   - "Brief press" → something gets shortened
+   - Need a word for "press" that can be shortened
+   - Hypothesis check: IMPASSE contains IMP... could "press"=IMPEL, shortened?
+
+3. **Process container (has explicit indicator):**
+   - "about fool" → something goes around something
+   - "fool" = ASS (common cryptic synonym)
+   - Container: IMPE about ASS → IMP[ASS]E = IMPASSE ✓
+
+**Key insight:** We don't START with "press = IMPEL". We DISCOVER it by asking "what word for 'press' could be shortened to fit my hypothesis?"
+
+#### Anti-Pattern: Answer-Driven Order
+
+**Wrong approach (working backwards from IMPASSE):**
+```
+Step 1: synonym: press → IMPEL     ← How would solver know this?
+Step 2: deletion: IMPEL → IMPE
+Step 3: synonym: fool → ASS
+Step 4: container: IMPE about ASS
+```
+
+**Why it's wrong:**
+- Step 1 assumes knowledge the solver doesn't have
+- A solver seeing "press" might think MEDIA, URGE, PUSH, SQUEEZE...
+- Only by having a hypothesis (IMPASSE) can they work backwards to find IMPEL
+
+**Correct approach (working from available information):**
+```
+Step 1: Identify indicators: "Brief" (deletion), "about" (container)
+Step 2: Note adjacency: Brief→press, about→fool
+Step 3: With hypothesis IMPASSE, verify: can I build IMP+ASS+E?
+Step 4: Discovery: press=IMPEL (shortened to IMPE), fool=ASS
+Step 5: Verification: IMPE around ASS = IMPASSE ✓
+```
+
+#### Implications for Step Metadata
+
+When creating step data, ask: "What information does the solver have at this point that tells them to do this operation?"
+
+| Good (Information-Driven) | Bad (Answer-Driven) |
+|---------------------------|---------------------|
+| "The indicator 'Brief' is adjacent to 'press'" | "press = IMPEL" |
+| "What operation does 'about' signal?" | "Now combine the parts" |
+| "Can you verify your hypothesis?" | "The answer is built from..." |
+
 #### Example: Expert vs. Constructed Approach
 
 **Clue:** "Brief press about fool blocking state" (7)
