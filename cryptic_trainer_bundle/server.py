@@ -273,12 +273,16 @@ class SolverHandler(BaseHTTPRequestHandler):
 
     def _handle_import_puzzle(self):
         """
-        Import a puzzle file using the step-based schema.
+        Import a puzzle file using the V2 step-based schema.
+
+        Supports two formats:
+        1. Flat format (V2): {"clue-id-1": {...}, "clue-id-2": {...}}
+        2. Wrapped format: {"metadata": {...}, "clues": {...}}
 
         - Validates each clue against the step-based schema
         - Skips invalid clues (logs actionable errors)
         - Skips duplicates (by clue ID)
-        - Stores valid clues in flat format with metadata
+        - Stores valid clues in flat format
 
         Schema: See DESIGN_SPEC.md for complete step-based schema.
         """
@@ -295,16 +299,24 @@ class SolverHandler(BaseHTTPRequestHandler):
                 self._send_json({'success': False, 'error': 'Missing puzzle data'}, 400)
                 return
 
-            if 'metadata' not in puzzle_data:
-                self._send_json({'success': False, 'error': 'Missing metadata object'}, 400)
-                return
-
-            if 'clues' not in puzzle_data:
-                self._send_json({'success': False, 'error': 'Missing clues object'}, 400)
-                return
-
-            metadata = puzzle_data.get('metadata', {})
-            clues_dict = puzzle_data['clues']
+            # Detect format: flat (V2) vs wrapped
+            # V2 flat format: keys are clue IDs like "times-29439-1a"
+            # Wrapped format: has "metadata" and "clues" keys
+            if 'metadata' in puzzle_data and 'clues' in puzzle_data:
+                # Wrapped format
+                metadata = puzzle_data.get('metadata', {})
+                clues_dict = puzzle_data['clues']
+            else:
+                # V2 flat format - puzzle_data IS the clues dict
+                metadata = {}
+                clues_dict = puzzle_data
+                # Try to extract metadata from first clue's ID
+                if clues_dict:
+                    first_key = next(iter(clues_dict.keys()))
+                    parts = first_key.split('-')
+                    if len(parts) >= 2:
+                        metadata['publisher'] = parts[0].title()
+                        metadata['puzzle_number'] = parts[1]
 
             db = _load_db()
             saved = 0
@@ -332,7 +344,7 @@ class SolverHandler(BaseHTTPRequestHandler):
                     skipped += 1
                     continue
 
-                # Store in flat format (matching existing clues_db.json structure)
+                # Store in flat format
                 training_item = {
                     'id': clue_key,
                     'clue': clue_entry['clue'],
