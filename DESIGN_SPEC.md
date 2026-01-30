@@ -170,6 +170,41 @@ Step 5: Confirmed! Both paths lead to IMPASSE
 
 **Training implication:** Steps should guide users to form hypotheses and verify them, not present pre-known synonyms as facts.
 
+#### Split Difficulty & Recommended Approach
+
+To help users choose the right attack vector, difficulty is split into two components:
+
+| Component | Question | Easy | Hard |
+|-----------|----------|------|------|
+| **Definition** | How obvious is definition → answer? | Common word, direct meaning | Obscure/archaic, misdirection |
+| **Wordplay** | How complex is the recipe? | Simple anagram, hidden word | Nested operations, obscure synonyms |
+
+**Recommended Approach Logic:**
+
+```
+IF definition.rating == "easy" AND answer is common word:
+    recommendedApproach = "definition"
+    → User guesses answer from definition, then verifies wordplay
+
+ELSE IF wordplay has simple pattern (anagram, hidden, reversal):
+    recommendedApproach = "wordplay"
+    → User solves recipe first, then confirms against definition
+
+ELSE:
+    recommendedApproach = "definition"
+    → Default to definition-first (most common expert behavior)
+```
+
+**Example — IMPASSE clue:**
+- Definition difficulty: **easy** ("blocking state" → deadlock/impasse is guessable)
+- Wordplay difficulty: **hard** (nested container + deletion + obscure synonym)
+- Recommended approach: **definition** (guess IMPASSE, then verify wordplay)
+
+**Example — Anagram clue:**
+- Definition difficulty: **hard** (obscure word)
+- Wordplay difficulty: **easy** (clear anagram indicator + fodder)
+- Recommended approach: **wordplay** (solve anagram, then confirm definition)
+
 ---
 
 ## System Architecture
@@ -409,9 +444,17 @@ This applies to:
     "setter": "Unknown"
   },
   "publicationId": "times",
-  "difficulty": {                      // Optional: clue difficulty rating
-    "rating": "hard",                  // "easy" | "medium" | "hard"
-    "reasoning": "Complex nested structure with obscure medical term"
+  "difficulty": {                      // Clue difficulty ratings
+    "definition": {                    // How obvious is definition → answer?
+      "rating": "easy",                // "easy" | "medium" | "hard"
+      "reasoning": "Common word, direct meaning"
+    },
+    "wordplay": {                      // How complex is the recipe?
+      "rating": "hard",                // "easy" | "medium" | "hard"
+      "reasoning": "Complex nested structure with obscure synonym"
+    },
+    "overall": "medium",               // Combined assessment
+    "recommendedApproach": "definition" // "definition" | "wordplay" — which attack vector to try first
   },
   "verified": false,                   // Optional: admin verification status
   "reported_issue": null               // Optional: admin-reported problem description
