@@ -1,1219 +1,271 @@
 {
   "version": 3,
   "training_items": {
-    "times-2025-1a": {
-      "id": "times-2025-1a",
+    "times-29439-1a": {
+      "id": "times-29439-1a",
       "clue": {
         "number": "1A",
-        "text": "Drawing blood , lymph too, busy nurses conclude job at last",
-        "enumeration": "10",
-        "answer": "PHLEBOTOMY",
+        "text": "Brief press about fool blocking state",
+        "enumeration": "7",
+        "answer": "IMPASSE",
         "definition": [
           {
-            "text": "Drawing blood",
-            "position": "start"
+            "text": "blocking state",
+            "position": "end"
           }
         ]
       },
       "words": [
-        "Drawing",
-        "blood",
-        "lymph",
-        "too",
-        "busy",
-        "nurses",
-        "conclude",
-        "job",
-        "at",
-        "last"
+        "Brief",
+        "press",
+        "about",
+        "fool",
+        "blocking",
+        "state"
       ],
       "steps": [
         {
           "type": "standard_definition",
           "expected": {
             "indices": [
-              0,
-              1
-            ],
-            "text": "Drawing blood"
-          },
-          "position": "start",
-          "justification": "The definition is at the start of the clue, referring to the medical process of phlebotomy.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'Drawing blood' as the definition.",
-            "hint": "The definition is at the beginning of the clue\u2014look for a term meaning the extraction of blood."
-          }
-        },
-        {
-          "type": "letter_selection",
-          "indicator": {
-            "indices": [
-              8,
-              9
-            ],
-            "text": "at last"
-          },
-          "fodder": {
-            "indices": [
-              6,
-              7
-            ],
-            "text": "conclude job"
-          },
-          "extractionType": "last letter",
-          "result": "EB",
-          "justification": "The indicator 'at last' tells us to take the final letters of the preceding words 'concludE' and 'joB'.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Taking the last letters of 'conclude' (E) and 'job' (B) gives us EB.",
-            "hint": "Look for a phrase that suggests taking the final letters of specific words in the clue."
-          }
-        },
-        {
-          "type": "anagram_find",
-          "indicator": {
-            "indices": [
-              4
-            ],
-            "text": "busy"
-          },
-          "fodder": {
-            "indices": [
-              2,
-              3
-            ],
-            "text": "lymph too"
-          },
-          "result": "LYMPHTOO",
-          "letterCount": 8,
-          "justification": "The word 'busy' acts as an anagram indicator for the letters in 'lymph too'.",
-          "training": {
-            "order": 3,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 2,
-            "explanation": "Identify 'busy' as an anagram indicator and 'lymph too' as the letters to be rearranged.",
-            "hint": "Find an indicator word that means 'working' or 'active' and the letters nearby it that will be mixed."
-          }
-        },
-        {
-          "type": "container",
-          "indicator": {
-            "indices": [
+              4,
               5
             ],
-            "text": "nurses"
+            "text": "blocking state"
           },
-          "inner": "EB",
-          "outer": "LYMPHTOO",
-          "options": [
-            {
-              "label": "EB goes inside LYMPHTOO",
-              "correct": true
-            },
-            {
-              "label": "LYMPHTOO goes inside EB",
-              "correct": false
-            }
+          "position": "end"
+        },
+        {
+          "type": "wordplay_overview",
+          "definition_solved": true,
+          "remaining_indices": [
+            0,
+            1,
+            2,
+            3
           ],
-          "result": "LYMPHEBTOO",
-          "justification": "The indicator 'nurses' suggests the results of step 2 (EB) are contained within the fodder from step 3 (LYMPHTOO).",
-          "training": {
-            "order": 4,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              1,
-              2
-            ],
-            "dependsOnSteps": [
-              1,
-              2
-            ],
-            "complexity": 2,
-            "explanation": "The word 'nurses' indicates that the letters EB should be placed inside the letters from the 'lymph too' anagram.",
-            "hint": "Use the indicator 'nurses' to place the result of step 2 inside the letters found in step 3."
-          }
-        },
-        {
-          "type": "anagram_solve",
-          "fodder": "LYMPHEBTOO",
-          "result": "PHLEBOTOMY",
-          "letterCount": 10,
-          "definition": "Drawing blood",
-          "justification": "Rearranging the combined 10 letters (LYMPHEBTOO) results in PHLEBOTOMY, which matches the definition.",
-          "training": {
-            "order": 5,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
+          "remaining_text": "Brief press about fool",
+          "common_vocabulary": {
+            "indices": [
               3
             ],
-            "dependsOnSteps": [
-              3
-            ],
-            "complexity": 3,
-            "explanation": "Rearrange the combined letters from step 4 to form the answer PHLEBOTOMY.",
-            "hint": "Rearrange all the letters you have gathered so far to find a word that matches the definition."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "hard",
-        "reasoning": "The answer is an obscure medical term; the wordplay involves a complex nested structure where letters extracted from positional wordplay are inserted into an anagram fodder before the final rearrangement."
-      }
-    },
-    "times-2025-9a": {
-      "id": "times-2025-9a",
-      "clue": {
-        "number": "9A",
-        "text": "Terribly valiant Northern European",
-        "enumeration": "7",
-        "answer": "LATVIAN",
-        "definition": [
-          {
-            "text": "Northern European",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Terribly",
-        "valiant",
-        "Northern",
-        "European"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              2,
-              3
-            ],
-            "text": "Northern European"
+            "text": "fool",
+            "meaning": "ASS",
+            "letters": 3
           },
-          "position": "end",
-          "justification": "Definition at end - looking for 7-letter word for someone from Northern Europe",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'Northern European' as the definition at the end of the clue.",
-            "hint": "The definition is usually at the very beginning or the very end of the clue."
-          }
-        },
-        {
-          "type": "anagram_find",
-          "indicator": {
-            "indices": [
-              0
-            ],
-            "text": "Terribly"
-          },
-          "fodder": {
-            "indices": [
-              1
-            ],
-            "text": "valiant"
-          },
-          "result": "VALIANT",
-          "letterCount": 7,
-          "justification": "Indicator 'Terribly' signals an anagram of 'valiant'",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "The word 'Terribly' acts as an anagram indicator, suggesting that the letters of 'valiant' need to be rearranged.",
-            "hint": "Look for an indicator word that suggests 'badly' or 'wildly' to signal a rearrangement of adjacent letters."
-          }
-        },
-        {
-          "type": "anagram_solve",
-          "fodder": "VALIANT",
-          "result": "LATVIAN",
-          "letterCount": 7,
-          "definition": "Northern European",
-          "justification": "Solving the anagram of 'valiant' results in 'LATVIAN'",
-          "training": {
-            "order": 3,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              1
-            ],
-            "dependsOnSteps": [
-              1
-            ],
-            "complexity": 2,
-            "explanation": "Rearranging the letters of VALIANT produces the answer LATVIAN, which matches the definition.",
-            "hint": "Rearrange the letters found in step 2 to find a word that describes someone from a specific part of Europe."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "easy",
-        "reasoning": "The clue is a straightforward anagram of a 7-letter word with a clear indicator and a direct definition."
-      }
-    },
-    "times-2025-13a": {
-      "id": "times-2025-13a",
-      "clue": {
-        "number": "13A",
-        "text": "Firstly elicit admission, then scoff",
-        "enumeration": "3",
-        "answer": "EAT",
-        "definition": [
-          {
-            "text": "scoff",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Firstly",
-        "elicit",
-        "admission",
-        "then",
-        "scoff"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              4
-            ],
-            "text": "scoff"
-          },
-          "position": "end",
-          "justification": "The word 'scoff' is a synonym for 'eat'.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'scoff' as the definition at the end of the clue.",
-            "hint": "The definition is located at the end of the clue and is a common synonym for the answer."
-          }
-        },
-        {
-          "type": "letter_selection",
-          "indicator": {
-            "indices": [
-              0
-            ],
-            "text": "Firstly"
-          },
-          "fodder": {
-            "indices": [
-              1,
-              2,
-              3
-            ],
-            "text": "elicit admission then"
-          },
-          "extractionType": "first letter",
-          "result": "EAT",
-          "justification": "The indicator 'Firstly' tells the solver to take the first letter of each subsequent word: (E)licit, (A)dmission, (T)hen.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Take the first letters of the words 'elicit' (E), 'admission' (A), and 'then' (T) to form the word EAT.",
-            "hint": "Look for a positional indicator at the start of the clue that suggests taking the initial letter of several following words."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "easy",
-        "reasoning": "A very straightforward 3-letter clue using a 'first-letter' selection indicator ('Firstly') across three consecutive words, leading to a common synonym for 'scoff'."
-      }
-    },
-    "times-2025-27a": {
-      "id": "times-2025-27a",
-      "clue": {
-        "number": "27A",
-        "text": "Dog lead",
-        "enumeration": "7",
-        "answer": "POINTER",
-        "definition": [
-          {
-            "text": "Dog",
-            "position": "start"
-          },
-          {
-            "text": "lead",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Dog",
-        "lead"
-      ],
-      "steps": [
-        {
-          "type": "double_definition",
-          "definitions": [
+          "expected_indicators": [
             {
               "indices": [
                 0
               ],
-              "text": "Dog"
+              "text": "Brief",
+              "operation": "deletion"
+            },
+            {
+              "indices": [
+                2
+              ],
+              "text": "about",
+              "operation": "container"
+            }
+          ]
+        },
+        {
+          "type": "deletion_discover",
+          "indicator": {
+            "indices": [
+              0
+            ],
+            "text": "Brief"
+          },
+          "fodder_word": {
+            "indices": [
+              1
+            ],
+            "text": "press"
+          },
+          "fodder_synonym": "IMPEL",
+          "result": "IMPE",
+          "letters_needed": 4
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              2
+            ],
+            "text": "about"
+          },
+          "inner": "ASS",
+          "outer": "IMPE",
+          "options": [
+            {
+              "label": "ASS goes inside IMPE",
+              "correct": true
+            },
+            {
+              "label": "IMPE goes inside ASS",
+              "correct": false
+            }
+          ],
+          "result": "IMPASSE"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29439"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "reasoning": "'blocking state' clearly suggests deadlock/impasse - common word, direct meaning"
+        },
+        "wordplay": {
+          "rating": "hard",
+          "reasoning": "Nested container + deletion + obscure synonym (press=IMPEL)"
+        },
+        "overall": "medium",
+        "recommendedApproach": "definition"
+      },
+      "verified": true
+    },
+    "times-29439-1d": {
+      "id": "times-29439-1d",
+      "clue": {
+        "number": "1D",
+        "text": "Popular drink, by turns m i l d and short on taste",
+        "enumeration": "7",
+        "answer": "INSIPID",
+        "definition": [
+          {
+            "text": "short on taste",
+            "position": "end"
+          }
+        ]
+      },
+      "words": [
+        "Popular",
+        "drink",
+        "by",
+        "turns",
+        "m",
+        "i",
+        "l",
+        "d",
+        "and",
+        "short",
+        "on",
+        "taste"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              9,
+              10,
+              11
+            ],
+            "text": "short on taste"
+          },
+          "position": "end"
+        },
+        {
+          "type": "wordplay_overview",
+          "definition_solved": true,
+          "remaining_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "remaining_text": "Popular drink, by turns m i l d and",
+          "common_vocabulary": [
+            {
+              "indices": [
+                0
+              ],
+              "text": "Popular",
+              "meaning": "IN",
+              "letters": 2
             },
             {
               "indices": [
                 1
               ],
-              "text": "lead"
+              "text": "drink",
+              "meaning": "SIP",
+              "letters": 3
             }
           ],
-          "result": "POINTER",
-          "justification": "A 'Pointer' is a specific breed of dog, and a 'pointer' is also a lead, hint, or helpful piece of information.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "The clue consists of two distinct definitions for the same word. A 'Dog' can be a POINTER (a breed), and a 'lead' (in a search or investigation) is also a POINTER.",
-            "hint": "This is a double definition. Look for a word that can mean both a type of animal and a piece of helpful information."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "easy",
-        "reasoning": "This is a classic double definition clue using two common meanings of the word 'pointer'."
-      }
-    },
-    "times-2025-6a": {
-      "id": "times-2025-6a",
-      "clue": {
-        "number": "6A",
-        "text": "Mums dropping others like hot potatoes",
-        "enumeration": "4",
-        "answer": "MASH",
-        "definition": [
-          {
-            "text": "potatoes",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Mums",
-        "dropping",
-        "others",
-        "like",
-        "hot",
-        "potatoes"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              5
-            ],
-            "text": "potatoes"
-          },
-          "position": "end",
-          "justification": "Definition at end - potatoes can be served as mash",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'potatoes' as the definition for the 4-letter answer.",
-            "hint": "The definition is found at the end of the clue."
-          }
+          "expected_indicators": [
+            {
+              "indices": [
+                2,
+                3
+              ],
+              "text": "by turns",
+              "operation": "alternation"
+            }
+          ]
         },
         {
-          "type": "deletion",
-          "indicator": {
-            "indices": [
-              1
-            ],
-            "text": "dropping"
-          },
-          "fodder": {
-            "indices": [
-              0
-            ],
-            "text": "mums"
-          },
-          "deleteTarget": "OTHERS",
-          "impliedOperation": "synonym",
-          "impliedFodder": "mums",
-          "impliedResult": "MOTHERS",
-          "result": "M",
-          "justification": "OTHERS is not literally in MUMS, so we use the synonym MOTHERS; dropping OTHERS leaves M.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 3,
-            "explanation": "Find a synonym for 'Mums' (MOTHERS) and remove the word 'others' from it, leaving just the letter 'M'.",
-            "hint": "Find a common synonym for the word at index 0 and remove the word at index 2 from it."
-          }
-        },
-        {
-          "type": "synonym",
-          "fodder": {
-            "indices": [
-              3
-            ],
-            "text": "like"
-          },
-          "result": "AS",
-          "justification": "Synonym: 'like' = 'AS'",
-          "training": {
-            "order": 3,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "A common synonym for 'like' is 'AS'.",
-            "hint": "Think of a two-letter word meaning 'like' (the word at index 3)."
-          }
-        },
-        {
-          "type": "abbreviation",
-          "fodder": {
-            "indices": [
-              4
-            ],
-            "text": "hot"
-          },
-          "result": "H",
-          "justification": "Standard abbreviation used in physics and on water taps (H = hot)",
-          "training": {
-            "order": 4,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "The word 'hot' is often abbreviated as 'H'.",
-            "hint": "Identify a common single-letter abbreviation for the word at index 4."
-          }
-        },
-        {
-          "type": "charade",
+          "type": "charade_verify",
           "components": [
-            "M",
-            "AS",
-            "H"
+            "IN",
+            "SIP"
           ],
-          "result": "MASH",
-          "justification": "Assembling the parts M + AS + H forms the word MASH.",
-          "training": {
-            "order": 5,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              1,
+          "result": "INSIP",
+          "letters_so_far": 5,
+          "letters_needed": 7
+        },
+        {
+          "type": "alternation_discover",
+          "indicator": {
+            "indices": [
               2,
               3
             ],
-            "dependsOnSteps": [
-              1,
-              2,
-              3
-            ],
-            "complexity": 2,
-            "explanation": "Combine the single letter M (from step 2), the synonym AS (from step 3), and the abbreviation H (from step 4) to get the answer MASH.",
-            "hint": "Combine the results from steps 2, 3, and 4 to form the final answer."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "medium",
-        "reasoning": "Requires recognizing an implied synonym (Mums to MOTHERS) for a subtraction operation, combined with a synonym and an abbreviation in a three-part charade."
-      }
-    },
-    "times-2025-10a": {
-      "id": "times-2025-10a",
-      "clue": {
-        "number": "10A",
-        "text": "Model of democracy disheartened leader in Africa",
-        "enumeration": "7",
-        "answer": "REPLICA",
-        "definition": [
-          {
-            "text": "Model",
-            "position": "start"
-          }
-        ]
-      },
-      "words": [
-        "Model",
-        "of",
-        "democracy",
-        "disheartened",
-        "leader",
-        "in",
-        "Africa"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              0
-            ],
-            "text": "Model"
-          },
-          "position": "start",
-          "justification": "The definition is 'Model' at the beginning of the clue, which synonymizes with the answer REPLICA.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'Model' as the definition for a 7-letter word.",
-            "hint": "The definition is at the start of the clue."
-          }
-        },
-        {
-          "type": "synonym",
-          "fodder": {
-            "indices": [
-              2
-            ],
-            "text": "democracy"
-          },
-          "result": "REPUBLIC",
-          "justification": "A 'democracy' is often referred to as a 'REPUBLIC' in crosswords.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 2,
-            "explanation": "Find a synonym for 'democracy' that can be manipulated, which is 'REPUBLIC'.",
-            "hint": "Think of a synonym for democracy often used to describe certain types of government."
-          }
-        },
-        {
-          "type": "deletion",
-          "indicator": {
-            "indices": [
-              3
-            ],
-            "text": "disheartened"
-          },
-          "fodder": "REPUBLIC",
-          "deleteTarget": "UB",
-          "result": "REPLIC",
-          "justification": "The indicator 'disheartened' signals the removal of the middle letters (the heart) from 'REPUBLIC' (U and B), leaving 'REPLIC'.",
-          "training": {
-            "order": 3,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              1
-            ],
-            "dependsOnSteps": [
-              1
-            ],
-            "complexity": 3,
-            "explanation": "Remove the central letters from the synonym found in step 2 as indicated by the word 'disheartened'.",
-            "hint": "To 'dishearten' a word, remove its middle letters."
-          }
-        },
-        {
-          "type": "letter_selection",
-          "indicator": {
-            "indices": [
-              4
-            ],
-            "text": "leader"
+            "text": "by turns"
           },
           "fodder": {
             "indices": [
-              6
-            ],
-            "text": "Africa"
-          },
-          "extractionType": "first letter",
-          "result": "A",
-          "justification": "The word 'leader' refers to the first letter of 'Africa', which is 'A'.",
-          "training": {
-            "order": 4,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify the 'leader' (first letter) of the word 'Africa'.",
-            "hint": "Look for the first letter of the continent mentioned."
-          }
-        },
-        {
-          "type": "charade",
-          "components": [
-            "REPLIC",
-            "A"
-          ],
-          "result": "REPLICA",
-          "justification": "Combining the results of the deletion (REPLIC) and the letter selection (A) forms the final answer REPLICA.",
-          "training": {
-            "order": 5,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              2,
-              3
-            ],
-            "dependsOnSteps": [
-              2,
-              3
-            ],
-            "complexity": 1,
-            "explanation": "Combine the results from the previous wordplay steps to find the final word.",
-            "hint": "Join the parts from steps 3 and 4 together."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "medium",
-        "reasoning": "The clue combines a synonym for 'democracy' (REPUBLIC) with a 'disheartened' deletion (removing middle letters) and a letter selection ('leader in Africa') to form the final charade."
-      }
-    },
-    "times-2025-4d": {
-      "id": "times-2025-4d",
-      "clue": {
-        "number": "4D",
-        "text": "Some impor tant Ra stafarian religious writings",
-        "enumeration": "6",
-        "answer": "TANTRA",
-        "definition": [
-          {
-            "text": "religious writings",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Some",
-        "impor",
-        "tant",
-        "Ra",
-        "stafarian",
-        "religious",
-        "writings"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              5,
-              6
-            ],
-            "text": "religious writings"
-          },
-          "position": "end",
-          "justification": "Definition at end - looking for 6-letter term for religious texts.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'religious writings' as the definition for TANTRA.",
-            "hint": "The definition is at the end of the clue, looking for a type of scripture."
-          }
-        },
-        {
-          "type": "hidden",
-          "indicator": {
-            "indices": [
-              0
-            ],
-            "text": "Some"
-          },
-          "fodder": {
-            "indices": [
-              1,
-              2,
-              3,
-              4
-            ],
-            "text": "impor tant Ra stafarian"
-          },
-          "result": "TANTRA",
-          "justification": "The indicator 'Some' signals that the answer is hidden within the following words.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "The word 'Some' indicates a hidden word. Looking inside 'impor TANT RA stafarian' reveals the 6 letters needed.",
-            "hint": "The word 'Some' suggests that the answer is literally written inside the words that follow it."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "easy",
-        "reasoning": "Simple hidden word clue with a standard indicator ('Some') and a direct definition."
-      }
-    },
-    "times-2025-2d": {
-      "id": "times-2025-2d",
-      "clue": {
-        "number": "2D",
-        "text": "Dwelt on shattering disappointment",
-        "enumeration": "3-4",
-        "answer": "LET-DOWN",
-        "definition": [
-          {
-            "text": "disappointment",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Dwelt",
-        "on",
-        "shattering",
-        "disappointment"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              3
-            ],
-            "text": "disappointment"
-          },
-          "position": "end",
-          "justification": "The word 'disappointment' is the literal meaning of the answer 'LET-DOWN'.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'disappointment' as the definition within the clue.",
-            "hint": "Look for a synonym of 'disappointment' at the end of the clue."
-          }
-        },
-        {
-          "type": "anagram_find",
-          "indicator": {
-            "indices": [
-              2
-            ],
-            "text": "shattering"
-          },
-          "fodder": {
-            "indices": [
-              0,
-              1
-            ],
-            "text": "Dwelt on"
-          },
-          "result": "DWELTON",
-          "letterCount": 7,
-          "justification": "The word 'shattering' is a common anagram indicator suggesting a rearrangement of the letters in 'Dwelt on'.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Locate the anagram indicator ('shattering') and the fodder words ('Dwelt on').",
-            "hint": "The word 'shattering' indicates that the preceding words need their letters rearranged."
-          }
-        },
-        {
-          "type": "anagram_solve",
-          "fodder": "DWELTON",
-          "result": "LET-DOWN",
-          "letterCount": 7,
-          "definition": "disappointment",
-          "justification": "Rearranging the letters in 'DWELTON' yields 'LET-DOWN', which fits the 3-4 enumeration and matches the definition 'disappointment'.",
-          "training": {
-            "order": 3,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              1
-            ],
-            "dependsOnSteps": [
-              0,
-              1
-            ],
-            "complexity": 2,
-            "explanation": "Rearrange the seven letters (D, W, E, L, T, O, N) to form the hyphenated word 'LET-DOWN'.",
-            "hint": "Rearrange the letters found in the previous step to match the definition for disappointment."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "easy",
-        "reasoning": "The clue is a straightforward anagram of 'Dwelt on' (7 letters) indicated by 'shattering', leading to 'LET-DOWN' (3-4), which is a common synonym for 'disappointment'."
-      }
-    },
-    "times-2025-14d": {
-      "id": "times-2025-14d",
-      "clue": {
-        "number": "14D",
-        "text": "Delivery of cast at fault in every part",
-        "enumeration": "5",
-        "answer": "THREW",
-        "definition": [
-          {
-            "text": "cast at fault",
-            "position": "start"
-          }
-        ]
-      },
-      "words": [
-        "Delivery",
-        "of",
-        "cast",
-        "at",
-        "fault",
-        "in",
-        "every",
-        "part"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              2,
-              3,
-              4
-            ],
-            "text": "cast at fault"
-          },
-          "position": "start",
-          "justification": "The definition 'cast at fault' is identified at the start of the clue, though 'cast' and 'threw' are synonyms in the past tense.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'cast at fault' as the definition for the word THREW (the past tense of cast).",
-            "hint": "The definition is found at the beginning of the clue and refers to a past-tense action of launching something."
-          }
-        },
-        {
-          "type": "synonym",
-          "fodder": {
-            "indices": [
-              6,
-              7
-            ],
-            "text": "every part"
-          },
-          "result": "THROUGH",
-          "justification": "The phrase 'in every part' is a synonym for 'through' or 'throughout'.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 2,
-            "explanation": "Find a word meaning 'in every part', which is 'THROUGH'.",
-            "hint": "Look for a word that means 'in every part' or 'from one side to the other'."
-          }
-        },
-        {
-          "type": "homophone",
-          "indicator": {
-            "indices": [
-              0
-            ],
-            "text": "Delivery"
-          },
-          "fodder": "THROUGH",
-          "result": "THREW",
-          "justification": "In cryptic crosswords, 'Delivery' can sometimes imply how a word is spoken; here it indicates that 'THROUGH' sounds like the answer 'THREW'.",
-          "training": {
-            "order": 3,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              1
-            ],
-            "dependsOnSteps": [
-              1
-            ],
-            "complexity": 3,
-            "explanation": "The word 'Delivery' acts as a homophone indicator, suggesting the answer sounds like the synonym found in step 2 (THROUGH).",
-            "hint": "The first word of the clue suggests that the answer sounds like the synonym you found in the previous step."
-          }
-        },
-        {
-          "type": "charade",
-          "components": [
-            "THREW"
-          ],
-          "result": "THREW",
-          "justification": "Final assembly confirms the 5-letter answer.",
-          "training": {
-            "order": 4,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              2
-            ],
-            "dependsOnSteps": [
-              2
-            ],
-            "complexity": 1,
-            "explanation": "The resulting word is THREW.",
-            "hint": "Combine the results to form the final answer."
-          }
-        }
-      ],
-      "metadata": {
-        "file": "Times_2025.json",
-        "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "rating": "medium",
-        "reasoning": "Uses a synonym ('through') which then requires a homophone operation ('threw'), combined with a definition that could be interpreted as a single word or a phrase."
-      }
-    },
-    "times-2025-20a": {
-      "id": "times-2025-20a",
-      "clue": {
-        "number": "20A",
-        "text": "Travelling west in Nav arre, I s pot mountains",
-        "enumeration": "6",
-        "answer": "SIERRA",
-        "definition": [
-          {
-            "text": "mountains",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Travelling",
-        "west",
-        "in",
-        "Nav",
-        "arre,",
-        "I",
-        "s",
-        "pot",
-        "mountains"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              8
-            ],
-            "text": "mountains"
-          },
-          "position": "end",
-          "justification": "The definition 'mountains' is found at the end of the clue.",
-          "training": {
-            "order": 1,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 1,
-            "explanation": "Identify 'mountains' as the definition for the answer SIERRA.",
-            "hint": "The definition is found at the very end of the clue and refers to a type of geographic range."
-          }
-        },
-        {
-          "type": "reversal",
-          "indicator": {
-            "indices": [
-              0,
-              1
-            ],
-            "text": "Travelling west"
-          },
-          "fodder": {
-            "indices": [
-              3,
               4,
               5,
               6,
               7
             ],
-            "text": "Nav arre, I s pot"
+            "text": "m i l d"
           },
-          "result": "TOP S I ERRA VAN",
-          "justification": "The indicator 'Travelling west' (standard for across clues to mean 'to the left') tells you to reverse the letters of the following words.",
-          "training": {
-            "order": 2,
-            "canSolveIndependently": true,
-            "fodderSource": "clue",
-            "fodderFromStep": null,
-            "dependsOnSteps": [],
-            "complexity": 2,
-            "explanation": "Reverse the letter sequence in 'Nav arre, I s pot' (ignoring punctuation) to get the string 'TOPSIERRAVAN'.",
-            "hint": "Read the words following 'in' in the opposite direction (from right to left)."
-          }
-        },
-        {
-          "type": "hidden",
-          "indicator": {
-            "indices": [
-              2
-            ],
-            "text": "in"
-          },
-          "fodder": {
-            "indices": [
-              3,
-              4,
-              5,
-              6,
-              7
-            ],
-            "text": "Nav arre, I s pot"
-          },
-          "fodderSource": "previous",
-          "fodderFromStep": [
-            1
-          ],
-          "result": "SIERRA",
-          "justification": "The indicator 'in' suggests the answer is hidden within the modified fodder string from the previous step.",
-          "training": {
-            "order": 3,
-            "canSolveIndependently": false,
-            "fodderSource": "previous",
-            "fodderFromStep": [
-              1
-            ],
-            "dependsOnSteps": [
-              1
-            ],
-            "complexity": 2,
-            "explanation": "Extract the 6-letter word 'SIERRA' from the string 'TOP S I ERRA VAN'.",
-            "hint": "The answer is concealed inside the reversed version of the central phrase of the clue."
-          }
+          "result": "ID",
+          "letters_needed": 2,
+          "pattern": "even"
         }
       ],
       "metadata": {
-        "file": "Times_2025.json",
         "publisher": "Times",
-        "puzzle_number": "2025",
-        "setter": "Unknown"
+        "puzzle_number": "29439"
       },
       "publicationId": "times",
       "difficulty": {
-        "rating": "medium",
-        "reasoning": "This clue is a 'hidden reversal'. The solver must first identify the fodder, reverse it based on the 'Travelling west' indicator, and then find the hidden word 'SIERRA' within that reversed string. The split fodder and dual operations increase the difficulty."
-      }
+        "definition": {
+          "rating": "easy",
+          "reasoning": "'short on taste' clearly suggests bland/insipid"
+        },
+        "wordplay": {
+          "rating": "easy",
+          "reasoning": "All anchors are common cryptic vocabulary (IN, SIP) plus clear alternation indicator"
+        },
+        "overall": "easy",
+        "recommendedApproach": "wordplay"
+      },
+      "verified": true
     }
   },
   "import_logs": {
@@ -1226,6 +278,32 @@
       "summary": {
         "saved": 10,
         "skipped": 0,
+        "failed": 0
+      },
+      "errors": []
+    },
+    "1769776016-29439": {
+      "id": "1769776016-29439",
+      "timestamp": 1769776016,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29439",
+      "summary": {
+        "saved": 2,
+        "skipped": 0,
+        "failed": 0
+      },
+      "errors": []
+    },
+    "1769776455-29439": {
+      "id": "1769776455-29439",
+      "timestamp": 1769776455,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29439",
+      "summary": {
+        "saved": 0,
+        "skipped": 2,
         "failed": 0
       },
       "errors": []
