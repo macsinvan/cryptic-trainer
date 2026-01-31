@@ -32,16 +32,16 @@ STEP_TEMPLATES = {
                 "id": "choose",
                 "actionPrompt": "Select clue type",
                 "intro": {
-                    "title": "Before solving, identify the clue type",
-                    "text": "Scan the clue structure, don't solve yet:\n\n• Instruction words (rearranged, inside, about, sounds like) → Standard clue\n• Clear definition at start or end → Standard clue\n• Short clue, no instruction words → Double definition\n• Single playful description, no clear split → Cryptic definition\n• Every word serves both meaning AND wordplay → &lit"
+                    "title": "First, identify the clue type",
+                    "text": "Before diving in, take a moment to scan the clue structure:\n\n• See instruction words (rearranged, inside, about, sounds like)? → Standard clue\n• Clear definition at start or end with wordplay in the rest? → Standard clue\n• Short clue with no instruction words? → Probably a double definition\n• One playful description with no clear split? → Cryptic definition\n• Every word serves both meaning AND wordplay? → &lit (rare!)"
                 },
                 "panel": {
-                    "title": "IDENTIFY CLUE TYPE",
-                    "instruction": "Select the type of clue you think this is."
+                    "title": "WHAT TYPE OF CLUE IS THIS?",
+                    "instruction": "Based on the structure, what type of clue do you think this is?"
                 },
                 "inputMode": "multiple_choice",
-                "onCorrect": {"message": "Correct!"},
-                "onWrong": {"message": "Not quite. Look again at the clue structure."}
+                "onCorrect": {"message": "Good eye! Recognizing clue types helps you choose the right solving approach."},
+                "onWrong": {"message": "Not quite — look again at the clue structure. Are there instruction words? Is there a clear definition?"}
             }
         ]
     },
@@ -52,24 +52,24 @@ STEP_TEMPLATES = {
                 "id": "select",
                 "actionPrompt": "Tap the definition words",
                 "intro": {
-                    "title": "Spotting the Definition",
-                    "text": "The definition is the 'straight' part — a normal dictionary meaning of the answer.\n\nIt's always at the very beginning OR the very end of the clue.",
-                    "example": "Ignore the surface story. Look for a phrase at start or end that could define a word."
+                    "title": "Find the Definition",
+                    "text": "Every standard cryptic clue has a 'straight' definition — a normal dictionary meaning of the answer.\n\nKey insight: The definition is ALWAYS at the very start OR the very end of the clue. Never in the middle!",
+                    "example": "Ignore the misleading surface story. Focus on the start and end — which phrase could define a word?"
                 },
                 "panel": {
-                    "title": "FIND DEFINITION",
-                    "instruction": "Tap the definition words above. It's always at the **start** or **end** of the clue."
+                    "title": "FIND THE DEFINITION",
+                    "instruction": "Tap the definition words. Remember: it's always at the start or end of the clue."
                 },
                 "inputMode": "tap_words",
                 "onCorrect": {"highlight": {"color": "GREEN", "role": "definition"}},
-                "onWrong": {"message": "Not quite - look at the start or end"}
+                "onWrong": {"message": "Hint: The definition is always at the very start OR very end — never in the middle."}
             },
             {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "DEFINITION FOUND: {definition_text}",
-                    "instruction": "The definition is at the {position}. Form a hypothesis — what word fits this definition?"
+                    "instruction": "Good! The definition, '{definition_text}', is at the {position} of the clue."
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -90,29 +90,29 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Tap the word the indicator operates on",
                 "panel": {
                     "title": "FIND FODDER",
-                    "instruction": "Tap the word that '{indicator}' operates on."
+                    "instruction": "'{indicator}' is a deletion indicator — it shortens something. Which adjacent word does it operate on?"
                 },
                 "inputMode": "tap_words",
                 "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
-                "onWrong": {"message": "Indicators operate on adjacent words."}
+                "onWrong": {"message": "Hint: Indicators operate on adjacent words. Look right next to '{indicator}'."}
             },
             {
                 "id": "result",
                 "actionPrompt": "Type the letters after shortening",
                 "panel": {
-                    "title": "TYPE RESULT",
-                    "instruction": "Type the {letters_needed} letters after shortening."
+                    "title": "DISCOVER THE RESULT",
+                    "instruction": "Now think: what synonym of this word, when shortened, gives you {letters_needed} letters that fit your hypothesis?"
                 },
                 "inputMode": "text",
-                "onCorrect": {"message": "Correct!"},
-                "onWrong": {"message": "If the shortened word doesn't fit, find a synonym first, then shorten."}
+                "onCorrect": {"message": "Excellent! You discovered the synonym by working backwards from your hypothesis."},
+                "onWrong": {"message": "Hint: Find a synonym first, then shorten it. What fits your hypothesis?"}
             },
             {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "DELETION CONFIRMED",
-                    "instruction": "{fodder_word} = {fodder_synonym}, shortened = {result}"
+                    "instruction": "'{fodder_word}' = {fodder_synonym}, shortened = {result}. This is a key cryptic technique — working backwards from your hypothesis to discover synonyms."
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -127,29 +127,29 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Select which piece goes inside which",
                 "panel": {
                     "title": "CONTAINER ORDER",
-                    "instruction": "'{indicator}' means one thing surrounds another. Which arrangement fits your hypothesis?"
+                    "instruction": "'{indicator}' tells us one piece goes inside another. Based on your hypothesis, which arrangement works?"
                 },
                 "inputMode": "multiple_choice",
-                "onCorrect": {"message": "Correct!"},
-                "onWrong": {"message": "Think about what '{indicator}' means - which piece wraps around the other?"}
+                "onCorrect": {"message": "That's right! Container indicators tell you the structure."},
+                "onWrong": {"message": "Hint: Think about what '{indicator}' means — which piece wraps around the other to match your hypothesis?"}
             },
             {
                 "id": "result",
                 "actionPrompt": "Type the combined result",
                 "panel": {
-                    "title": "TYPE RESULT",
-                    "instruction": "Put {inner} inside {outer}. What do you get?"
+                    "title": "COMBINE THE PIECES",
+                    "instruction": "Now put {inner} inside {outer}. The outer piece splits to wrap the inner. What do you get?"
                 },
                 "inputMode": "text",
-                "onCorrect": {"message": "Correct!"},
-                "onWrong": {"message": "The outer piece splits to wrap the inner piece."}
+                "onCorrect": {"message": "Perfect! The pieces fit together to match your hypothesis."},
+                "onWrong": {"message": "Hint: Split the outer piece and insert the inner piece between its parts."}
             },
             {
                 "id": "teaching",
                 "actionPrompt": "Complete training",
                 "panel": {
-                    "title": "COMPLETE",
-                    "instruction": "{outer_split} = {result} ✓"
+                    "title": "VERIFIED!",
+                    "instruction": "{outer_split} = {result} ✓ Your hypothesis is confirmed by the wordplay!"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -163,19 +163,19 @@ STEP_TEMPLATES = {
                 "id": "result",
                 "actionPrompt": "Type the combined result",
                 "panel": {
-                    "title": "COMBINE PIECES",
-                    "instruction": "Combine your known pieces: {components_display}. What do you get?"
+                    "title": "COMBINE YOUR PIECES",
+                    "instruction": "You've gathered these pieces: {components_display}. Put them together — what do you get?"
                 },
                 "inputMode": "text",
-                "onCorrect": {"message": "Correct!"},
-                "onWrong": {"message": "Combine the pieces in order."}
+                "onCorrect": {"message": "Great! The pieces chain together nicely."},
+                "onWrong": {"message": "Hint: Simply join the pieces in order, left to right."}
             },
             {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
-                    "title": "CHARADE CONFIRMED",
-                    "instruction": "{components_display} = {result} ({letters_so_far} of {letters_needed} letters)"
+                    "title": "PROGRESS CHECK",
+                    "instruction": "{components_display} = {result}. You now have {letters_so_far} of {letters_needed} letters — getting closer!"
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -189,30 +189,30 @@ STEP_TEMPLATES = {
                 "id": "fodder",
                 "actionPrompt": "Tap the letters the indicator operates on",
                 "panel": {
-                    "title": "FIND FODDER",
-                    "instruction": "Tap the letters that '{indicator}' operates on."
+                    "title": "FIND THE FODDER",
+                    "instruction": "'{indicator}' tells you to take alternating letters. Which adjacent letters does it operate on?"
                 },
                 "inputMode": "tap_words",
                 "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
-                "onWrong": {"message": "Indicators operate on adjacent words."}
+                "onWrong": {"message": "Hint: Look for letters right next to the indicator."}
             },
             {
                 "id": "result",
                 "actionPrompt": "Type the alternating letters",
                 "panel": {
-                    "title": "TYPE RESULT",
-                    "instruction": "Take alternating letters. What {letters_needed} letters complete your hypothesis?"
+                    "title": "EXTRACT THE LETTERS",
+                    "instruction": "Take alternating letters from the fodder. What {letters_needed} letters complete your hypothesis?"
                 },
                 "inputMode": "text",
-                "onCorrect": {"message": "Correct!"},
-                "onWrong": {"message": "Take every other letter from the fodder."}
+                "onCorrect": {"message": "Well done! Alternation is a handy technique to recognize."},
+                "onWrong": {"message": "Hint: Take every other letter — either odd positions (1st, 3rd, 5th) or even (2nd, 4th, 6th)."}
             },
             {
                 "id": "teaching",
                 "actionPrompt": "Complete training",
                 "panel": {
-                    "title": "COMPLETE",
-                    "instruction": "Alternating letters from {fodder} = {result} ✓"
+                    "title": "VERIFIED!",
+                    "instruction": "Alternating letters from {fodder} = {result} ✓ Your hypothesis is confirmed!"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -227,45 +227,45 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Tap the first definition",
                 "intro": {
                     "title": "Double Definition",
-                    "text": "Two separate meanings of the same answer, sitting side by side.\n\nNo wordplay — both parts simply define the word in different ways.",
-                    "example": "Short clue with no wordplay indicators? Probably a double definition."
+                    "text": "This is a double definition — two separate meanings sitting side by side, both pointing to the same answer.\n\nNo wordplay indicators here. The trick is finding a word that satisfies both meanings.",
+                    "example": "Short clue with no obvious wordplay? Think double definition."
                 },
                 "panel": {
-                    "title": "FIRST DEFINITION",
-                    "instruction": "Tap the first definition."
+                    "title": "FIND THE FIRST MEANING",
+                    "instruction": "Tap the first definition — one meaning of the answer."
                 },
                 "inputMode": "tap_words",
                 "onCorrect": {"highlight": {"color": "GREEN", "role": "definition1"}},
-                "onWrong": {"message": "Look for a word or phrase that defines the answer"}
+                "onWrong": {"message": "Hint: Look for a word or phrase that could define the answer on its own."}
             },
             {
                 "id": "second_def",
                 "actionPrompt": "Tap the second definition",
                 "panel": {
-                    "title": "SECOND DEFINITION",
-                    "instruction": "Tap the second definition."
+                    "title": "FIND THE SECOND MEANING",
+                    "instruction": "Good! Now tap the second definition — a different meaning of the same word."
                 },
                 "inputMode": "tap_words",
                 "onCorrect": {"highlight": {"color": "BLUE", "role": "definition2"}},
-                "onWrong": {"message": "Look for another word or phrase that also defines the answer"}
+                "onWrong": {"message": "Hint: Look for another word or phrase that also defines the answer, but in a different sense."}
             },
             {
                 "id": "solve",
                 "actionPrompt": "Type the answer",
                 "panel": {
-                    "title": "SOLVE",
-                    "instruction": "Type the word that matches both definitions."
+                    "title": "WHAT'S THE WORD?",
+                    "instruction": "What single word satisfies both definitions?"
                 },
                 "inputMode": "text",
-                "onCorrect": {"message": "Correct!"},
-                "onWrong": {"message": "Think of a word that means both definitions"}
+                "onCorrect": {"message": "Excellent! You found the word that bridges both meanings."},
+                "onWrong": {"message": "Hint: Think of a word that could mean both things — it's often a word with multiple unrelated meanings."}
             },
             {
                 "id": "teaching",
                 "actionPrompt": "Complete training",
                 "panel": {
-                    "title": "SOLVED",
-                    "instruction": "Both definitions point to {result}. No wordplay needed!"
+                    "title": "SOLVED!",
+                    "instruction": "Both definitions point to {result}. Double definitions are elegant — no wordplay needed, just two meanings of one word!"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -338,9 +338,13 @@ def build_clue_type_step(clue):
 # DYNAMIC PHASE GENERATION
 # =============================================================================
 
-def build_wordplay_overview_phases(step):
+def build_wordplay_overview_phases(step, clue):
     """Build phases for wordplay_overview based on common_vocabulary count."""
     phases = []
+
+    # Extract what we know for coaching prompts
+    definition_text = step.get("definition_text", "unknown")
+    answer = clue.get("clue", {}).get("answer", "unknown")
 
     # Normalize common_vocabulary to list
     common_vocab = step.get("common_vocabulary", [])
@@ -357,32 +361,36 @@ def build_wordplay_overview_phases(step):
             "id": f"vocabulary_tap_{vocab_num}",
             "actionPrompt": "Tap a word with a common cryptic meaning",
             "panel": {
-                "title": "FIND COMMON VOCABULARY",
-                "instruction": "Tap another word with a common cryptic meaning." if not is_first else "Tap a word with a common cryptic meaning."
+                "title": "FIND ANCHOR",
+                "instruction": f"Look for another word with a well-known cryptic synonym that might appear in {answer}." if not is_first else f"Which word has a well-known cryptic synonym that might appear in {answer}?"
             },
             "inputMode": "tap_words",
             "onCorrect": {"highlight": {"color": "BLUE", "role": f"vocabulary_{vocab_num}"}},
-            "onWrong": {"message": "Look for a word with a synonym that might appear in your answer."}
+            "onWrong": {"message": f"Hint: Look for common cryptic vocabulary — words like 'fool', 'love', 'nothing' have well-known short synonyms."}
         }
         if is_first:
             tap_phase["intro"] = {
                 "title": "Wordplay Overview",
-                "text": "Now scan the remaining words for:\n\n• Common cryptic vocabulary (words with well-known short meanings)\n• Indicator words (signals for operations like deletion, container, anagram)",
-                "example": ""  # Don't give away specific answers
+                "text": f"We have the definition, {definition_text}, and a hypothesis: {answer}. Now let's verify it by scanning the remaining words for anchors — words with obvious cryptic meanings that might support your hypothesis.",
+                "example": ""
             }
         phases.append(tap_phase)
 
-        # Type phase
+        # Type phase - get the vocab word text and meaning length for coaching prompt
+        vocab_text = vocab.get("text", "this word")
+        vocab_meaning = vocab.get("meaning", "")
+        meaning_len = len(vocab_meaning) if vocab_meaning else 3
+
         type_phase = {
             "id": f"vocabulary_type_{vocab_num}",
             "actionPrompt": "Type the synonym",
             "panel": {
                 "title": "TYPE SYNONYM",
-                "instruction": "What's the common cryptic synonym for this word?"
+                "instruction": f"Nice work spotting '{vocab_text}' — this appears frequently in cryptic clues. What's its common {meaning_len}-letter synonym? Check if it appears in {answer}."
             },
             "inputMode": "text",
-            "onCorrect": {"message": "Correct!"},
-            "onWrong": {"message": "Think of the common cryptic meaning for this word."}
+            "onCorrect": {"message": f"That's it! '{vocab_text}' = {vocab_meaning} — a common cryptic pairing worth remembering."},
+            "onWrong": {"message": f"Hint: Think of a {meaning_len}-letter word that means '{vocab_text}' and appears in {answer}."}
         }
         phases.append(type_phase)
 
@@ -394,10 +402,9 @@ def build_wordplay_overview_phases(step):
         operation = indicator.get("operation", "wordplay")
 
         if num_indicators == 1:
-            instruction = "Which remaining word signals a wordplay operation?"
+            instruction = "Now look for an indicator — a word that signals a wordplay operation like deletion, container, or reversal."
         else:
-            # Instruction is dynamic based on how many found - updated in get_render
-            instruction = f"There are {num_indicators} indicators. Find one."
+            instruction = f"There are {num_indicators} indicators in this clue. Can you spot one?"
 
         indicator_phase = {
             "id": f"indicator_tap_{ind_num}",
@@ -408,7 +415,7 @@ def build_wordplay_overview_phases(step):
             },
             "inputMode": "tap_words",
             "onCorrect": {"highlight": {"color": "ORANGE", "role": f"indicator_{ind_num}"}},
-            "onWrong": {"message": f"Look for a word that signals {operation}."}
+            "onWrong": {"message": f"Hint: Look for a word that could signal {operation} — these are the 'recipe words' that tell you what to do."}
         }
         phases.append(indicator_phase)
 
@@ -439,13 +446,19 @@ def build_standard_definition_phases(step, clue):
         # Get hint from difficulty.definition.hint if available
         definition_hint = difficulty.get("definition", {}).get("hint", "")
 
+        # Standard intro paragraph explaining the strategy
+        strategy_intro = "Clues can be solved by starting with the wordplay or the definition. Skilled solvers often hypothesize an answer based on the definition, then verify it using the wordplay."
+
+        # Combine strategy intro with clue-specific hint
+        full_text = f"{strategy_intro}\n\n{definition_hint}"
+
         # Insert solve phase after teaching
         solve_phase = {
             "id": "solve",
             "actionPrompt": "Type your answer",
             "intro": {
                 "title": "Solve from Definition",
-                "text": definition_hint,
+                "text": full_text,
                 "example": ""
             },
             "panel": {
@@ -501,7 +514,7 @@ def get_step_phases(step, clue):
     step_type = step.get("type")
 
     if step_type == "wordplay_overview":
-        return build_wordplay_overview_phases(step)
+        return build_wordplay_overview_phases(step, clue)
     elif step_type == "standard_definition":
         return build_standard_definition_phases(step, clue)
     else:
@@ -978,9 +991,46 @@ def handle_input(clue_id, clue, value):
                 "role": phase["onCorrect"]["highlight"].get("role", "")
             })
 
+        # Add breadcrumb learnings for key phases
+        if phase_id.startswith("vocabulary_type_"):
+            # Extract vocab info from step data
+            common_vocab = step.get("common_vocabulary", [])
+            if isinstance(common_vocab, dict):
+                common_vocab = [common_vocab]
+            # Find which vocab this is (vocab_num from phase_id)
+            try:
+                vocab_idx = int(phase_id.split("_")[-1]) - 1
+                if vocab_idx < len(common_vocab):
+                    vocab = common_vocab[vocab_idx]
+                    vocab_text = vocab.get("text", "")
+                    vocab_meaning = vocab.get("meaning", "")
+                    session["learnings"].append({
+                        "title": f"ANCHOR: {vocab_text} = {vocab_meaning}"
+                    })
+            except (ValueError, IndexError):
+                pass
+
+        if phase_id.startswith("indicator_tap_"):
+            # Find which indicator was found
+            indicators = step.get("expected_indicators", [])
+            if matched_indicator:
+                # Find the indicator that matches
+                for ind in indicators:
+                    if ind.get("indices") == list(matched_indicator):
+                        ind_text = ind.get("text", "")
+                        operation = ind.get("operation", "wordplay")
+                        session["learnings"].append({
+                            "title": f"INDICATOR: {ind_text} ({operation})"
+                        })
+                        break
+
         # Check if this is a solve phase (definition approach)
         if phase_id == "solve" and step["type"] == "standard_definition":
-            # User solved from definition - continue to wordplay steps for review
+            # User solved from definition - add hypothesis breadcrumb to learnings
+            answer = clue.get("clue", {}).get("answer", "")
+            session["learnings"].append({
+                "title": f"HYPOTHESIS: {answer}"
+            })
             # Advance past the standard_definition step to the next step
             session["step_index"] += 1
             session["phase_index"] = 0
