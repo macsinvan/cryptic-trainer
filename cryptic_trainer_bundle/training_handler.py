@@ -102,17 +102,6 @@ STEP_TEMPLATES = {
                 "onWrong": {"message": "Hint: Look at {answer} — where does {inner} appear? Is it surrounded by letters, or does it surround them?"}
             },
             {
-                "id": "result",
-                "actionPrompt": "Type the combined result",
-                "panel": {
-                    "title": "COMBINE THE PIECES",
-                    "instruction": "Now put {inner} inside {outer}. The outer piece splits to wrap the inner. What do you get?"
-                },
-                "inputMode": "text",
-                "onCorrect": {"message": "Perfect! The pieces fit together to make {answer}."},
-                "onWrong": {"message": "Hint: Split {outer} and insert {inner} between its parts. Does it spell {answer}?"}
-            },
-            {
                 "id": "teaching",
                 "actionPrompt": "Complete training",
                 "panel": {
@@ -1185,7 +1174,7 @@ def handle_continue(clue_id, clue):
 
         # Apply special handling for various step types
         if step["type"] == "wordplay_overview":
-            learning_text = build_wordplay_teaching(step, clue)
+            learning_text = None  # Skip - already shown in individual breadcrumbs
         elif step["type"] == "deletion_discover":
             fodder_word = step.get("fodder_word", {}).get("text", "")
             fodder_synonym = step.get("fodder_synonym", "")
@@ -1256,10 +1245,7 @@ def get_all_learnings(clue):
             })
 
         elif step_type == "wordplay_overview":
-            learnings.append({
-                "title": "WORDPLAY OVERVIEW",
-                "text": build_wordplay_teaching(step, clue)
-            })
+            pass  # Skip - already shown in individual breadcrumbs
 
         elif step_type == "deletion_discover":
             fodder_word = step.get("fodder_word", {}).get("text", "")
