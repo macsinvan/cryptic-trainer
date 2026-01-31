@@ -101,11 +101,11 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Type the letters after shortening",
                 "panel": {
                     "title": "DISCOVER THE RESULT",
-                    "instruction": "Now think: what synonym of this word, when shortened, gives you {letters_needed} letters that fit your hypothesis?"
+                    "instruction": "You have {anchor_summary}. '{indicator}' '{fodder_word}' needs to give you {letters_needed} more letters. Shortening '{fodder_word}' directly doesn't fit {answer} — so what synonym of '{fodder_word}' could be shortened to give you those {letters_needed} letters?"
                 },
                 "inputMode": "text",
                 "onCorrect": {"message": "Excellent! You discovered the synonym by working backwards from your hypothesis."},
-                "onWrong": {"message": "Hint: Find a synonym first, then shorten it. What fits your hypothesis?"}
+                "onWrong": {"message": "Hint: Shortening '{fodder_word}' directly doesn't work. Think of synonyms for '{fodder_word}' — which one, when shortened, gives {letters_needed} letters that fit {answer}?"}
             },
             {
                 "id": "teaching",
@@ -127,11 +127,11 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Select which piece goes inside which",
                 "panel": {
                     "title": "CONTAINER ORDER",
-                    "instruction": "'{indicator}' tells us one piece goes inside another. Based on your hypothesis, which arrangement works?"
+                    "instruction": "You have two pieces: {inner} and {outer}. '{indicator}' tells us one goes inside the other. To make {answer}, which arrangement works?"
                 },
                 "inputMode": "multiple_choice",
                 "onCorrect": {"message": "That's right! Container indicators tell you the structure."},
-                "onWrong": {"message": "Hint: Think about what '{indicator}' means — which piece wraps around the other to match your hypothesis?"}
+                "onWrong": {"message": "Hint: Look at {answer} — where does {inner} appear? Is it surrounded by letters, or does it surround them?"}
             },
             {
                 "id": "result",
@@ -141,8 +141,8 @@ STEP_TEMPLATES = {
                     "instruction": "Now put {inner} inside {outer}. The outer piece splits to wrap the inner. What do you get?"
                 },
                 "inputMode": "text",
-                "onCorrect": {"message": "Perfect! The pieces fit together to match your hypothesis."},
-                "onWrong": {"message": "Hint: Split the outer piece and insert the inner piece between its parts."}
+                "onCorrect": {"message": "Perfect! The pieces fit together to make {answer}."},
+                "onWrong": {"message": "Hint: Split {outer} and insert {inner} between its parts. Does it spell {answer}?"}
             },
             {
                 "id": "teaching",
@@ -201,18 +201,18 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Type the alternating letters",
                 "panel": {
                     "title": "EXTRACT THE LETTERS",
-                    "instruction": "Take alternating letters from the fodder. What {letters_needed} letters complete your hypothesis?"
+                    "instruction": "You have {letters_have} letters so far. Take alternating letters from '{fodder}' — which {letters_needed} letters complete {answer}?"
                 },
                 "inputMode": "text",
                 "onCorrect": {"message": "Well done! Alternation is a handy technique to recognize."},
-                "onWrong": {"message": "Hint: Take every other letter — either odd positions (1st, 3rd, 5th) or even (2nd, 4th, 6th)."}
+                "onWrong": {"message": "Hint: Take every other letter from '{fodder}' — try odd positions (1st, 3rd, 5th) or even (2nd, 4th, 6th). Which gives you letters that fit {answer}?"}
             },
             {
                 "id": "teaching",
                 "actionPrompt": "Complete training",
                 "panel": {
                     "title": "VERIFIED!",
-                    "instruction": "Alternating letters from {fodder} = {result} ✓ Your hypothesis is confirmed!"
+                    "instruction": "Alternating letters from {fodder} = {result} ✓ Your hypothesis {answer} is confirmed!"
                 },
                 "inputMode": "none",
                 "button": {"label": "Complete →", "action": "complete"}
@@ -598,12 +598,36 @@ def substitute_variables(text, step, session, clue=None):
         if len(definitions) > 1:
             subs["def2"] = definitions[1].get("text", "")
 
-    # Get letterCount from clue enumeration
+    # Get letterCount from clue enumeration and answer
     if clue:
         enumeration = clue.get("clue", {}).get("enumeration", "")
         if enumeration:
             subs["letterCount"] = str(parse_enumeration(enumeration))
-            subs["letters_needed"] = str(parse_enumeration(enumeration))
+        subs["answer"] = clue.get("clue", {}).get("answer", "")
+
+        # Find anchor info from wordplay_overview step for context
+        steps = clue.get("steps", [])
+        anchor_letters = 0
+        anchor_summary = ""
+        for s in steps:
+            if s.get("type") == "wordplay_overview":
+                common_vocab = s.get("common_vocabulary", [])
+                if isinstance(common_vocab, dict):
+                    common_vocab = [common_vocab]
+                if common_vocab:
+                    # Build anchor summary
+                    anchor_parts = []
+                    for vocab in common_vocab:
+                        vocab_text = vocab.get("text", "")
+                        meaning = vocab.get("meaning", "")
+                        letters = vocab.get("letters", len(meaning))
+                        anchor_letters += letters
+                        anchor_parts.append(f"{meaning} from '{vocab_text}' ({letters} letters)")
+                    anchor_summary = ", ".join(anchor_parts)
+                break
+
+        subs["anchor_summary"] = anchor_summary
+        subs["letters_have"] = str(anchor_letters)
 
     # Perform substitution
     for key, val in subs.items():
