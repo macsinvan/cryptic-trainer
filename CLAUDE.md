@@ -16,6 +16,10 @@ When writing prompts for implied wordplay steps (e.g., finding a synonym before 
 Example: Instead of "what synonym of 'press', when shortened, fits?"
 Write: "You have ASS (3 letters). 'Brief press' needs to give you 4 more letters. Shortening 'press' directly doesn't fit IMPASSE — so what synonym of 'press' could be shortened to give you those 4 letters?"
 
+## Metadata
+
+We control the metadata. If it could be improved to enhance the user experience or make the teaching sequencer simpler, raise these changes as a proposal.
+
 IMPORTANT: Always work in `/Users/andrewmackenzie/Desktop/cryptic-trainer/` on the `main` branch. This is a one-person project — no feature branches or worktrees.
 
 IMPORTANT: After editing any `.py` file, YOU MUST restart the server by killing by port first (to ensure no stale process):

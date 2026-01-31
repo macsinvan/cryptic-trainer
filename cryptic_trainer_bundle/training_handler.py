@@ -84,40 +84,8 @@ STEP_TEMPLATES = {
     },
 
     "deletion_discover": {
-        "phases": [
-            {
-                "id": "fodder",
-                "actionPrompt": "Tap the word the indicator operates on",
-                "panel": {
-                    "title": "FIND FODDER",
-                    "instruction": "'{indicator}' is a deletion indicator — it shortens something. Which adjacent word does it operate on?"
-                },
-                "inputMode": "tap_words",
-                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
-                "onWrong": {"message": "Hint: Indicators operate on adjacent words. Look right next to '{indicator}'."}
-            },
-            {
-                "id": "result",
-                "actionPrompt": "Type the letters after shortening",
-                "panel": {
-                    "title": "DISCOVER THE RESULT",
-                    "instruction": "You have {anchor_summary}. '{indicator}' '{fodder_word}' needs to give you {letters_needed} more letters. Shortening '{fodder_word}' directly doesn't fit {answer} — so what synonym of '{fodder_word}' could be shortened to give you those {letters_needed} letters?"
-                },
-                "inputMode": "text",
-                "onCorrect": {"message": "Excellent! You discovered the synonym by working backwards from your hypothesis."},
-                "onWrong": {"message": "Hint: Shortening '{fodder_word}' directly doesn't work. Think of synonyms for '{fodder_word}' — which one, when shortened, gives {letters_needed} letters that fit {answer}?"}
-            },
-            {
-                "id": "teaching",
-                "actionPrompt": "Continue to next step",
-                "panel": {
-                    "title": "DELETION CONFIRMED",
-                    "instruction": "'{fodder_word}' = {fodder_synonym}, shortened = {result}. This is a key cryptic technique — working backwards from your hypothesis to discover synonyms."
-                },
-                "inputMode": "none",
-                "button": {"label": "Continue →", "action": "next_step"}
-            }
-        ]
+        # Phases are generated dynamically to build multiple choice options
+        "phases": []  # Placeholder - built dynamically by build_deletion_discover_phases
     },
 
     "container_verify": {
@@ -475,6 +443,109 @@ def build_standard_definition_phases(step, clue):
 
     return base_phases
 
+def build_deletion_discover_phases(step, clue):
+    """Build phases for deletion_discover with synonym input and multiple choice deletion."""
+    phases = []
+
+    answer = clue.get("clue", {}).get("answer", "")
+    indicator_text = step.get("indicator", {}).get("text", "")
+    fodder_word = step.get("fodder_word", {}).get("text", "")
+    fodder_synonym = step.get("fodder_synonym", "")
+    result = step.get("result", "")
+    letters_needed = step.get("letters_needed", len(result))
+
+    # Compute anchor_summary from wordplay_overview step
+    anchor_summary = ""
+    steps = clue.get("steps", [])
+    for s in steps:
+        if s.get("type") == "wordplay_overview":
+            common_vocab = s.get("common_vocabulary", [])
+            if isinstance(common_vocab, dict):
+                common_vocab = [common_vocab]
+            if common_vocab:
+                anchor_parts = []
+                for vocab in common_vocab:
+                    vocab_text = vocab.get("text", "")
+                    meaning = vocab.get("meaning", "")
+                    letters = vocab.get("letters", len(meaning))
+                    anchor_parts.append(f"{meaning} from '{vocab_text}' ({letters} letters)")
+                anchor_summary = ", ".join(anchor_parts)
+            break
+
+    # Phase 1: Tap the fodder word
+    fodder_phase = {
+        "id": "fodder",
+        "actionPrompt": "Tap the word the indicator operates on",
+        "panel": {
+            "title": "FIND FODDER",
+            "instruction": f"'{indicator_text}' is a deletion indicator — it shortens something. Which adjacent word does it operate on?"
+        },
+        "inputMode": "tap_words",
+        "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+        "onWrong": {"message": f"Hint: Indicators operate on adjacent words. Look right next to '{indicator_text}'."}
+    }
+    phases.append(fodder_phase)
+
+    # Phase 2: Type the synonym
+    synonym_phase = {
+        "id": "synonym",
+        "actionPrompt": "Type the synonym",
+        "panel": {
+            "title": "FIND THE SYNONYM",
+            "instruction": f"You have {anchor_summary}. '{indicator_text}' '{fodder_word}' needs to give you {letters_needed} more letters. Shortening '{fodder_word}' directly doesn't fit {answer} — what synonym of '{fodder_word}' might work?"
+        },
+        "inputMode": "text",
+        "onCorrect": {"message": f"Good — '{fodder_word}' = {fodder_synonym}!"},
+        "onWrong": {"message": f"Hint: Think of synonyms for '{fodder_word}'. Which one has {letters_needed + 1} letters that could be shortened?"}
+    }
+    phases.append(synonym_phase)
+
+    # Phase 3: Multiple choice - which letter to delete
+    # Generate options for deleting first or last letter
+    deletion_options = []
+    if len(fodder_synonym) > 0:
+        # Delete first letter
+        first_deleted = fodder_synonym[1:]
+        deletion_options.append({
+            "label": f"Delete first letter {fodder_synonym[0]} → {first_deleted}",
+            "correct": first_deleted.upper() == result.upper()
+        })
+        # Delete last letter
+        last_deleted = fodder_synonym[:-1]
+        deletion_options.append({
+            "label": f"Delete last letter {fodder_synonym[-1]} → {last_deleted}",
+            "correct": last_deleted.upper() == result.upper()
+        })
+
+    result_phase = {
+        "id": "result",
+        "actionPrompt": "Select which letter to delete",
+        "panel": {
+            "title": "SHORTEN IT",
+            "instruction": f"'{indicator_text}' means to shorten. Which letter do you remove from {fodder_synonym}?"
+        },
+        "inputMode": "multiple_choice",
+        "options": deletion_options,
+        "onCorrect": {"message": "Excellent! You discovered the deletion by working backwards from your hypothesis."},
+        "onWrong": {"message": f"Hint: Which deletion gives you letters that fit {answer}?"}
+    }
+    phases.append(result_phase)
+
+    # Phase 4: Teaching
+    teaching_phase = {
+        "id": "teaching",
+        "actionPrompt": "Continue to next step",
+        "panel": {
+            "title": "DELETION CONFIRMED",
+            "instruction": f"'{fodder_word}' = {fodder_synonym}, shortened = {result}. This is a key cryptic technique — working backwards from your hypothesis to discover synonyms."
+        },
+        "inputMode": "none",
+        "button": {"label": "Continue →", "action": "next_step"}
+    }
+    phases.append(teaching_phase)
+
+    return phases
+
 # =============================================================================
 # SESSION MANAGEMENT
 # =============================================================================
@@ -517,6 +588,8 @@ def get_step_phases(step, clue):
         return build_wordplay_overview_phases(step, clue)
     elif step_type == "standard_definition":
         return build_standard_definition_phases(step, clue)
+    elif step_type == "deletion_discover":
+        return build_deletion_discover_phases(step, clue)
     else:
         template = STEP_TEMPLATES.get(step_type)
         if template:
@@ -857,8 +930,10 @@ def get_render(clue_id, clue):
         elif phase_id == "solve":
             render["expected"] = answer
     elif phase.get("inputMode") == "multiple_choice":
-        if "options" in step:
-            render["options"] = step["options"]
+        # Check phase options first (for dynamically generated phases), then step options
+        options = phase.get("options") or step.get("options")
+        if options:
+            render["options"] = options
 
     return render
 
@@ -959,16 +1034,20 @@ def handle_input(clue_id, clue, value):
                 common_vocab = [common_vocab]
             if vocab_num <= len(common_vocab):
                 expected = common_vocab[vocab_num - 1].get("meaning", "").upper()
+        elif phase_id == "synonym":
+            # For deletion_discover synonym phase
+            expected = step.get("fodder_synonym", "").upper()
         elif phase_id == "result":
             expected = step.get("result", "").upper()
         elif phase_id == "solve":
             expected = answer.upper()
     elif phase.get("inputMode") == "multiple_choice":
-        if "options" in step:
-            for i, opt in enumerate(step["options"]):
-                if opt.get("correct"):
-                    expected = i
-                    break
+        # Check phase options first (for dynamically generated phases), then step options
+        options = phase.get("options") or step.get("options", [])
+        for i, opt in enumerate(options):
+            if opt.get("correct"):
+                expected = i
+                break
 
     # Check answer
     correct = False

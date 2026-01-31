@@ -1,6 +1,6 @@
 # Cryptic Trainer — Design Specification
 
-*Last updated: 2026-01-30*
+*Last updated: 2026-01-31*
 
 ---
 
@@ -1011,17 +1011,25 @@ For each item in `expected_indicators`:
 
 ### deletion_discover
 
-**Purpose:** Discover the result of a deletion operation by working backwards from the hypothesis. The user knows the indicator, the fodder word, and how many letters are needed — they must find a synonym that shortens to fit.
+**Purpose:** Discover the result of a deletion operation by working backwards from the hypothesis. Guides the user through the discovery process: first find the synonym, then choose which letter to delete.
 
-**Phases:**
-1. `result` — Type the letters that the deletion produces (inputMode: text)
-   - Prompt: "'Brief press' = find a synonym for 'press', then shorten it. What 4 letters fit IMPASSE?"
-   - User types: IMPE
-   - Expected: IMPE
-2. `teaching` — Confirms the discovery and teaches the reusable pattern (inputMode: none)
-   - "press = IMPEL (5 letters), Brief IMPEL = IMPE (remove the L)"
-   - "You now have IMPE + ASS"
-   - **Generic learning:** "Deletion indicators work on SYNONYMS: [deletion indicator] + [word] means shorten a synonym of that word, not the word itself."
+**Phases (dynamically generated):**
+1. `fodder` — Tap the word the deletion indicator operates on (inputMode: tap_words)
+   - Prompt: "'Brief' is a deletion indicator — it shortens something. Which adjacent word does it operate on?"
+   - User taps: "press"
+   - Expected: [1]
+2. `synonym` — Type the full synonym before deletion (inputMode: text)
+   - Prompt: "You have ASS from 'fool' (3 letters). 'Brief' 'press' needs to give you 4 more letters. Shortening 'press' directly doesn't fit IMPASSE — what synonym of 'press' might work?"
+   - User types: IMPEL
+   - Expected: IMPEL
+3. `result` — Multiple choice: which letter to delete (inputMode: multiple_choice)
+   - Prompt: "'Brief' means to shorten. Which letter do you remove from IMPEL?"
+   - Options: "Delete first letter I → MPEL" or "Delete last letter L → IMPE"
+   - User selects: "Delete last letter L → IMPE"
+   - Expected: option index 1 (correct option)
+4. `teaching` — Confirms the discovery and teaches the reusable pattern (inputMode: none)
+   - "press = IMPEL, shortened = IMPE"
+   - **Generic learning:** "Deletion indicators often require finding a synonym first, then shortening it."
 
 **Clue data:**
 ```json
@@ -1031,23 +1039,20 @@ For each item in `expected_indicators`:
   "fodder_word": {"indices": [1], "text": "press"},
   "fodder_synonym": "IMPEL",
   "result": "IMPE",
-  "letters_needed": 4,
-  "training": {
-    "hint": "'Brief press' = find a synonym for 'press', then shorten it. What 4 letters fit IMPASSE?"
-  }
+  "letters_needed": 4
 }
 ```
 
 **Key fields:**
 - `indicator` — The deletion indicator word
-- `fodder_word` — The word to find a synonym for
-- `fodder_synonym` — The synonym that gets shortened (revealed in teaching)
+- `fodder_word` — The word to find a synonym for (with indices for tap phase)
+- `fodder_synonym` — The synonym that gets shortened (user must type this)
 - `result` — The letters after deletion
 - `letters_needed` — How many letters the result must be
 
 **Teaching moment (reusable):**
-- "press = IMPEL (5 letters), Brief IMPEL = IMPE (remove the L). You now have IMPE + ASS."
-- "**Remember:** Deletion indicators work on SYNONYMS — [deletion indicator] + [word] means shorten a synonym of that word."
+- "press = IMPEL, shortened = IMPE"
+- "**Remember:** Deletion indicators often require finding a synonym first, then shortening it."
 
 ### container_verify
 
@@ -1596,8 +1601,9 @@ Hints should NOT give away the answer. They should guide the user's thinking pro
 | `wordplay_overview` | vocabulary_tap | "Look for a word with a synonym that might appear in your answer." |
 | `wordplay_overview` | vocabulary_type | "What's the common cryptic synonym for this word?" |
 | `wordplay_overview` | indicator_scan | "Which remaining words signal wordplay operations (deletion, container, reversal, anagram, etc.)?" |
-| `deletion_discover` | fodder_tap | "Indicators operate on adjacent words." |
-| `deletion_discover` | result | "If the shortened word does not fit your hypothesis, you likely need to find a synonym before shortening." |
+| `deletion_discover` | fodder | "Indicators operate on adjacent words." |
+| `deletion_discover` | synonym | "Shortening the word directly doesn't fit — what synonym might work?" |
+| `deletion_discover` | result | "Which letter do you remove to get the letters you need?" |
 | `container_verify` | order | "'about' means one thing surrounds another. Which arrangement fits your hypothesis?" |
 | `container_verify` | result | "The outer piece splits to wrap the inner piece." |
 | `charade_verify` | result | "Combine your known pieces in order. What do you get?" |
