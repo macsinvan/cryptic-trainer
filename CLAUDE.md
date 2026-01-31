@@ -1,5 +1,7 @@
 # Cryptic Trainer
 
+IMPORTANT: Always work in `/Users/andrewmackenzie/Desktop/cryptic-trainer/` on the `main` branch. This is a one-person project — no feature branches or worktrees.
+
 IMPORTANT: After editing any `.py` file, YOU MUST restart the server:
 ```bash
 pkill -f "python3 server.py" 2>/dev/null; sleep 1; cd /Users/andrewmackenzie/Desktop/cryptic-trainer/cryptic_trainer_bundle && python3 server.py &

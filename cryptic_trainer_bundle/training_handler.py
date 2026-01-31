@@ -68,7 +68,7 @@ STEP_TEMPLATES = {
                 "id": "teaching",
                 "actionPrompt": "Continue to next step",
                 "panel": {
-                    "title": "DEFINITION FOUND",
+                    "title": "DEFINITION FOUND: {definition_text}",
                     "instruction": "The definition is at the {position}. Form a hypothesis — what word fits this definition?"
                 },
                 "inputMode": "none",
@@ -395,10 +395,9 @@ def build_wordplay_overview_phases(step):
 
         if num_indicators == 1:
             instruction = "Which remaining word signals a wordplay operation?"
-        elif ind_num == 1:
-            instruction = f"There are {num_indicators} indicators. Find the first one."
         else:
-            instruction = f"Find indicator {ind_num} of {num_indicators}."
+            # Instruction is dynamic based on how many found - updated in get_render
+            instruction = f"There are {num_indicators} indicators. Find one."
 
         indicator_phase = {
             "id": f"indicator_tap_{ind_num}",
@@ -437,14 +436,17 @@ def build_standard_definition_phases(step, clue):
     recommended_approach = difficulty.get("recommendedApproach", "wordplay")
 
     if recommended_approach == "definition":
+        # Get hint from difficulty.definition.hint if available
+        definition_hint = difficulty.get("definition", {}).get("hint", "")
+
         # Insert solve phase after teaching
         solve_phase = {
             "id": "solve",
             "actionPrompt": "Type your answer",
             "intro": {
                 "title": "Solve from Definition",
-                "text": "The definition is clear enough to guess the answer. What word fits?",
-                "example": "Hint: Think of a common word that means the definition you just found."
+                "text": definition_hint,
+                "example": ""
             },
             "panel": {
                 "title": "SOLVE FROM DEFINITION",
@@ -474,7 +476,8 @@ def start_session(clue_id, clue):
         "phase_index": 0,
         "highlights": [],
         "learnings": [],
-        "answer_known": False  # True if user solved from definition (now reviewing wordplay)
+        "answer_known": False,  # True if user solved from definition (now reviewing wordplay)
+        "found_indicators": []  # Track which indicator indices have been found (any order)
     }
     return get_render(clue_id, clue)
 
@@ -752,11 +755,34 @@ def get_render(clue_id, clue):
         if phase_id == "select" and "expected" in step:
             render["expected"] = step["expected"]["indices"]
         elif phase_id.startswith("indicator_tap_"):
-            # Get the indicator index
-            ind_num = int(phase_id.split("_")[-1])
+            # Accept any unfound indicator (user can find in any order)
             indicators = step.get("expected_indicators", [])
-            if ind_num <= len(indicators):
-                render["expected"] = indicators[ind_num - 1].get("indices", [])
+            found_indicators = session.get("found_indicators", [])
+            num_total = len(indicators)
+            num_found = len(found_indicators)
+            num_remaining = num_total - num_found
+
+            # Find first unfound indicator for expected (for autoCheck single-word logic)
+            unfound_indices = []
+            for ind in indicators:
+                ind_tuple = tuple(ind.get("indices", []))
+                if ind_tuple not in found_indicators:
+                    unfound_indices.append(ind.get("indices", []))
+
+            if unfound_indices:
+                # Set expected to first unfound for autoCheck calculation
+                render["expected"] = unfound_indices[0]
+
+            # Update instruction dynamically based on progress
+            if num_total == 1:
+                instruction = "Which remaining word signals a wordplay operation?"
+            elif num_remaining == num_total:
+                instruction = f"There are {num_total} indicators. Find one."
+            elif num_remaining == 1:
+                instruction = "Find the last indicator."
+            else:
+                instruction = f"Found {num_found} of {num_total}. Find another indicator."
+            render["panel"]["instruction"] = instruction
         elif phase_id.startswith("vocabulary_tap_"):
             # Get the vocabulary index
             vocab_num = int(phase_id.split("_")[-1])
@@ -861,10 +887,17 @@ def handle_input(clue_id, clue, value):
         if phase_id == "select" and "expected" in step:
             expected = step["expected"]["indices"]
         elif phase_id.startswith("indicator_tap_"):
-            ind_num = int(phase_id.split("_")[-1])
+            # Accept ANY unfound indicator (user can find them in any order)
             indicators = step.get("expected_indicators", [])
-            if ind_num <= len(indicators):
-                expected = indicators[ind_num - 1].get("indices", [])
+            found_indicators = session.get("found_indicators", [])
+            # Collect all unfound indicator indices
+            unfound_indices = []
+            for ind in indicators:
+                ind_indices = tuple(ind.get("indices", []))
+                if ind_indices not in found_indicators:
+                    unfound_indices.append(ind.get("indices", []))
+            # expected will be checked against any of the unfound indicators
+            expected = unfound_indices  # List of valid index lists
         elif phase_id.startswith("vocabulary_tap_"):
             vocab_num = int(phase_id.split("_")[-1])
             common_vocab = step.get("common_vocabulary", [])
@@ -902,9 +935,19 @@ def handle_input(clue_id, clue, value):
 
     # Check answer
     correct = False
+    matched_indicator = None  # Track which indicator was matched (for any-order indicators)
     if phase.get("inputMode") == "tap_words":
         if isinstance(value, list) and isinstance(expected, list):
-            correct = set(value) == set(expected)
+            # Check if this is an indicator tap with multiple valid options
+            if phase_id.startswith("indicator_tap_") and expected and isinstance(expected[0], list):
+                # expected is a list of valid index lists - check if value matches any
+                for valid_indices in expected:
+                    if set(value) == set(valid_indices):
+                        correct = True
+                        matched_indicator = valid_indices
+                        break
+            else:
+                correct = set(value) == set(expected)
     elif phase.get("inputMode") == "text":
         if isinstance(value, str) and expected:
             user_letters = re.sub(r'[^A-Z]', '', value.upper())
@@ -914,9 +957,21 @@ def handle_input(clue_id, clue, value):
         correct = value == expected
 
     if correct:
+        # Track found indicator if this was an indicator tap
+        if phase_id.startswith("indicator_tap_") and matched_indicator:
+            if "found_indicators" not in session:
+                session["found_indicators"] = []
+            session["found_indicators"].append(tuple(matched_indicator))
+
         # Add highlight if specified
         if "onCorrect" in phase and "highlight" in phase["onCorrect"]:
-            highlight_indices = expected if isinstance(expected, list) else []
+            # Use matched_indicator for indicator taps, otherwise use expected
+            if matched_indicator:
+                highlight_indices = matched_indicator
+            elif isinstance(expected, list) and not (expected and isinstance(expected[0], list)):
+                highlight_indices = expected
+            else:
+                highlight_indices = []
             session["highlights"].append({
                 "indices": highlight_indices,
                 "color": phase["onCorrect"]["highlight"]["color"],

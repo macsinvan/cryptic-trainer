@@ -269,6 +269,12 @@ class SolverHandler(BaseHTTPRequestHandler):
                         f'Available: {", ".join(available_templates)}'
                     )
 
+        # Validate difficulty.definition.hint is present
+        difficulty = clue_entry.get('difficulty', {})
+        definition_difficulty = difficulty.get('definition', {})
+        if not definition_difficulty.get('hint'):
+            errors.append('difficulty.definition.hint is required')
+
         return errors
 
     def _handle_import_puzzle(self):
