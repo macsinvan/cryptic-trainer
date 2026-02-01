@@ -324,10 +324,6 @@ Two definitions pointing to same word.
 
 ---
 
-## V2 Step Types (Hypothesis-Driven)
-
-These step types support the hypothesis-driven solving approach where solvers form a hypothesis from the definition, then verify it through wordplay.
-
 ### wordplay_overview
 
 Scan remaining wordplay for anchors (common vocabulary) and indicators.
@@ -450,7 +446,7 @@ Extract alternating letters from fodder.
 
 ## Reference Examples (Currently Imported)
 
-### Example 1: IMPASSE (V2 Schema - Hypothesis-Driven)
+### Example 1: IMPASSE (Hypothesis-Driven with Discovery)
 
 **Clue:** "Brief press about fool blocking state" (7) = IMPASSE
 
@@ -521,7 +517,7 @@ Uses: `standard_definition` → `wordplay_overview` → `deletion_discover` → 
 
 ---
 
-### Example 2: INSIPID (V2 Schema - Multiple Anchors)
+### Example 2: INSIPID (Multiple Anchors with Alternation)
 
 **Clue:** "Popular drink, by turns mild and short on taste" (7) = INSIPID
 
@@ -585,7 +581,7 @@ Uses: `standard_definition` → `wordplay_overview` → `alternation_discover` �
 
 ---
 
-### Example 3: VISIT (V1 Schema - Simple Steps)
+### Example 3: VISIT (Abbreviation + Literal Phrase)
 
 **Clue:** "Come by five, do you mean?" (5) = VISIT
 
