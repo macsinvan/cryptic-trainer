@@ -1192,6 +1192,17 @@ def get_render(clue_id, clue):
     if "button" in phase:
         render["button"] = phase["button"]
 
+    # Special handling for standard_definition teaching phase - include definition hint
+    if step["type"] == "standard_definition" and phase["id"] == "teaching":
+        definition_text = step.get("expected", {}).get("text", "")
+        position = step.get("position", "")
+        definition_hint = clue.get("difficulty", {}).get("definition", {}).get("hint", "")
+
+        instruction = f"Good! The definition, '{definition_text}', is at the {position} of the clue."
+        if definition_hint:
+            instruction += f"\n\n**Hint:** {definition_hint}"
+        render["panel"]["instruction"] = instruction
+
     # Special handling for wordplay_overview teaching phase
     if step["type"] == "wordplay_overview" and phase["id"] == "teaching":
         render["panel"]["instruction"] = build_wordplay_teaching(step, clue)
@@ -1681,9 +1692,14 @@ def get_all_learnings(clue):
         if step_type == "standard_definition":
             definition_text = step.get("expected", {}).get("text", "")
             position = step.get("position", "")
+            definition_hint = clue.get("difficulty", {}).get("definition", {}).get("hint", "")
+
+            text = f"\"{definition_text}\" is the definition (at {position})."
+            if definition_hint:
+                text += f"\n\n**Hint:** {definition_hint}"
             learnings.append({
                 "title": "DEFINITION FOUND",
-                "text": f"\"{definition_text}\" is the definition (at {position})."
+                "text": text
             })
 
         elif step_type == "wordplay_overview":
