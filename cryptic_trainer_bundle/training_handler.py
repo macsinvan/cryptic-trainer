@@ -228,6 +228,90 @@ STEP_TEMPLATES = {
                 "button": {"label": "Complete →", "action": "complete"}
             }
         ]
+    },
+
+    "literal_phrase": {
+        "phases": [
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the phrase that sounds like something else",
+                "intro": {
+                    "title": "Literal Phrase",
+                    "text": "Some cryptic clues use phrases that sound like something else when spoken aloud.\n\nThe trick is to read the phrase conversationally — what would it sound like if you said it?",
+                    "example": "'do you mean?' spoken aloud sounds like 'IS IT' — the question you'd ask for confirmation."
+                },
+                "panel": {
+                    "title": "FIND THE SPOKEN PHRASE",
+                    "instruction": "Tap the words that sound like something else when spoken aloud."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Hint: Look for a phrase that might sound different when spoken conversationally."}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type what the phrase sounds like",
+                "panel": {
+                    "title": "SPOKEN SOUND",
+                    "instruction": "What does '{fodder}' sound like when spoken aloud?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "That's it! Reading phrases aloud can reveal hidden meanings."},
+                "onWrong": {"message": "Hint: Say '{fodder}' out loud — what does it sound like?"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "LITERAL PHRASE",
+                    "instruction": "'{fodder}' sounds like '{result}' when spoken.\n\n**Remember:** Some clues hide letters in how phrases sound when spoken conversationally."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "abbreviation": {
+        "phases": [
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the word to abbreviate",
+                "intro": {
+                    "title": "Abbreviation",
+                    "text": "Cryptic clues frequently use standard abbreviations. Common examples:\n\n• Numbers: five=V, one=I, nothing=O\n• Directions: north=N, east=E\n• Titles: doctor=DR, saint=ST\n• Units: second=S, minute=M",
+                    "example": "When you see a number or common word, think about its standard abbreviation."
+                },
+                "panel": {
+                    "title": "FIND THE WORD",
+                    "instruction": "Tap the word that represents an abbreviation."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Hint: Look for a word that has a common abbreviation (numbers, directions, titles, etc.)."}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the abbreviation",
+                "panel": {
+                    "title": "TYPE ABBREVIATION",
+                    "instruction": "What is the standard abbreviation for '{fodder}'?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Correct! Abbreviations are a staple of cryptic crosswords."},
+                "onWrong": {"message": "Hint: Think of the standard abbreviation for '{fodder}'."}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "ABBREVIATION",
+                    "instruction": "'{fodder}' = {result}\n\n**Remember:** Build a mental library of common cryptic abbreviations — they appear frequently!"
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
     }
 }
 
@@ -242,6 +326,8 @@ STEP_TO_CLUE_TYPE = {
     "container_verify": "standard",
     "charade_verify": "standard",
     "alternation_discover": "standard",
+    "literal_phrase": "standard",
+    "abbreviation": "standard",
     "double_definition": "double_definition",
 }
 
@@ -1208,6 +1294,7 @@ def handle_continue(clue_id, clue):
     # If this is a teaching phase, capture the learning
     if phase["id"] == "teaching" and "panel" in phase:
         learning_text = substitute_variables(phase["panel"].get("instruction", ""), step, session, clue)
+        learning_title = None  # Will be set later if custom title needed
 
         # Apply special handling for various step types
         if step["type"] == "wordplay_overview":
@@ -1249,8 +1336,20 @@ def handle_continue(clue_id, clue):
             final_answer = clue.get("clue", {}).get("answer", "")
             learning_text = f"Taking alternate letters from {fodder}: {result}\n{charade_result} + {result} = {final_answer} ✓\nDefinition: \"{definition_text}\" = {final_answer} ✓\n\n**Remember:** Alternation indicators (by turns, oddly, evenly, regularly) tell you to take every other letter."
 
+        # Custom titles for step types that need key info in breadcrumb
+        if step["type"] == "abbreviation":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learning_title = f"ABBREVIATION: {fodder} → {result}"
+        elif step["type"] == "literal_phrase":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learning_title = f"LITERAL PHRASE: {fodder} → {result}"
+
         if learning_text:
-            learning_title = substitute_variables(phase["panel"].get("title", ""), step, session, clue)
+            # Use custom title if set, otherwise use template title
+            if not learning_title:
+                learning_title = substitute_variables(phase["panel"].get("title", ""), step, session, clue)
             session["learnings"].append({
                 "title": learning_title,
                 "text": learning_text
@@ -1367,6 +1466,22 @@ def get_all_learnings(clue):
             learnings.append({
                 "title": "DOUBLE DEFINITION",
                 "text": f"Both \"{def1}\" and \"{def2}\" define {result}. No wordplay needed!"
+            })
+
+        elif step_type == "literal_phrase":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"LITERAL PHRASE: {fodder} → {result}",
+                "text": f"'{fodder}' sounds like '{result}' when spoken.\n\n**Remember:** Some clues hide letters in how phrases sound when spoken conversationally."
+            })
+
+        elif step_type == "abbreviation":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"ABBREVIATION: {fodder} → {result}",
+                "text": f"'{fodder}' = {result}\n\n**Remember:** Build a mental library of common cryptic abbreviations — they appear frequently!"
             })
 
     return learnings
