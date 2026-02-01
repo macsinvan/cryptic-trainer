@@ -579,6 +579,90 @@ STEP_TEMPLATES = {
                 "button": {"label": "Continue →", "action": "next_step"}
             }
         ]
+    },
+
+    "container": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the container indicator",
+                "intro": {
+                    "title": "Container",
+                    "text": "Container indicators tell you one thing goes inside another. Common indicators:\n\n• 'in', 'inside', 'within', 'held by'\n• 'around', 'about', 'outside', 'surrounding'\n• 'swallowing', 'eating', 'embracing', 'housing'",
+                    "example": "The indicator tells you which piece wraps around which."
+                },
+                "panel": {
+                    "title": "FIND THE INDICATOR",
+                    "instruction": "Tap the word(s) that signal a container."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Hint: Look for words suggesting something inside or around something else."}
+            },
+            {
+                "id": "order",
+                "actionPrompt": "Select which piece goes inside which",
+                "panel": {
+                    "title": "CONTAINER ORDER",
+                    "instruction": "Which piece goes inside which?"
+                },
+                "inputMode": "multiple_choice",
+                "onCorrect": {"message": "Correct! The container structure is now clear."},
+                "onWrong": {"message": "Hint: Look at the indicator — does it say something goes IN, or something goes AROUND?"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "CONTAINER",
+                    "instruction": "{inner} inside {outer} = {result}\n\n**Remember:** Container indicators (in, around, holding) tell you to put one piece inside another."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "hidden": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the hidden word indicator",
+                "intro": {
+                    "title": "Hidden Word",
+                    "text": "Hidden word indicators tell you the answer is concealed within consecutive letters. Common indicators:\n\n• 'in', 'within', 'inside', 'part of'\n• 'some', 'partly', 'held by', 'contains'\n• 'buried in', 'hidden in', 'amongst'",
+                    "example": "The answer spans across word boundaries in the clue itself."
+                },
+                "panel": {
+                    "title": "FIND THE INDICATOR",
+                    "instruction": "Tap the word(s) that signal a hidden word."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Hint: Look for words suggesting something is hidden or contained."}
+            },
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the words containing the hidden answer",
+                "panel": {
+                    "title": "FIND THE FODDER",
+                    "instruction": "Tap the words that contain the hidden answer."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Hint: Look for consecutive letters spanning word boundaries."}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "HIDDEN WORD",
+                    "instruction": "The answer {result} is hidden within '{fodder}'.\n\n**Remember:** Hidden word clues conceal the answer in consecutive letters across words."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
     }
 }
 
@@ -602,6 +686,8 @@ STEP_TO_CLUE_TYPE = {
     "literal": "standard",
     "connector": "standard",
     "anagram": "standard",
+    "container": "standard",
+    "hidden": "standard",
     "double_definition": "double_definition",
 }
 
@@ -1696,6 +1782,15 @@ def handle_continue(clue_id, clue):
         elif step["type"] == "anagram":
             result = step.get("result", "")
             learning_title = f"ANAGRAM → {result}"
+        elif step["type"] == "container":
+            inner = step.get("inner", "")
+            outer = step.get("outer", "")
+            result = step.get("result", "")
+            learning_title = f"CONTAINER: {inner} in {outer} → {result}"
+        elif step["type"] == "hidden":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learning_title = f"HIDDEN: {result}"
 
         if learning_text:
             # Use custom title if set, otherwise use template title
@@ -1901,6 +1996,25 @@ def get_all_learnings(clue):
             learnings.append({
                 "title": f"ANAGRAM → {result}",
                 "text": f"'{indicator}' rearranges {fodder_display} = {result}\n\n**Remember:** Anagram indicators signal that letters need shuffling."
+            })
+
+        elif step_type == "container":
+            indicator = step.get("indicator", {}).get("text", "")
+            inner = step.get("inner", "")
+            outer = step.get("outer", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"CONTAINER: {inner} in {outer} → {result}",
+                "text": f"'{indicator}' puts {inner} inside {outer} = {result}\n\n**Remember:** Container indicators (in, around, holding) tell you to put one piece inside another."
+            })
+
+        elif step_type == "hidden":
+            indicator = step.get("indicator", {}).get("text", "")
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"HIDDEN: {result}",
+                "text": f"'{indicator}' reveals {result} hidden in '{fodder}'\n\n**Remember:** Hidden word clues conceal the answer in consecutive letters across words."
             })
 
     return learnings
