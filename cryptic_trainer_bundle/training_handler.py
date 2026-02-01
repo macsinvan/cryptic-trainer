@@ -1256,16 +1256,39 @@ def get_render(clue_id, clue):
         final_answer = answer
         render["panel"]["instruction"] = f"Taking alternate letters from {fodder}: {result}\n{charade_result} + {result} = {final_answer} ✓\nDefinition: \"{definition_text}\" = {final_answer} ✓\n\n**Remember:** Alternation indicators (by turns, oddly, evenly, regularly) tell you to take every other letter."
 
-    # Special handling for synonym fodder phase - dynamic word count
-    if step["type"] == "synonym" and phase["id"] == "fodder":
+    # Special handling for fodder phase - dynamic word count for multiple templates
+    if phase["id"] == "fodder" and step["type"] in ["synonym", "abbreviation", "literal", "letter_selection"]:
         fodder_indices = step.get("fodder", {}).get("indices", [])
         word_count = len(fodder_indices)
-        if word_count == 1:
-            render["panel"]["instruction"] = "Tap the word you need to find a synonym for."
-            render["actionPrompt"] = "Tap the word to find a synonym for"
-        else:
-            render["panel"]["instruction"] = f"Tap the {word_count} words you need to find a synonym for."
-            render["actionPrompt"] = f"Tap the {word_count} words to find a synonym for"
+
+        if step["type"] == "synonym":
+            if word_count == 1:
+                render["panel"]["instruction"] = "Tap the word you need to find a synonym for."
+                render["actionPrompt"] = "Tap the word to find a synonym for"
+            else:
+                render["panel"]["instruction"] = f"Tap the {word_count} words you need to find a synonym for."
+                render["actionPrompt"] = f"Tap the {word_count} words to find a synonym for"
+        elif step["type"] == "abbreviation":
+            if word_count == 1:
+                render["panel"]["instruction"] = "Tap the word to abbreviate."
+                render["actionPrompt"] = "Tap the word to abbreviate"
+            else:
+                render["panel"]["instruction"] = f"Tap the {word_count} words to abbreviate."
+                render["actionPrompt"] = f"Tap the {word_count} words to abbreviate"
+        elif step["type"] == "literal":
+            if word_count == 1:
+                render["panel"]["instruction"] = "Tap the word used literally (as-is) in the answer."
+                render["actionPrompt"] = "Tap the literal word"
+            else:
+                render["panel"]["instruction"] = f"Tap the {word_count} words used literally (as-is) in the answer."
+                render["actionPrompt"] = f"Tap the {word_count} literal words"
+        elif step["type"] == "letter_selection":
+            if word_count == 1:
+                render["panel"]["instruction"] = "Tap the word you're extracting letters from."
+                render["actionPrompt"] = "Tap the source word"
+            else:
+                render["panel"]["instruction"] = f"Tap the {word_count} words you're extracting letters from."
+                render["actionPrompt"] = f"Tap the {word_count} source words"
 
     # Add expected for validation
     if phase.get("inputMode") == "tap_words":
