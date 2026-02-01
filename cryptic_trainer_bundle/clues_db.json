@@ -87,7 +87,8 @@
         },
         "overall": "easy",
         "recommendedApproach": "wordplay"
-      }
+      },
+      "verified": true
     },
     "times-29453-1d": {
       "id": "times-29453-1d",
@@ -265,7 +266,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "wordplay"
-      }
+      },
+      "verified": true
     },
     "times-29453-5d": {
       "id": "times-29453-5d",
@@ -356,7 +358,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "definition"
-      }
+      },
+      "verified": true
     },
     "times-29453-12a": {
       "id": "times-29453-12a",
@@ -479,7 +482,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "definition"
-      }
+      },
+      "verified": true
     },
     "times-29453-9d": {
       "id": "times-29453-9d",
@@ -594,7 +598,8 @@
         },
         "overall": "hard",
         "recommendedApproach": "definition"
-      }
+      },
+      "verified": true
     },
     "times-29453-13a": {
       "id": "times-29453-13a",
@@ -696,7 +701,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "wordplay"
-      }
+      },
+      "verified": true
     },
     "times-29453-2d": {
       "id": "times-29453-2d",
@@ -791,7 +797,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "definition"
-      }
+      },
+      "verified": true
     },
     "times-29453-1a": {
       "id": "times-29453-1a",
@@ -886,7 +893,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "definition"
-      }
+      },
+      "verified": true
     },
     "times-29453-10a": {
       "id": "times-29453-10a",
@@ -985,7 +993,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "definition"
-      }
+      },
+      "verified": true
     },
     "times-29453-8d": {
       "id": "times-29453-8d",
@@ -1077,7 +1086,8 @@
         },
         "overall": "medium",
         "recommendedApproach": "definition"
-      }
+      },
+      "reported_issue": "Meta data issue. EVery synonym must have a verifiable hint\nSYNONYM: socks \u2192 HOSE\n'socks' = HOSE **Remember:** Synonyms are the bread and butter of cryptic wordplay."
     },
     "times-29453-15a": {
       "id": "times-29453-15a",
@@ -2915,7 +2925,7 @@
   "settings": {
     "letterChecking": true,
     "adminFilters": {
-      "showOnlyUnverified": false,
+      "showOnlyUnverified": true,
       "showOnlyWithIssues": false
     }
   }

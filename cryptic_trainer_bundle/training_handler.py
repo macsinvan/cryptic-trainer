@@ -348,7 +348,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "SYNONYM",
-                    "instruction": "'{fodder}' = {result}\n\n**Remember:** Synonyms are the bread and butter of cryptic wordplay."
+                    "instruction": "'{fodder}' = {result}\n\n**Hint:** {hint}"
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -1135,7 +1135,7 @@ def substitute_variables(text, step, session, clue=None):
 
     # Direct fields
     for key in ["result", "fodder_synonym", "letters_needed", "inner", "outer",
-                "letters_so_far", "pattern"]:
+                "letters_so_far", "pattern", "hint"]:
         if key in step:
             subs[key] = str(step[key])
 
@@ -1987,9 +1987,10 @@ def get_all_learnings(clue):
         elif step_type == "synonym":
             fodder = step.get("fodder", {}).get("text", "")
             result = step.get("result", "")
+            hint = step.get("hint", "")
             learnings.append({
                 "title": f"SYNONYM: {fodder} → {result}",
-                "text": f"'{fodder}' = {result}\n\n**Remember:** Synonyms are the bread and butter of cryptic wordplay."
+                "text": f"'{fodder}' = {result}\n\n**Hint:** {hint}"
             })
 
         elif step_type == "deletion":
