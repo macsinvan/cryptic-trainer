@@ -1256,6 +1256,17 @@ def get_render(clue_id, clue):
         final_answer = answer
         render["panel"]["instruction"] = f"Taking alternate letters from {fodder}: {result}\n{charade_result} + {result} = {final_answer} ✓\nDefinition: \"{definition_text}\" = {final_answer} ✓\n\n**Remember:** Alternation indicators (by turns, oddly, evenly, regularly) tell you to take every other letter."
 
+    # Special handling for synonym fodder phase - dynamic word count
+    if step["type"] == "synonym" and phase["id"] == "fodder":
+        fodder_indices = step.get("fodder", {}).get("indices", [])
+        word_count = len(fodder_indices)
+        if word_count == 1:
+            render["panel"]["instruction"] = "Tap the word you need to find a synonym for."
+            render["actionPrompt"] = "Tap the word to find a synonym for"
+        else:
+            render["panel"]["instruction"] = f"Tap the {word_count} words you need to find a synonym for."
+            render["actionPrompt"] = f"Tap the {word_count} words to find a synonym for"
+
     # Add expected for validation
     if phase.get("inputMode") == "tap_words":
         phase_id = phase["id"]

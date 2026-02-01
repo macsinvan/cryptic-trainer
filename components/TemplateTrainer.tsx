@@ -142,14 +142,29 @@ export function TemplateTrainer({
   }, [forceSolved, clueId, render?.complete]);
 
   // ---------------------------------------------------------------------------
+  // When answerKnown becomes true (user solved from definition), populate the answer input
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (render?.answerKnown) {
+      // Set the answer so it displays in the boxes (with orange styling)
+      const normalizedAnswer = answer.toUpperCase().replace(/[^A-Z]/g, '');
+      setAnswerInput(normalizedAnswer);
+    }
+  }, [render?.answerKnown, answer]);
+
+  // ---------------------------------------------------------------------------
   // Auto-detect correct answer and show solved view
   // EXCEPT when in solve phase of standard_definition (must go through server to continue to wordplay)
+  // EXCEPT when answerKnown is true (user is reviewing wordplay after solving from definition)
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!render || render.complete) return;
 
     // Don't auto-complete during solve phase - user must click Check to continue to wordplay
     if (render.phaseId === 'solve' && render.stepType === 'standard_definition') return;
+
+    // Don't auto-complete when reviewing wordplay (answer already known, showing in orange)
+    if (render.answerKnown) return;
 
     const normalizedInput = answerInput.toUpperCase().replace(/[^A-Z]/g, '');
     const normalizedAnswer = answer.toUpperCase().replace(/[^A-Z]/g, '');
@@ -588,8 +603,9 @@ export function TemplateTrainer({
       {/* ===== SECTION 2: INPUT AREA (fixed height) ===== */}
       {/* Shows either: transitory text input (for intermediate steps) OR answer entry */}
       {/* anagram_solve uses the main answer input since it's the final answer */}
+      {/* When answerKnown is true and expected equals answer, show locked answer boxes instead */}
       <div className="bg-slate-50 border border-b-0 p-4 min-h-[80px] flex flex-col justify-center">
-        {render.inputMode === 'text' && !isTeaching && render.stepType !== 'anagram_solve' && render.stepType !== 'double_definition' ? (
+        {render.inputMode === 'text' && !isTeaching && render.stepType !== 'anagram_solve' && render.stepType !== 'double_definition' && !(render.answerKnown && typeof render.expected === 'string' && render.expected.toUpperCase().replace(/[^A-Z]/g, '') === answer.toUpperCase().replace(/[^A-Z]/g, '')) ? (
           /* Transitory input for intermediate steps (e.g., typing "EB" for letter extraction) */
           <CrosswordInput
             length={typeof render.expected === 'string' ? render.expected.length : 5}
@@ -606,9 +622,10 @@ export function TemplateTrainer({
               value={answerInput}
               onChange={setAnswerInput}
               onSubmit={handleAnswerSubmit}
-              disabled={isComplete}
+              disabled={isComplete || render.answerKnown}
               correctAnswer={answerFromServer}
               letterChecking={letterChecking}
+              hypothesisLocked={render.answerKnown && !letterChecking}
             />
             {answerFeedback && (
               <p className="text-center text-sm text-amber-600 mt-2">{answerFeedback}</p>

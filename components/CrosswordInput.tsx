@@ -16,6 +16,7 @@ interface CrosswordInputProps {
   autoFocus?: boolean;
   correctAnswer?: string;  // If provided, enables letter checking
   letterChecking?: boolean;  // Whether to show green/red feedback
+  hypothesisLocked?: boolean;  // When true, show orange "hypothesis entered" styling
 }
 
 export function CrosswordInput({
@@ -26,7 +27,8 @@ export function CrosswordInput({
   disabled = false,
   autoFocus = false,
   correctAnswer,
-  letterChecking = false
+  letterChecking = false,
+  hypothesisLocked = false
 }: CrosswordInputProps) {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -106,18 +108,29 @@ export function CrosswordInput({
 
   // Get letter checking colors
   const getLetterStyle = (letter: string, index: number) => {
-    if (!letter || letter === ' ' || !letterChecking || !correctAnswer) {
-      return { bg: letter && letter !== ' ' ? 'bg-blue-50' : '', border: '', text: '' };
+    if (!letter || letter === ' ') {
+      return { bg: '', border: '', text: '' };
     }
 
-    // Strip non-alpha from correctAnswer (e.g., "LET-DOWN" → "LETDOWN")
-    const correctLettersOnly = correctAnswer.replace(/[^A-Za-z]/g, '').toUpperCase();
-    const correctLetter = correctLettersOnly[index];
-    if (letter === correctLetter) {
-      return { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700' };
-    } else {
-      return { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700' };
+    // Hypothesis locked (orange) - shown when user solved from definition, reviewing wordplay
+    if (hypothesisLocked) {
+      return { bg: 'bg-orange-100', border: 'border-orange-500', text: 'text-orange-700' };
     }
+
+    // Letter checking (green/red per letter)
+    if (letterChecking && correctAnswer) {
+      // Strip non-alpha from correctAnswer (e.g., "LET-DOWN" → "LETDOWN")
+      const correctLettersOnly = correctAnswer.replace(/[^A-Za-z]/g, '').toUpperCase();
+      const correctLetter = correctLettersOnly[index];
+      if (letter === correctLetter) {
+        return { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700' };
+      } else {
+        return { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700' };
+      }
+    }
+
+    // Default: letter entered but no checking
+    return { bg: 'bg-blue-50', border: '', text: '' };
   };
 
   return (

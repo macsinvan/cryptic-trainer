@@ -119,7 +119,7 @@
       "difficulty": {
         "definition": {
           "rating": "easy",
-          "hint": "'blocking state' suggests reaching a deadlock — find a common word that fits this definition"
+          "hint": "'blocking state' suggests reaching a deadlock \u2014 find a common word that fits this definition"
         },
         "wordplay": {
           "rating": "hard",
@@ -246,7 +246,7 @@
       "difficulty": {
         "definition": {
           "rating": "easy",
-          "hint": "'short on taste' suggests something bland or lacking flavour — find a common word that fits"
+          "hint": "'short on taste' suggests something bland or lacking flavour \u2014 find a common word that fits"
         },
         "wordplay": {
           "rating": "easy",
@@ -256,6 +256,600 @@
         "recommendedApproach": "wordplay"
       },
       "verified": true
+    },
+    "times-29453-11a": {
+      "id": "times-29453-11a",
+      "clue": {
+        "number": "11A",
+        "text": "Come by five, do you mean?",
+        "enumeration": "5",
+        "answer": "VISIT",
+        "definition": [
+          {
+            "text": "Come by",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "Come",
+        "by",
+        "five",
+        "do",
+        "you",
+        "mean"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0,
+              1
+            ],
+            "text": "Come by"
+          },
+          "position": "start"
+        },
+        {
+          "type": "abbreviation",
+          "fodder": {
+            "indices": [
+              2
+            ],
+            "text": "five"
+          },
+          "result": "V",
+          "letters_needed": 1
+        },
+        {
+          "type": "literal_phrase",
+          "fodder": {
+            "indices": [
+              3,
+              4,
+              5
+            ],
+            "text": "do you mean?"
+          },
+          "result": "ISIT",
+          "letters_needed": 4,
+          "note": "The question 'do you mean?' reads as its spoken equivalent 'IS IT' - the phrase you'd say when asking for confirmation"
+        },
+        {
+          "type": "charade_verify",
+          "components": [
+            "V",
+            "ISIT"
+          ],
+          "result": "VISIT",
+          "letters_so_far": 5,
+          "letters_needed": 5
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "hint": "'Come by' suggests dropping in on someone - find a common 5-letter word for this"
+        },
+        "wordplay": {
+          "rating": "easy",
+          "hint": "A Roman numeral followed by a conversational phrase that reads as spoken"
+        },
+        "overall": "easy",
+        "recommendedApproach": "wordplay"
+      },
+      "verified": true
+    },
+    "times-29453-1d": {
+      "id": "times-29453-1d",
+      "clue": {
+        "number": "1D",
+        "text": "See boss bungle work",
+        "enumeration": "6",
+        "answer": "BISHOP",
+        "definition": [
+          {
+            "text": "See boss",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "See",
+        "boss",
+        "bungle",
+        "work"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0,
+              1
+            ],
+            "text": "See boss"
+          },
+          "position": "start"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              2
+            ],
+            "text": "bungle"
+          },
+          "result": "BISH",
+          "note": "To 'bish' something is slang for bungling it"
+        },
+        {
+          "type": "abbreviation",
+          "fodder": {
+            "indices": [
+              3
+            ],
+            "text": "work"
+          },
+          "result": "OP",
+          "note": "OP = opus, a musical work"
+        },
+        {
+          "type": "charade_verify",
+          "components": [
+            "BISH",
+            "OP"
+          ],
+          "result": "BISHOP",
+          "letters_so_far": 6,
+          "letters_needed": 6
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "medium",
+          "hint": "A 'see' is a diocese - who runs one?"
+        },
+        "wordplay": {
+          "rating": "easy",
+          "hint": "A slang word for making a mistake plus an abbreviation for a musical composition"
+        },
+        "overall": "medium",
+        "recommendedApproach": "wordplay"
+      }
+    },
+    "times-29453-6d": {
+      "id": "times-29453-6d",
+      "clue": {
+        "number": "6D",
+        "text": "Any number after dance party are starving",
+        "enumeration": "5",
+        "answer": "RAVEN",
+        "definition": [
+          {
+            "text": "are starving",
+            "position": "end"
+          }
+        ]
+      },
+      "words": [
+        "Any",
+        "number",
+        "after",
+        "dance",
+        "party",
+        "are",
+        "starving"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              5,
+              6
+            ],
+            "text": "are starving"
+          },
+          "position": "end"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              3,
+              4
+            ],
+            "text": "dance party"
+          },
+          "result": "RAVE"
+        },
+        {
+          "type": "abbreviation",
+          "fodder": {
+            "indices": [
+              0,
+              1
+            ],
+            "text": "any number"
+          },
+          "result": "N",
+          "note": "N is used as a variable for 'any number' in mathematics"
+        },
+        {
+          "type": "charade_verify",
+          "indicator": {
+            "indices": [
+              2
+            ],
+            "text": "after"
+          },
+          "components": [
+            "RAVE",
+            "N"
+          ],
+          "result": "RAVEN",
+          "note": "N comes after RAVE",
+          "letters_so_far": 5,
+          "letters_needed": 5
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "hard",
+          "hint": "Think of an archaic verb meaning to be extremely hungry"
+        },
+        "wordplay": {
+          "rating": "easy",
+          "hint": "A type of party plus a mathematical variable"
+        },
+        "overall": "medium",
+        "recommendedApproach": "wordplay"
+      }
+    },
+    "times-29453-5d": {
+      "id": "times-29453-5d",
+      "clue": {
+        "number": "5D",
+        "text": "A lot of sharp turns, I'm afraid",
+        "enumeration": "3",
+        "answer": "EEK",
+        "definition": [
+          {
+            "text": "I'm afraid",
+            "position": "end"
+          }
+        ]
+      },
+      "words": [
+        "A",
+        "lot",
+        "of",
+        "sharp",
+        "turns",
+        "I'm",
+        "afraid"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              5,
+              6
+            ],
+            "text": "I'm afraid"
+          },
+          "position": "end"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              3
+            ],
+            "text": "sharp"
+          },
+          "result": "KEEN"
+        },
+        {
+          "type": "deletion",
+          "indicator": {
+            "indices": [
+              0,
+              1,
+              2
+            ],
+            "text": "a lot of"
+          },
+          "fodder": "KEEN",
+          "deletionType": "end",
+          "result": "KEE",
+          "note": "'A lot of' means take most of the word - remove final letter"
+        },
+        {
+          "type": "reversal",
+          "indicator": {
+            "indices": [
+              4
+            ],
+            "text": "turns"
+          },
+          "fodder": "KEE",
+          "result": "EEK"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "hint": "An exclamation of fright, often seen in comics"
+        },
+        "wordplay": {
+          "rating": "medium",
+          "hint": "Take most of a word meaning sharp/eager, then reverse it"
+        },
+        "overall": "medium",
+        "recommendedApproach": "definition"
+      }
+    },
+    "times-29453-12a": {
+      "id": "times-29453-12a",
+      "clue": {
+        "number": "12A",
+        "text": "Concerning sight as head of office IT struggles with PC",
+        "enumeration": "5",
+        "answer": "OPTIC",
+        "definition": [
+          {
+            "text": "Concerning sight",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "Concerning",
+        "sight",
+        "as",
+        "head",
+        "of",
+        "office",
+        "IT",
+        "struggles",
+        "with",
+        "PC"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0,
+              1
+            ],
+            "text": "Concerning sight"
+          },
+          "position": "start"
+        },
+        {
+          "type": "connector",
+          "fodder": {
+            "indices": [
+              2
+            ],
+            "text": "as"
+          },
+          "note": "Linking word"
+        },
+        {
+          "type": "letter_selection",
+          "indicator": {
+            "indices": [
+              3,
+              4
+            ],
+            "text": "head of"
+          },
+          "fodder": {
+            "indices": [
+              5
+            ],
+            "text": "office"
+          },
+          "extractionType": "first",
+          "result": "O"
+        },
+        {
+          "type": "literal",
+          "fodder": {
+            "indices": [
+              6
+            ],
+            "text": "IT"
+          },
+          "result": "IT"
+        },
+        {
+          "type": "literal",
+          "fodder": {
+            "indices": [
+              9
+            ],
+            "text": "PC"
+          },
+          "result": "PC"
+        },
+        {
+          "type": "anagram",
+          "indicator": {
+            "indices": [
+              7,
+              8
+            ],
+            "text": "struggles with"
+          },
+          "fodder": [
+            "O",
+            "IT",
+            "PC"
+          ],
+          "result": "OPTIC",
+          "letters_so_far": 5,
+          "letters_needed": 5
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "hint": "Related to vision or the eye"
+        },
+        "wordplay": {
+          "rating": "medium",
+          "hint": "First letter of a word plus an anagram of some letters"
+        },
+        "overall": "medium",
+        "recommendedApproach": "definition"
+      }
+    },
+    "times-29453-9d": {
+      "id": "times-29453-9d",
+      "clue": {
+        "number": "9D",
+        "text": "State coach for Turkish leader who's out to lunch?",
+        "enumeration": "10",
+        "answer": "MADAGASCAR",
+        "definition": [
+          {
+            "text": "State",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "State",
+        "coach",
+        "for",
+        "Turkish",
+        "leader",
+        "who's",
+        "out",
+        "to",
+        "lunch"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0
+            ],
+            "text": "State"
+          },
+          "position": "start"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              6,
+              7,
+              8
+            ],
+            "text": "out to lunch"
+          },
+          "result": "MAD",
+          "note": "If someone is 'out to lunch' they are crazy/mad"
+        },
+        {
+          "type": "abbreviation",
+          "fodder": {
+            "indices": [
+              3,
+              4
+            ],
+            "text": "Turkish leader"
+          },
+          "result": "AGA",
+          "note": "An aga is a Turkish military commander"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              1
+            ],
+            "text": "coach"
+          },
+          "result": "CAR",
+          "note": "A coach is a type of car/vehicle"
+        },
+        {
+          "type": "literal",
+          "fodder": {
+            "indices": [
+              5
+            ],
+            "text": "who's"
+          },
+          "result": "S",
+          "note": "The possessive 's from 'who's'"
+        },
+        {
+          "type": "charade_verify",
+          "components": [
+            "MAD",
+            "AGA",
+            "S",
+            "CAR"
+          ],
+          "result": "MADAGASCAR",
+          "note": "Reads as 'mad Aga's car' - a crazy Turkish leader's vehicle",
+          "letters_so_far": 10,
+          "letters_needed": 10
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "hint": "An island nation off the coast of Africa"
+        },
+        "wordplay": {
+          "rating": "hard",
+          "hint": "The whole phrase sounds like a description of a crazy vehicle belonging to a Turkish commander"
+        },
+        "overall": "hard",
+        "recommendedApproach": "definition"
+      }
     }
   },
   "import_logs": {
@@ -297,6 +891,147 @@
         "failed": 0
       },
       "errors": []
+    },
+    "1769947513-29453": {
+      "id": "1769947513-29453",
+      "timestamp": 1769947513,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29453",
+      "summary": {
+        "saved": 0,
+        "skipped": 0,
+        "failed": 1
+      },
+      "errors": [
+        {
+          "clueId": "times-29453-11a",
+          "clueNumber": "11A",
+          "clueText": "Come by five, do you mean?",
+          "errors": [
+            "steps[1] has type \"abbreviation\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase"
+          ]
+        }
+      ]
+    },
+    "1769947591-29453": {
+      "id": "1769947591-29453",
+      "timestamp": 1769947591,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29453",
+      "summary": {
+        "saved": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "errors": []
+    },
+    "1769950408-29453": {
+      "id": "1769950408-29453",
+      "timestamp": 1769950408,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29453",
+      "summary": {
+        "saved": 0,
+        "skipped": 1,
+        "failed": 5
+      },
+      "errors": [
+        {
+          "clueId": "times-29453-1d",
+          "clueNumber": "1D",
+          "clueText": "See boss bungle work",
+          "errors": [
+            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
+          ]
+        },
+        {
+          "clueId": "times-29453-6d",
+          "clueNumber": "6D",
+          "clueText": "Any number after dance party are starving",
+          "errors": [
+            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
+          ]
+        },
+        {
+          "clueId": "times-29453-5d",
+          "clueNumber": "5D",
+          "clueText": "A lot of sharp turns, I'm afraid",
+          "errors": [
+            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
+            "steps[2] has type \"deletion\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
+            "steps[3] has type \"reversal\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
+          ]
+        },
+        {
+          "clueId": "times-29453-12a",
+          "clueNumber": "12A",
+          "clueText": "Concerning sight as head of office IT struggles with PC",
+          "errors": [
+            "steps[1] has type \"letter_selection\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
+            "steps[2] has type \"literal\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
+            "steps[3] has type \"literal\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
+            "steps[4] has type \"anagram\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
+          ]
+        },
+        {
+          "clueId": "times-29453-9d",
+          "clueNumber": "9D",
+          "clueText": "State coach for Turkish leader who's out to lunch?",
+          "errors": [
+            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
+            "steps[3] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
+          ]
+        }
+      ]
+    },
+    "1769957793-29439": {
+      "id": "1769957793-29439",
+      "timestamp": 1769957793,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29439",
+      "summary": {
+        "saved": 0,
+        "skipped": 2,
+        "failed": 0
+      },
+      "errors": []
+    },
+    "1769958759-29453": {
+      "id": "1769958759-29453",
+      "timestamp": 1769958759,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29453",
+      "summary": {
+        "saved": 5,
+        "skipped": 1,
+        "failed": 0
+      },
+      "errors": []
+    },
+    "1769958767-29439": {
+      "id": "1769958767-29439",
+      "timestamp": 1769958767,
+      "publicationId": "times",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29439",
+      "summary": {
+        "saved": 0,
+        "skipped": 2,
+        "failed": 0
+      },
+      "errors": []
+    }
+  },
+  "settings": {
+    "letterChecking": true,
+    "adminFilters": {
+      "showOnlyUnverified": false,
+      "showOnlyWithIssues": false
     }
   }
 }
