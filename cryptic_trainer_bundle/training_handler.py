@@ -312,6 +312,273 @@ STEP_TEMPLATES = {
                 "button": {"label": "Continue →", "action": "next_step"}
             }
         ]
+    },
+
+    "synonym": {
+        "phases": [
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the word to find a synonym for",
+                "intro": {
+                    "title": "Synonym",
+                    "text": "Cryptic clues often require finding synonyms — words with the same or similar meaning.\n\nThe clue gives you one word, and you need to find another word that means the same thing.",
+                    "example": "Think of alternative words that could replace the given word."
+                },
+                "panel": {
+                    "title": "FIND THE WORD",
+                    "instruction": "Tap the word you need to find a synonym for."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Hint: Look for a word that needs to be replaced with a synonym."}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the synonym",
+                "panel": {
+                    "title": "TYPE SYNONYM",
+                    "instruction": "What's a synonym for '{fodder}' that fits?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Good! Building synonym knowledge is key to cryptic solving."},
+                "onWrong": {"message": "Hint: Think of words that mean the same as '{fodder}'."}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "SYNONYM",
+                    "instruction": "'{fodder}' = {result}\n\n**Remember:** Synonyms are the bread and butter of cryptic wordplay."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "deletion": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the deletion indicator",
+                "intro": {
+                    "title": "Deletion",
+                    "text": "Deletion indicators tell you to remove letters from a word. Common indicators:\n\n• 'a lot of', 'most of' = remove last letter\n• 'headless', 'beheaded' = remove first letter\n• 'heartless' = remove middle letter\n• 'losing', 'without', 'dropping' = remove specified letters",
+                    "example": "Look for words suggesting something is missing or shortened."
+                },
+                "panel": {
+                    "title": "FIND THE INDICATOR",
+                    "instruction": "Tap the word(s) that signal deletion."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Hint: Look for words suggesting removal or shortening."}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type what remains after deletion",
+                "panel": {
+                    "title": "WHAT REMAINS?",
+                    "instruction": "After applying the deletion to '{fodder}', what letters remain?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Correct! Deletion is a common cryptic technique."},
+                "onWrong": {"message": "Hint: Remove the indicated letter(s) from '{fodder}'."}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "DELETION",
+                    "instruction": "'{fodder}' with deletion = {result}\n\n**Remember:** Deletion indicators tell you which part of a word to remove."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "reversal": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the reversal indicator",
+                "intro": {
+                    "title": "Reversal",
+                    "text": "Reversal indicators tell you to reverse letters. Common indicators:\n\n• Across clues: 'back', 'returned', 'reflected', 'west'\n• Down clues: 'up', 'rising', 'climbing', 'overhead'\n• General: 'turned', 'reversed', 'backwards'",
+                    "example": "The indicator tells you which direction to read the letters."
+                },
+                "panel": {
+                    "title": "FIND THE INDICATOR",
+                    "instruction": "Tap the word(s) that signal reversal."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Hint: Look for words suggesting backwards or reversed."}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the reversed letters",
+                "panel": {
+                    "title": "REVERSE IT",
+                    "instruction": "Reverse '{fodder}'. What do you get?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Good! Reversals can hide words in plain sight."},
+                "onWrong": {"message": "Hint: Write '{fodder}' backwards."}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "REVERSAL",
+                    "instruction": "'{fodder}' reversed = {result}\n\n**Remember:** Reversal indicators (back, up, turned) tell you to read letters backwards."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "letter_selection": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the selection indicator",
+                "intro": {
+                    "title": "Letter Selection",
+                    "text": "Letter selection indicators tell you to take specific letters:\n\n• 'head of', 'first of', 'initially' = first letter\n• 'tail of', 'finally', 'at last' = last letter\n• 'heart of', 'centre of' = middle letter\n• 'edges of', 'borders' = first and last letters",
+                    "example": "The indicator specifies which letter(s) to extract."
+                },
+                "panel": {
+                    "title": "FIND THE INDICATOR",
+                    "instruction": "Tap the word(s) that tell you which letters to select."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Hint: Look for words indicating position (first, last, heart, etc.)."}
+            },
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the source word(s)",
+                "panel": {
+                    "title": "FIND THE SOURCE",
+                    "instruction": "Tap the word(s) you're extracting letters from."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Hint: Which word does the indicator operate on?"}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the extracted letters",
+                "panel": {
+                    "title": "EXTRACT THE LETTERS",
+                    "instruction": "What letter(s) do you get from '{fodder}'?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Nice! Letter selection is a precise technique."},
+                "onWrong": {"message": "Hint: Apply the indicator to '{fodder}' — which letters does it specify?"}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "LETTER SELECTION",
+                    "instruction": "From '{fodder}' = {result}\n\n**Remember:** Selection indicators (head of, finally, heart of) pinpoint exact letters."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "literal": {
+        "phases": [
+            {
+                "id": "fodder",
+                "actionPrompt": "Tap the literal letters",
+                "intro": {
+                    "title": "Literal",
+                    "text": "Sometimes letters in a clue are used exactly as written — no transformation needed.\n\nAbbreviations like 'IT', 'PC', 'TV' or single letters contribute directly to the answer.",
+                    "example": "These letters go straight into the answer unchanged."
+                },
+                "panel": {
+                    "title": "FIND THE LITERAL",
+                    "instruction": "Tap the word(s) used literally (as-is) in the answer."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
+                "onWrong": {"message": "Hint: Look for letters or abbreviations used unchanged."}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "LITERAL",
+                    "instruction": "'{fodder}' = {result} (used as-is)\n\n**Remember:** Some letters contribute directly without any transformation."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "connector": {
+        "phases": [
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "CONNECTOR",
+                    "instruction": "'{fodder}' is a linking word connecting parts of the clue.\n\n**Remember:** Connectors (as, and, in, for) join wordplay elements but don't contribute letters."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
+    },
+
+    "anagram": {
+        "phases": [
+            {
+                "id": "indicator",
+                "actionPrompt": "Tap the anagram indicator",
+                "intro": {
+                    "title": "Anagram",
+                    "text": "Anagram indicators suggest letters need rearranging. Common indicators:\n\n• 'mixed', 'scrambled', 'confused', 'crazy'\n• 'working', 'moving', 'dancing', 'drunk'\n• 'broken', 'damaged', 'ruined', 'wild'\n• Any word suggesting disorder or change",
+                    "example": "The indicator signals that adjacent letters should be rearranged."
+                },
+                "panel": {
+                    "title": "FIND THE INDICATOR",
+                    "instruction": "Tap the word(s) that signal an anagram."
+                },
+                "inputMode": "tap_words",
+                "onCorrect": {"highlight": {"color": "ORANGE", "role": "indicator"}},
+                "onWrong": {"message": "Hint: Look for words suggesting mixing, confusion, or disorder."}
+            },
+            {
+                "id": "result",
+                "actionPrompt": "Type the anagrammed word",
+                "panel": {
+                    "title": "SOLVE THE ANAGRAM",
+                    "instruction": "Rearrange the fodder letters. What word do you get?"
+                },
+                "inputMode": "text",
+                "onCorrect": {"message": "Excellent! Anagrams are a cryptic crossword staple."},
+                "onWrong": {"message": "Hint: Rearrange all the fodder letters to form a word."}
+            },
+            {
+                "id": "teaching",
+                "actionPrompt": "Continue to next step",
+                "panel": {
+                    "title": "ANAGRAM",
+                    "instruction": "Rearranged = {result}\n\n**Remember:** Anagram indicators signal that letters need shuffling to reveal the answer."
+                },
+                "inputMode": "none",
+                "button": {"label": "Continue →", "action": "next_step"}
+            }
+        ]
     }
 }
 
@@ -328,6 +595,13 @@ STEP_TO_CLUE_TYPE = {
     "alternation_discover": "standard",
     "literal_phrase": "standard",
     "abbreviation": "standard",
+    "synonym": "standard",
+    "deletion": "standard",
+    "reversal": "standard",
+    "letter_selection": "standard",
+    "literal": "standard",
+    "connector": "standard",
+    "anagram": "standard",
     "double_definition": "double_definition",
 }
 
@@ -1013,6 +1287,9 @@ def get_render(clue_id, clue):
                 common_vocab = [common_vocab]
             if vocab_num <= len(common_vocab):
                 render["expected"] = common_vocab[vocab_num - 1].get("indices", [])
+        elif phase_id == "indicator":
+            if "indicator" in step and isinstance(step["indicator"], dict):
+                render["expected"] = step["indicator"]["indices"]
         elif phase_id == "fodder":
             if "fodder_word" in step:
                 render["expected"] = step["fodder_word"]["indices"]
@@ -1129,6 +1406,9 @@ def handle_input(clue_id, clue, value):
                 common_vocab = [common_vocab]
             if vocab_num <= len(common_vocab):
                 expected = common_vocab[vocab_num - 1].get("indices", [])
+        elif phase_id == "indicator":
+            if "indicator" in step and isinstance(step["indicator"], dict):
+                expected = step["indicator"]["indices"]
         elif phase_id == "fodder":
             if "fodder_word" in step:
                 expected = step["fodder_word"]["indices"]
@@ -1345,6 +1625,32 @@ def handle_continue(clue_id, clue):
             fodder = step.get("fodder", {}).get("text", "")
             result = step.get("result", "")
             learning_title = f"LITERAL PHRASE: {fodder} → {result}"
+        elif step["type"] == "synonym":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learning_title = f"SYNONYM: {fodder} → {result}"
+        elif step["type"] == "deletion":
+            fodder = step.get("fodder", "")
+            result = step.get("result", "")
+            learning_title = f"DELETION: {fodder} → {result}"
+        elif step["type"] == "reversal":
+            fodder = step.get("fodder", "")
+            result = step.get("result", "")
+            learning_title = f"REVERSAL: {fodder} → {result}"
+        elif step["type"] == "letter_selection":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learning_title = f"LETTER SELECTION: {fodder} → {result}"
+        elif step["type"] == "literal":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learning_title = f"LITERAL: {fodder} → {result}"
+        elif step["type"] == "connector":
+            fodder = step.get("fodder", {}).get("text", "")
+            learning_title = f"CONNECTOR: {fodder}"
+        elif step["type"] == "anagram":
+            result = step.get("result", "")
+            learning_title = f"ANAGRAM → {result}"
 
         if learning_text:
             # Use custom title if set, otherwise use template title
@@ -1482,6 +1788,69 @@ def get_all_learnings(clue):
             learnings.append({
                 "title": f"ABBREVIATION: {fodder} → {result}",
                 "text": f"'{fodder}' = {result}\n\n**Remember:** Build a mental library of common cryptic abbreviations — they appear frequently!"
+            })
+
+        elif step_type == "synonym":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"SYNONYM: {fodder} → {result}",
+                "text": f"'{fodder}' = {result}\n\n**Remember:** Synonyms are the bread and butter of cryptic wordplay."
+            })
+
+        elif step_type == "deletion":
+            indicator = step.get("indicator", {}).get("text", "")
+            fodder = step.get("fodder", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"DELETION: {fodder} → {result}",
+                "text": f"'{indicator}' removes letters from '{fodder}' = {result}\n\n**Remember:** Deletion indicators tell you which part of a word to remove."
+            })
+
+        elif step_type == "reversal":
+            indicator = step.get("indicator", {}).get("text", "")
+            fodder = step.get("fodder", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"REVERSAL: {fodder} → {result}",
+                "text": f"'{indicator}' reverses '{fodder}' = {result}\n\n**Remember:** Reversal indicators (back, up, turned) tell you to read letters backwards."
+            })
+
+        elif step_type == "letter_selection":
+            indicator = step.get("indicator", {}).get("text", "")
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"LETTER SELECTION: {fodder} → {result}",
+                "text": f"'{indicator}' from '{fodder}' = {result}\n\n**Remember:** Selection indicators (head of, finally, heart of) pinpoint exact letters."
+            })
+
+        elif step_type == "literal":
+            fodder = step.get("fodder", {}).get("text", "")
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"LITERAL: {fodder} → {result}",
+                "text": f"'{fodder}' = {result} (used as-is)\n\n**Remember:** Some letters contribute directly without any transformation."
+            })
+
+        elif step_type == "connector":
+            fodder = step.get("fodder", {}).get("text", "")
+            learnings.append({
+                "title": f"CONNECTOR: {fodder}",
+                "text": f"'{fodder}' is a linking word.\n\n**Remember:** Connectors join wordplay elements but don't contribute letters."
+            })
+
+        elif step_type == "anagram":
+            indicator = step.get("indicator", {}).get("text", "")
+            fodder = step.get("fodder", [])
+            if isinstance(fodder, list):
+                fodder_display = " + ".join(fodder)
+            else:
+                fodder_display = str(fodder)
+            result = step.get("result", "")
+            learnings.append({
+                "title": f"ANAGRAM → {result}",
+                "text": f"'{indicator}' rearranges {fodder_display} = {result}\n\n**Remember:** Anagram indicators signal that letters need shuffling."
             })
 
     return learnings
