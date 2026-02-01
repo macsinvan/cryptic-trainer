@@ -1018,6 +1018,53 @@ def build_deletion_discover_phases(step, clue):
 
     return phases
 
+def build_container_verify_phases(step, clue):
+    """Build phases for container_verify with auto-generated options."""
+    inner = step.get("inner", "")
+    outer = step.get("outer", "")
+    result = step.get("result", "")
+    indicator_text = step.get("indicator", {}).get("text", "")
+    answer = clue.get("clue", {}).get("answer", "")
+
+    # Auto-generate options: determine which is correct by checking if inner appears inside result
+    inner_upper = inner.upper()
+    result_upper = result.upper()
+
+    # If inner appears inside result (surrounded by other letters), then inner goes inside outer
+    inner_inside_correct = inner_upper in result_upper and result_upper != inner_upper
+
+    options = [
+        {"label": f"{inner} goes inside {outer}", "correct": inner_inside_correct},
+        {"label": f"{outer} goes inside {inner}", "correct": not inner_inside_correct}
+    ]
+
+    phases = [
+        {
+            "id": "order",
+            "actionPrompt": "Select which piece goes inside which",
+            "panel": {
+                "title": "CONTAINER ORDER",
+                "instruction": f"You have two pieces: {inner} and {outer}. '{indicator_text}' tells us one goes inside the other. To make {answer}, which arrangement works?"
+            },
+            "inputMode": "multiple_choice",
+            "options": options,
+            "onCorrect": {"message": "That's right! Container indicators tell you the structure."},
+            "onWrong": {"message": f"Hint: Look at {answer} — where does {inner} appear? Is it surrounded by letters, or does it surround them?"}
+        },
+        {
+            "id": "teaching",
+            "actionPrompt": "Complete training",
+            "panel": {
+                "title": "VERIFIED!",
+                "instruction": ""  # Built dynamically in get_render
+            },
+            "inputMode": "none",
+            "button": {"label": "Continue →", "action": "next_step"}
+        }
+    ]
+
+    return phases
+
 # =============================================================================
 # SESSION MANAGEMENT
 # =============================================================================
@@ -1062,6 +1109,8 @@ def get_step_phases(step, clue):
         return build_standard_definition_phases(step, clue)
     elif step_type == "deletion_discover":
         return build_deletion_discover_phases(step, clue)
+    elif step_type == "container_verify":
+        return build_container_verify_phases(step, clue)
     else:
         template = STEP_TEMPLATES.get(step_type)
         if template:

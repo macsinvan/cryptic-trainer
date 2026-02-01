@@ -1,262 +1,6 @@
 {
   "version": 3,
   "training_items": {
-    "times-29439-1a": {
-      "id": "times-29439-1a",
-      "clue": {
-        "number": "1A",
-        "text": "Brief press about fool blocking state",
-        "enumeration": "7",
-        "answer": "IMPASSE",
-        "definition": [
-          {
-            "text": "blocking state",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Brief",
-        "press",
-        "about",
-        "fool",
-        "blocking",
-        "state"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              4,
-              5
-            ],
-            "text": "blocking state"
-          },
-          "position": "end"
-        },
-        {
-          "type": "wordplay_overview",
-          "definition_solved": true,
-          "remaining_indices": [
-            0,
-            1,
-            2,
-            3
-          ],
-          "remaining_text": "Brief press about fool",
-          "common_vocabulary": {
-            "indices": [
-              3
-            ],
-            "text": "fool",
-            "meaning": "ASS",
-            "letters": 3
-          },
-          "expected_indicators": [
-            {
-              "indices": [
-                0
-              ],
-              "text": "Brief",
-              "operation": "deletion"
-            },
-            {
-              "indices": [
-                2
-              ],
-              "text": "about",
-              "operation": "container"
-            }
-          ]
-        },
-        {
-          "type": "deletion_discover",
-          "indicator": {
-            "indices": [
-              0
-            ],
-            "text": "Brief"
-          },
-          "fodder_word": {
-            "indices": [
-              1
-            ],
-            "text": "press"
-          },
-          "fodder_synonym": "IMPEL",
-          "result": "IMPE",
-          "letters_needed": 4
-        },
-        {
-          "type": "container_verify",
-          "indicator": {
-            "indices": [
-              2
-            ],
-            "text": "about"
-          },
-          "inner": "ASS",
-          "outer": "IMPE",
-          "options": [
-            {
-              "label": "ASS goes inside IMPE",
-              "correct": true
-            },
-            {
-              "label": "IMPE goes inside ASS",
-              "correct": false
-            }
-          ],
-          "result": "IMPASSE"
-        }
-      ],
-      "metadata": {
-        "publisher": "Times",
-        "puzzle_number": "29439"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "definition": {
-          "rating": "easy",
-          "hint": "'blocking state' suggests reaching a deadlock \u2014 find a common word that fits this definition"
-        },
-        "wordplay": {
-          "rating": "hard",
-          "reasoning": "Nested container + deletion + obscure synonym (press=IMPEL)"
-        },
-        "overall": "medium",
-        "recommendedApproach": "definition"
-      },
-      "verified": true
-    },
-    "times-29439-1d": {
-      "id": "times-29439-1d",
-      "clue": {
-        "number": "1D",
-        "text": "Popular drink, by turns mild and short on taste",
-        "enumeration": "7",
-        "answer": "INSIPID",
-        "definition": [
-          {
-            "text": "short on taste",
-            "position": "end"
-          }
-        ]
-      },
-      "words": [
-        "Popular",
-        "drink",
-        "by",
-        "turns",
-        "mild",
-        "and",
-        "short",
-        "on",
-        "taste"
-      ],
-      "steps": [
-        {
-          "type": "standard_definition",
-          "expected": {
-            "indices": [
-              6,
-              7,
-              8
-            ],
-            "text": "short on taste"
-          },
-          "position": "end"
-        },
-        {
-          "type": "wordplay_overview",
-          "definition_solved": true,
-          "remaining_indices": [
-            0,
-            1,
-            2,
-            3,
-            4,
-            5
-          ],
-          "remaining_text": "Popular drink, by turns mild and",
-          "common_vocabulary": [
-            {
-              "indices": [
-                0
-              ],
-              "text": "Popular",
-              "meaning": "IN",
-              "letters": 2
-            },
-            {
-              "indices": [
-                1
-              ],
-              "text": "drink",
-              "meaning": "SIP",
-              "letters": 3
-            }
-          ],
-          "expected_indicators": [
-            {
-              "indices": [
-                3
-              ],
-              "text": "turns",
-              "operation": "alternation"
-            }
-          ]
-        },
-        {
-          "type": "alternation_discover",
-          "indicator": {
-            "indices": [
-              3
-            ],
-            "text": "turns"
-          },
-          "fodder": {
-            "indices": [
-              4
-            ],
-            "text": "mild"
-          },
-          "result": "ID",
-          "letters_needed": 2,
-          "pattern": "even"
-        },
-        {
-          "type": "charade_verify",
-          "components": [
-            "IN",
-            "SIP",
-            "ID"
-          ],
-          "result": "INSIPID",
-          "letters_so_far": 7,
-          "letters_needed": 7
-        }
-      ],
-      "metadata": {
-        "publisher": "Times",
-        "puzzle_number": "29439"
-      },
-      "publicationId": "times",
-      "difficulty": {
-        "definition": {
-          "rating": "easy",
-          "hint": "'short on taste' suggests something bland or lacking flavour \u2014 find a common word that fits"
-        },
-        "wordplay": {
-          "rating": "easy",
-          "reasoning": "All anchors are common cryptic vocabulary (IN, SIP) plus clear alternation indicator"
-        },
-        "overall": "easy",
-        "recommendedApproach": "wordplay"
-      },
-      "verified": true
-    },
     "times-29453-11a": {
       "id": "times-29453-11a",
       "clue": {
@@ -300,7 +44,7 @@
             "text": "five"
           },
           "result": "V",
-          "letters_needed": 1
+          "hint": "Roman numeral V = 5"
         },
         {
           "type": "literal_phrase",
@@ -343,8 +87,7 @@
         },
         "overall": "easy",
         "recommendedApproach": "wordplay"
-      },
-      "verified": true
+      }
     },
     "times-29453-1d": {
       "id": "times-29453-1d",
@@ -387,7 +130,7 @@
             "text": "bungle"
           },
           "result": "BISH",
-          "note": "To 'bish' something is slang for bungling it"
+          "hint": "To 'bish' something is British slang for bungling it"
         },
         {
           "type": "abbreviation",
@@ -398,7 +141,7 @@
             "text": "work"
           },
           "result": "OP",
-          "note": "OP = opus, a musical work"
+          "hint": "OP = opus, a musical work or composition"
         },
         {
           "type": "charade_verify",
@@ -473,7 +216,8 @@
             ],
             "text": "dance party"
           },
-          "result": "RAVE"
+          "result": "RAVE",
+          "hint": "A rave is an all-night dance party"
         },
         {
           "type": "abbreviation",
@@ -485,7 +229,7 @@
             "text": "any number"
           },
           "result": "N",
-          "note": "N is used as a variable for 'any number' in mathematics"
+          "hint": "N represents any number in mathematics"
         },
         {
           "type": "charade_verify",
@@ -566,7 +310,8 @@
             ],
             "text": "sharp"
           },
-          "result": "KEEN"
+          "result": "KEEN",
+          "hint": "Keen means sharp, as in a keen edge or keen intellect"
         },
         {
           "type": "deletion",
@@ -783,7 +528,7 @@
             "text": "out to lunch"
           },
           "result": "MAD",
-          "note": "If someone is 'out to lunch' they are crazy/mad"
+          "hint": "'Out to lunch' is slang for crazy or mad"
         },
         {
           "type": "abbreviation",
@@ -795,7 +540,7 @@
             "text": "Turkish leader"
           },
           "result": "AGA",
-          "note": "An aga is a Turkish military commander"
+          "hint": "An aga is a Turkish military commander or chief"
         },
         {
           "type": "synonym",
@@ -806,7 +551,7 @@
             "text": "coach"
           },
           "result": "CAR",
-          "note": "A coach is a type of car/vehicle"
+          "hint": "A coach is a type of vehicle/car, especially a horse-drawn one"
         },
         {
           "type": "literal",
@@ -895,7 +640,8 @@
             ],
             "text": "also"
           },
-          "result": "AND"
+          "result": "AND",
+          "hint": "'Also' links things together, like the word 'and'"
         },
         {
           "type": "synonym",
@@ -906,7 +652,8 @@
             ],
             "text": "opposed to"
           },
-          "result": "ANTI"
+          "result": "ANTI",
+          "hint": "Anti- means opposed to or against"
         },
         {
           "type": "synonym",
@@ -918,7 +665,8 @@
             ],
             "text": "one referendum option"
           },
-          "result": "NO"
+          "result": "NO",
+          "hint": "In a referendum, one option is to vote 'No'"
         },
         {
           "type": "charade_verify",
@@ -999,7 +747,8 @@
             ],
             "text": "old"
           },
-          "result": "O"
+          "result": "O",
+          "hint": "O is standard abbreviation for old (as in O.E. = Old English)"
         },
         {
           "type": "literal",
@@ -1039,6 +788,292 @@
         "wordplay": {
           "rating": "easy",
           "hint": "An abbreviation plus an anagram"
+        },
+        "overall": "medium",
+        "recommendedApproach": "definition"
+      }
+    },
+    "times-29453-1a": {
+      "id": "times-29453-1a",
+      "clue": {
+        "number": "1A",
+        "text": "Cover up in shower not after nurses turn around",
+        "enumeration": "6",
+        "answer": "BROLLY",
+        "definition": [
+          {
+            "text": "Cover up in shower",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "Cover",
+        "up",
+        "in",
+        "shower",
+        "not",
+        "after",
+        "nurses",
+        "turn",
+        "around"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "text": "Cover up in shower"
+          },
+          "position": "start"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              4,
+              5
+            ],
+            "text": "not after"
+          },
+          "result": "BY",
+          "hint": "If you're BY something (beside it), you're not AFTER it - cryptic wordplay"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              7,
+              8
+            ],
+            "text": "turn around"
+          },
+          "result": "ROLL",
+          "hint": "To roll is to turn around (like rolling over)"
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              6
+            ],
+            "text": "nurses"
+          },
+          "outer": "BY",
+          "inner": "ROLL",
+          "result": "BROLLY",
+          "hint": "'nurses' = contains; BY wraps around ROLL: B + ROLL + Y = BROLLY"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "hint": "Something you use to stay dry when it rains"
+        },
+        "wordplay": {
+          "rating": "hard",
+          "hint": "A container operation with a reversal inside"
+        },
+        "overall": "medium",
+        "recommendedApproach": "definition"
+      }
+    },
+    "times-29453-10a": {
+      "id": "times-29453-10a",
+      "clue": {
+        "number": "10A",
+        "text": "Flatter track takes very little time",
+        "enumeration": "5,4",
+        "answer": "SWEET TALK",
+        "definition": [
+          {
+            "text": "Flatter",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "Flatter",
+        "track",
+        "takes",
+        "very",
+        "little",
+        "time"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0
+            ],
+            "text": "Flatter"
+          },
+          "position": "start"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              1
+            ],
+            "text": "track"
+          },
+          "result": "STALK",
+          "hint": "To stalk is to track or follow prey"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              3,
+              4
+            ],
+            "text": "very little"
+          },
+          "result": "WEE",
+          "hint": "Wee means very little or tiny (Scottish/informal)"
+        },
+        {
+          "type": "abbreviation",
+          "fodder": {
+            "indices": [
+              5
+            ],
+            "text": "time"
+          },
+          "result": "T",
+          "hint": "T is standard abbreviation for time"
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              2
+            ],
+            "text": "takes"
+          },
+          "outer": "STALK",
+          "inner": "WEET",
+          "result": "SWEET TALK",
+          "hint": "STALK takes WEE+T = S(WEET)ALK = SWEET TALK"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "hint": "To cajole or flatter someone with charming words"
+        },
+        "wordplay": {
+          "rating": "medium",
+          "hint": "A word for tracking prey contains two small words"
+        },
+        "overall": "medium",
+        "recommendedApproach": "definition"
+      }
+    },
+    "times-29453-8d": {
+      "id": "times-29453-8d",
+      "clue": {
+        "number": "8D",
+        "text": "But you must wear socks steamy in here",
+        "enumeration": "8",
+        "answer": "HOTHOUSE",
+        "definition": [
+          {
+            "text": "steamy in here",
+            "position": "end"
+          }
+        ]
+      },
+      "words": [
+        "But",
+        "you",
+        "must",
+        "wear",
+        "socks",
+        "steamy",
+        "in",
+        "here"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              5,
+              6,
+              7
+            ],
+            "text": "steamy in here"
+          },
+          "position": "end"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              1
+            ],
+            "text": "you"
+          },
+          "result": "THOU",
+          "hint": "Thou is archaic/biblical form of 'you'"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              4
+            ],
+            "text": "socks"
+          },
+          "result": "HOSE",
+          "hint": "Hose is another word for stockings/socks (hosiery)"
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              2,
+              3
+            ],
+            "text": "must wear"
+          },
+          "outer": "HOSE",
+          "inner": "THOU",
+          "result": "HOTHOUSE",
+          "hint": "HOSE containing THOU = HO(THOU)SE = HOTHOUSE"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "easy",
+          "hint": "A warm glass building for growing plants"
+        },
+        "wordplay": {
+          "rating": "medium",
+          "hint": "A container with an archaic pronoun inside footwear"
         },
         "overall": "medium",
         "recommendedApproach": "definition"
@@ -1092,7 +1127,7 @@
             "text": "Live"
           },
           "result": "AM",
-          "note": "I am = I live"
+          "hint": "'I am' means 'I live/exist'"
         },
         {
           "type": "synonym",
@@ -1103,7 +1138,7 @@
             "text": "singer"
           },
           "result": "BASS",
-          "note": "A bass is a type of singer"
+          "hint": "A bass is a type of singer (low male voice)"
         },
         {
           "type": "literal",
@@ -1124,7 +1159,8 @@
             ],
             "text": "costume"
           },
-          "result": "DRESS"
+          "result": "DRESS",
+          "hint": "A dress is a costume or outfit"
         },
         {
           "type": "charade_verify",
@@ -1201,7 +1237,8 @@
             ],
             "text": "Couple"
           },
-          "result": "DUO"
+          "result": "DUO",
+          "hint": "A duo is a couple or pair"
         },
         {
           "type": "synonym",
@@ -1212,7 +1249,7 @@
             "text": "second"
           },
           "result": "MO",
-          "note": "A mo = a moment/second"
+          "hint": "A mo (moment) is a brief second of time"
         },
         {
           "type": "charade_verify",
@@ -1293,7 +1330,8 @@
             ],
             "text": "silly speech"
           },
-          "result": "DRIVEL"
+          "result": "DRIVEL",
+          "hint": "Drivel is silly, nonsensical speech"
         },
         {
           "type": "deletion",
@@ -1371,7 +1409,8 @@
             ],
             "text": "conflicts"
           },
-          "result": "WARS"
+          "result": "WARS",
+          "hint": "Wars are armed conflicts"
         },
         {
           "type": "deletion",
@@ -1456,7 +1495,8 @@
             ],
             "text": "in the doldrums"
           },
-          "result": "LOW"
+          "result": "LOW",
+          "hint": "Being in the doldrums means feeling low or depressed"
         },
         {
           "type": "synonym",
@@ -1467,7 +1507,7 @@
             "text": "Sailor"
           },
           "result": "TAR",
-          "note": "Tar is slang for a sailor"
+          "hint": "Tar is old slang for a sailor (Jack Tar)"
         },
         {
           "type": "charade_verify",
@@ -1496,6 +1536,91 @@
         },
         "overall": "easy",
         "recommendedApproach": "wordplay"
+      }
+    },
+    "times-29453-7d": {
+      "id": "times-29453-7d",
+      "clue": {
+        "number": "7D",
+        "text": "Summits welcoming American patronage",
+        "enumeration": "8",
+        "answer": "AUSPICES",
+        "definition": [
+          {
+            "text": "patronage",
+            "position": "end"
+          }
+        ]
+      },
+      "words": [
+        "Summits",
+        "welcoming",
+        "American",
+        "patronage"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              3
+            ],
+            "text": "patronage"
+          },
+          "position": "end"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              0
+            ],
+            "text": "Summits"
+          },
+          "result": "APICES",
+          "hint": "Apices is plural of apex (summit/peak)"
+        },
+        {
+          "type": "abbreviation",
+          "fodder": {
+            "indices": [
+              2
+            ],
+            "text": "American"
+          },
+          "result": "US",
+          "hint": "US is abbreviation for United States (American)"
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              1
+            ],
+            "text": "welcoming"
+          },
+          "outer": "APICES",
+          "inner": "US",
+          "result": "AUSPICES",
+          "hint": "APICES welcoming US = A(US)PICES = AUSPICES"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "medium",
+          "hint": "Support or protection from a powerful person or organization"
+        },
+        "wordplay": {
+          "rating": "medium",
+          "hint": "A word for peaks contains an abbreviation"
+        },
+        "overall": "medium",
+        "recommendedApproach": "definition"
       }
     },
     "times-29453-4a": {
@@ -1541,7 +1666,7 @@
             "text": "copying antique"
           },
           "result": "REPRO",
-          "note": "A repro is a reproduction/copy of an antique"
+          "hint": "A repro is a reproduction or copy of an antique"
         },
         {
           "type": "synonym",
@@ -1552,7 +1677,7 @@
             "text": "pine"
           },
           "result": "ACHE",
-          "note": "To pine = to ache with longing"
+          "hint": "To pine is to ache with longing"
         },
         {
           "type": "deletion",
@@ -1645,7 +1770,8 @@
             ],
             "text": "attempt to escape"
           },
-          "result": "FLEE"
+          "result": "FLEE",
+          "hint": "To flee is to attempt to escape"
         },
         {
           "type": "abbreviation",
@@ -1655,7 +1781,8 @@
             ],
             "text": "good"
           },
-          "result": "G"
+          "result": "G",
+          "hint": "G is abbreviation for good (as in G-rated)"
         },
         {
           "type": "synonym",
@@ -1666,7 +1793,7 @@
             "text": "egg"
           },
           "result": "NIT",
-          "note": "A nit is an egg (of a louse)"
+          "hint": "A nit is a louse egg"
         },
         {
           "type": "reversal",
@@ -1705,6 +1832,78 @@
           "hint": "A word for escape plus reversed letters"
         },
         "overall": "medium",
+        "recommendedApproach": "definition"
+      }
+    },
+    "times-29453-23d": {
+      "id": "times-29453-23d",
+      "clue": {
+        "number": "23D",
+        "text": "Pretend authority raised undue spending limits",
+        "enumeration": "5",
+        "answer": "PSEUD",
+        "definition": [
+          {
+            "text": "Pretend authority",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "Pretend",
+        "authority",
+        "raised",
+        "undue",
+        "spending",
+        "limits"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0,
+              1
+            ],
+            "text": "Pretend authority"
+          },
+          "position": "start"
+        },
+        {
+          "type": "hidden",
+          "indicator": {
+            "indices": [
+              2,
+              5
+            ],
+            "text": "raised ... limits"
+          },
+          "fodder": {
+            "indices": [
+              3,
+              4
+            ],
+            "text": "undue spending"
+          },
+          "result": "PSEUD",
+          "note": "Hidden reversed in 'unDUE SPending' \u2192 DUESP reversed = PSEUD"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "medium",
+          "hint": "A pretentious person who claims expertise they don't have"
+        },
+        "wordplay": {
+          "rating": "hard",
+          "hint": "A hidden word, reversed in the clue"
+        },
+        "overall": "hard",
         "recommendedApproach": "definition"
       }
     },
@@ -1751,7 +1950,7 @@
             "text": "roughly"
           },
           "result": "CA",
-          "note": "CA = circa (roughly)"
+          "hint": "CA is abbreviation for circa (Latin for 'around/roughly')"
         },
         {
           "type": "synonym",
@@ -1762,7 +1961,7 @@
             "text": "level"
           },
           "result": "RASE",
-          "note": "To rase/raze = to level a building"
+          "hint": "Archaic spelling of 'raze' - to level/demolish a building"
         },
         {
           "type": "reversal",
@@ -1774,7 +1973,8 @@
             "text": "after revolution"
           },
           "fodder": "RASE",
-          "result": "ESAR"
+          "result": "ESAR",
+          "hint": "'revolution' indicates reversal - letters turn around"
         },
         {
           "type": "charade_verify",
@@ -1802,6 +2002,115 @@
           "hint": "An abbreviation plus a reversed word meaning to demolish"
         },
         "overall": "medium",
+        "recommendedApproach": "definition"
+      }
+    },
+    "times-29453-3d": {
+      "id": "times-29453-3d",
+      "clue": {
+        "number": "3D",
+        "text": "One missing initially admitted to Electra with some upheaval?",
+        "enumeration": "9",
+        "answer": "LATECOMER",
+        "definition": [
+          {
+            "text": "One missing initially admitted to Electra with some upheaval?",
+            "position": "all"
+          }
+        ]
+      },
+      "words": [
+        "One",
+        "missing",
+        "initially",
+        "admitted",
+        "to",
+        "Electra",
+        "with",
+        "some",
+        "upheaval"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "text": "One missing initially admitted to Electra with some upheaval?"
+          },
+          "position": "all",
+          "hint": "&lit clue - entire clue describes someone arriving late to theatre"
+        },
+        {
+          "type": "letter_selection",
+          "indicator": {
+            "indices": [
+              2
+            ],
+            "text": "initially"
+          },
+          "fodder": {
+            "indices": [
+              0,
+              1
+            ],
+            "text": "One missing"
+          },
+          "extractionType": "first",
+          "result": "OM",
+          "hint": "First letters of 'One' and 'missing'"
+        },
+        {
+          "type": "literal",
+          "fodder": {
+            "indices": [
+              5
+            ],
+            "text": "Electra"
+          },
+          "result": "ELECTRA"
+        },
+        {
+          "type": "anagram",
+          "indicator": {
+            "indices": [
+              7,
+              8
+            ],
+            "text": "some upheaval"
+          },
+          "fodder": [
+            "OM",
+            "ELECTRA"
+          ],
+          "result": "LATECOMER",
+          "hint": "OM + ELECTRA (9 letters) rearranged = LATECOMER; 'admitted to' shows OM joins the anagram"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "hard",
+          "hint": "An &lit clue - someone who arrives after the show has started"
+        },
+        "wordplay": {
+          "rating": "hard",
+          "hint": "Initial letters inserted into an anagram"
+        },
+        "overall": "hard",
         "recommendedApproach": "definition"
       }
     },
@@ -1849,7 +2158,8 @@
             ],
             "text": "Photos"
           },
-          "result": "PICS"
+          "result": "PICS",
+          "hint": "Common informal word for photographs"
         },
         {
           "type": "synonym",
@@ -1861,7 +2171,7 @@
             "text": "I had"
           },
           "result": "ID",
-          "note": "I'd = I had"
+          "hint": "Contraction I'd = I had"
         },
         {
           "type": "reversal",
@@ -1871,9 +2181,9 @@
             ],
             "text": "mounted"
           },
-          "fodder": "IDPICS",
-          "result": "SCIPDI",
-          "note": "Down clue - mounted means reversed"
+          "fodder": "PICSID",
+          "result": "DISCIP",
+          "hint": "In down clue, 'mounted' indicates reversal - letters go up"
         },
         {
           "type": "synonym",
@@ -1886,19 +2196,18 @@
             ],
             "text": "cover the inside of"
           },
-          "result": "LINE"
+          "result": "LINE",
+          "hint": "To line a coat is to cover its inside"
         },
         {
           "type": "charade_verify",
           "components": [
-            "DISCI",
-            "P",
+            "DISCIP",
             "LINE"
           ],
           "result": "DISCIPLINE",
           "letters_so_far": 10,
-          "letters_needed": 10,
-          "note": "DI (reversed I'D) + SCIP (reversed PICS) + LINE"
+          "letters_needed": 10
         }
       ],
       "metadata": {
@@ -1919,13 +2228,128 @@
         "recommendedApproach": "definition"
       }
     },
+    "times-29453-19a": {
+      "id": "times-29453-19a",
+      "clue": {
+        "number": "19A",
+        "text": "Are cold kisses coming inside only when it's dark?",
+        "enumeration": "5,7",
+        "answer": "SOLAR ECLIPSE",
+        "definition": [
+          {
+            "text": "when it's dark?",
+            "position": "end"
+          }
+        ]
+      },
+      "words": [
+        "Are",
+        "cold",
+        "kisses",
+        "coming",
+        "inside",
+        "only",
+        "when",
+        "it's",
+        "dark"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              6,
+              7,
+              8
+            ],
+            "text": "when it's dark?"
+          },
+          "position": "end"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              5
+            ],
+            "text": "only"
+          },
+          "result": "SOLE",
+          "hint": "Sole means only, as in 'the sole survivor'"
+        },
+        {
+          "type": "literal",
+          "fodder": {
+            "indices": [
+              0
+            ],
+            "text": "Are"
+          },
+          "result": "ARE",
+          "hint": "The word 'are' provides the letters A-R-E"
+        },
+        {
+          "type": "abbreviation",
+          "fodder": {
+            "indices": [
+              1
+            ],
+            "text": "cold"
+          },
+          "result": "C",
+          "hint": "Standard abbreviation C = cold (weather notation)"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              2
+            ],
+            "text": "kisses"
+          },
+          "result": "LIPS",
+          "hint": "You kiss with your lips"
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              3,
+              4
+            ],
+            "text": "coming inside"
+          },
+          "outer": "SOLE",
+          "inner": "ARECLIPS",
+          "result": "SOLAR ECLIPSE",
+          "hint": "SOLE splits as SOL + E with ARECLIPS inside: SOL + (ARE+C+LIPS) + E = SOLAR ECLIPSE"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "medium",
+          "hint": "An astronomical event that temporarily blocks sunlight"
+        },
+        "wordplay": {
+          "rating": "hard",
+          "hint": "Multiple elements contained inside a word"
+        },
+        "overall": "hard",
+        "recommendedApproach": "definition"
+      }
+    },
     "times-29453-16d": {
       "id": "times-29453-16d",
       "clue": {
         "number": "16D",
         "text": "Arab robe ad has misrepresented with superior beauty",
         "enumeration": "9",
-        "answer": "DISHDASHER",
+        "answer": "DISHDASHA",
         "definition": [
           {
             "text": "Arab robe",
@@ -1964,7 +2388,7 @@
             "text": "beauty"
           },
           "result": "DISH",
-          "note": "A dish = an attractive person"
+          "hint": "A dish is slang for an attractive person (a beauty)"
         },
         {
           "type": "literal",
@@ -1988,7 +2412,7 @@
           "fodder": [
             "ADHAS"
           ],
-          "result": "DASHER"
+          "result": "DASHA"
         },
         {
           "type": "charade_verify",
@@ -2001,12 +2425,12 @@
           },
           "components": [
             "DISH",
-            "DASHER"
+            "DASHA"
           ],
-          "result": "DISHDASHER",
-          "letters_so_far": 10,
-          "letters_needed": 10,
-          "note": "DISH above DASHER (down clue - superior)"
+          "result": "DISHDASHA",
+          "letters_so_far": 9,
+          "letters_needed": 9,
+          "note": "DISH above DASHA (down clue - superior)"
         }
       ],
       "metadata": {
@@ -2027,12 +2451,99 @@
         "recommendedApproach": "wordplay"
       }
     },
+    "times-29453-17d": {
+      "id": "times-29453-17d",
+      "clue": {
+        "number": "17D",
+        "text": "Embankment architect lengthened with cob?",
+        "enumeration": "5,3",
+        "answer": "ASWAN DAM",
+        "definition": [
+          {
+            "text": "Embankment",
+            "position": "start"
+          }
+        ]
+      },
+      "words": [
+        "Embankment",
+        "architect",
+        "lengthened",
+        "with",
+        "cob"
+      ],
+      "steps": [
+        {
+          "type": "standard_definition",
+          "expected": {
+            "indices": [
+              0
+            ],
+            "text": "Embankment"
+          },
+          "position": "start"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              1
+            ],
+            "text": "architect"
+          },
+          "result": "ADAM",
+          "hint": "Robert Adam was a famous British architect"
+        },
+        {
+          "type": "synonym",
+          "fodder": {
+            "indices": [
+              4
+            ],
+            "text": "cob?"
+          },
+          "result": "SWAN",
+          "hint": "A cob is a male swan"
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              2,
+              3
+            ],
+            "text": "lengthened with"
+          },
+          "outer": "ADAM",
+          "inner": "SWAN",
+          "result": "ASWAN DAM",
+          "hint": "A(SWAN)DAM = ASWAN DAM"
+        }
+      ],
+      "metadata": {
+        "publisher": "Times",
+        "puzzle_number": "29453"
+      },
+      "publicationId": "times",
+      "difficulty": {
+        "definition": {
+          "rating": "medium",
+          "hint": "A famous structure on the Nile river"
+        },
+        "wordplay": {
+          "rating": "hard",
+          "hint": "A famous architect's name with a bird inserted"
+        },
+        "overall": "hard",
+        "recommendedApproach": "definition"
+      }
+    },
     "times-29453-22a": {
       "id": "times-29453-22a",
       "clue": {
         "number": "22A",
         "text": "Friend taking minute to finish piano exam out of time",
-        "enumeration": "8",
+        "enumeration": "9",
         "answer": "ATEMPORAL",
         "definition": [
           {
@@ -2074,32 +2585,28 @@
             ],
             "text": "Friend"
           },
-          "result": "MATE"
+          "result": "MATE",
+          "hint": "Informal word for friend, buddy"
         },
         {
-          "type": "abbreviation",
-          "fodder": {
-            "indices": [
-              2
-            ],
-            "text": "minute"
-          },
-          "result": "M"
-        },
-        {
-          "type": "deletion",
+          "type": "letter_selection",
           "indicator": {
             "indices": [
               1,
+              2,
               3,
               4
             ],
             "text": "taking minute to finish"
           },
-          "fodder": "MATE",
-          "deletionType": "end",
+          "fodder": {
+            "indices": [
+              0
+            ],
+            "text": "Friend"
+          },
           "result": "ATEM",
-          "note": "Move M to end of MATE minus last letter = ATEM"
+          "hint": "M (minute) moves to the finish/end: MATE \u2192 ATE + M \u2192 ATEM"
         },
         {
           "type": "abbreviation",
@@ -2109,7 +2616,8 @@
             ],
             "text": "piano"
           },
-          "result": "P"
+          "result": "P",
+          "hint": "Musical dynamic marking p = piano (soft)"
         },
         {
           "type": "synonym",
@@ -2119,7 +2627,8 @@
             ],
             "text": "exam"
           },
-          "result": "ORAL"
+          "result": "ORAL",
+          "hint": "A spoken exam is an oral"
         },
         {
           "type": "charade_verify",
@@ -2129,8 +2638,8 @@
             "ORAL"
           ],
           "result": "ATEMPORAL",
-          "letters_so_far": 8,
-          "letters_needed": 8
+          "letters_so_far": 9,
+          "letters_needed": 9
         }
       ],
       "metadata": {
@@ -2186,15 +2695,15 @@
           "position": "end"
         },
         {
-          "type": "abbreviation",
+          "type": "synonym",
           "fodder": {
             "indices": [
               0
             ],
             "text": "See"
           },
-          "result": "E",
-          "note": "See = letter E (homophone)"
+          "result": "SEE",
+          "hint": "A see is a bishop's diocese or seat of authority"
         },
         {
           "type": "literal",
@@ -2207,15 +2716,14 @@
           "result": "DOGMA"
         },
         {
-          "type": "abbreviation",
-          "fodder": {
+          "type": "connector",
+          "word": {
             "indices": [
               3
             ],
             "text": "as"
           },
-          "result": "SE",
-          "note": "S (shilling) + E? Or hidden in remade AS"
+          "role": "links fodder to definition"
         },
         {
           "type": "anagram",
@@ -2226,11 +2734,11 @@
             "text": "remade"
           },
           "fodder": [
-            "E",
-            "DOGMA",
-            "SE"
+            "SEE",
+            "DOGMA"
           ],
-          "result": "MEGADOSE"
+          "result": "MEGADOSE",
+          "hint": "SEEDOGMA rearranged = MEGADOSE"
         }
       ],
       "metadata": {
@@ -2296,7 +2804,8 @@
             ],
             "text": "Turn"
           },
-          "result": "WIND"
+          "result": "WIND",
+          "hint": "To wind a handle is to turn it"
         },
         {
           "type": "synonym",
@@ -2306,7 +2815,8 @@
             ],
             "text": "bench"
           },
-          "result": "PEW"
+          "result": "PEW",
+          "hint": "A pew is a church bench"
         },
         {
           "type": "reversal",
@@ -2317,26 +2827,38 @@
             "text": "back"
           },
           "fodder": "PEW",
-          "result": "WEP"
+          "result": "WEP",
+          "hint": "'back' indicates reversal"
         },
         {
           "type": "abbreviation",
           "fodder": {
             "indices": [
-              3,
               4
             ],
-            "text": "to street"
+            "text": "street"
           },
-          "result": "ST"
+          "result": "ST",
+          "hint": "Standard abbreviation for street"
+        },
+        {
+          "type": "container_verify",
+          "indicator": {
+            "indices": [
+              3
+            ],
+            "text": "to"
+          },
+          "inner": "WEP",
+          "outer": "ST",
+          "result": "SWEPT",
+          "hint": "WEP goes into ST: S + WEP + T = SWEPT"
         },
         {
           "type": "charade_verify",
           "components": [
             "WIND",
-            "S",
-            "WEP",
-            "T"
+            "SWEPT"
           ],
           "result": "WINDSWEPT",
           "letters_so_far": 9,
@@ -2363,256 +2885,31 @@
     }
   },
   "import_logs": {
-    "1769594885-2025": {
-      "id": "1769594885-2025",
-      "timestamp": 1769594885,
+    "1769967875-29453": {
+      "id": "1769967875-29453",
+      "timestamp": 1769967875,
       "publicationId": "times",
-      "puzzleFile": "Times_2025.json",
-      "puzzleNumber": "2025",
+      "puzzleFile": "unknown",
+      "puzzleNumber": "29453",
       "summary": {
-        "saved": 10,
+        "saved": 29,
         "skipped": 0,
         "failed": 0
       },
       "errors": []
     },
-    "1769776016-29439": {
-      "id": "1769776016-29439",
-      "timestamp": 1769776016,
+    "1769968578-29453": {
+      "id": "1769968578-29453",
+      "timestamp": 1769968578,
       "publicationId": "times",
       "puzzleFile": "unknown",
-      "puzzleNumber": "29439",
+      "puzzleNumber": "29453",
       "summary": {
-        "saved": 2,
+        "saved": 29,
         "skipped": 0,
         "failed": 0
       },
       "errors": []
-    },
-    "1769776455-29439": {
-      "id": "1769776455-29439",
-      "timestamp": 1769776455,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29439",
-      "summary": {
-        "saved": 0,
-        "skipped": 2,
-        "failed": 0
-      },
-      "errors": []
-    },
-    "1769947513-29453": {
-      "id": "1769947513-29453",
-      "timestamp": 1769947513,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29453",
-      "summary": {
-        "saved": 0,
-        "skipped": 0,
-        "failed": 1
-      },
-      "errors": [
-        {
-          "clueId": "times-29453-11a",
-          "clueNumber": "11A",
-          "clueText": "Come by five, do you mean?",
-          "errors": [
-            "steps[1] has type \"abbreviation\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase"
-          ]
-        }
-      ]
-    },
-    "1769947591-29453": {
-      "id": "1769947591-29453",
-      "timestamp": 1769947591,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29453",
-      "summary": {
-        "saved": 1,
-        "skipped": 0,
-        "failed": 0
-      },
-      "errors": []
-    },
-    "1769950408-29453": {
-      "id": "1769950408-29453",
-      "timestamp": 1769950408,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29453",
-      "summary": {
-        "saved": 0,
-        "skipped": 1,
-        "failed": 5
-      },
-      "errors": [
-        {
-          "clueId": "times-29453-1d",
-          "clueNumber": "1D",
-          "clueText": "See boss bungle work",
-          "errors": [
-            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
-          ]
-        },
-        {
-          "clueId": "times-29453-6d",
-          "clueNumber": "6D",
-          "clueText": "Any number after dance party are starving",
-          "errors": [
-            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
-          ]
-        },
-        {
-          "clueId": "times-29453-5d",
-          "clueNumber": "5D",
-          "clueText": "A lot of sharp turns, I'm afraid",
-          "errors": [
-            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
-            "steps[2] has type \"deletion\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
-            "steps[3] has type \"reversal\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
-          ]
-        },
-        {
-          "clueId": "times-29453-12a",
-          "clueNumber": "12A",
-          "clueText": "Concerning sight as head of office IT struggles with PC",
-          "errors": [
-            "steps[1] has type \"letter_selection\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
-            "steps[2] has type \"literal\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
-            "steps[3] has type \"literal\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
-            "steps[4] has type \"anagram\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
-          ]
-        },
-        {
-          "clueId": "times-29453-9d",
-          "clueNumber": "9D",
-          "clueText": "State coach for Turkish leader who's out to lunch?",
-          "errors": [
-            "steps[1] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation",
-            "steps[3] has type \"synonym\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation"
-          ]
-        }
-      ]
-    },
-    "1769957793-29439": {
-      "id": "1769957793-29439",
-      "timestamp": 1769957793,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29439",
-      "summary": {
-        "saved": 0,
-        "skipped": 2,
-        "failed": 0
-      },
-      "errors": []
-    },
-    "1769958759-29453": {
-      "id": "1769958759-29453",
-      "timestamp": 1769958759,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29453",
-      "summary": {
-        "saved": 5,
-        "skipped": 1,
-        "failed": 0
-      },
-      "errors": []
-    },
-    "1769958767-29439": {
-      "id": "1769958767-29439",
-      "timestamp": 1769958767,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29439",
-      "summary": {
-        "saved": 0,
-        "skipped": 2,
-        "failed": 0
-      },
-      "errors": []
-    },
-    "1769962156-29453": {
-      "id": "1769962156-29453",
-      "timestamp": 1769962156,
-      "publicationId": "times",
-      "puzzleFile": "unknown",
-      "puzzleNumber": "29453",
-      "summary": {
-        "saved": 15,
-        "skipped": 6,
-        "failed": 8
-      },
-      "errors": [
-        {
-          "clueId": "times-29453-1a",
-          "clueNumber": "1A",
-          "clueText": "Cover up in shower not after nurses turn around",
-          "errors": [
-            "steps[3] has type \"container\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        },
-        {
-          "clueId": "times-29453-10a",
-          "clueNumber": "10A",
-          "clueText": "Flatter track takes very little time",
-          "errors": [
-            "steps[4] has type \"container\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        },
-        {
-          "clueId": "times-29453-8d",
-          "clueNumber": "8D",
-          "clueText": "But you must wear socks steamy in here",
-          "errors": [
-            "steps[3] has type \"container\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        },
-        {
-          "clueId": "times-29453-7d",
-          "clueNumber": "7D",
-          "clueText": "Summits welcoming American patronage",
-          "errors": [
-            "steps[3] has type \"container\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        },
-        {
-          "clueId": "times-29453-23d",
-          "clueNumber": "23D",
-          "clueText": "Pretend authority raised undue spending limits",
-          "errors": [
-            "steps[1] has type \"hidden\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        },
-        {
-          "clueId": "times-29453-3d",
-          "clueNumber": "3D",
-          "clueText": "One missing initially admitted to Electra with some upheaval?",
-          "errors": [
-            "steps[3] has type \"container\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        },
-        {
-          "clueId": "times-29453-19a",
-          "clueNumber": "19A",
-          "clueText": "Are cold kisses coming inside only when it's dark?",
-          "errors": [
-            "steps[5] has type \"container\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        },
-        {
-          "clueId": "times-29453-17d",
-          "clueNumber": "17D",
-          "clueText": "Embankment architect lengthened with cob?",
-          "errors": [
-            "steps[3] has type \"container\" but no template exists. Available: clue_type_identify, standard_definition, wordplay_overview, deletion_discover, container_verify, charade_verify, alternation_discover, double_definition, literal_phrase, abbreviation, synonym, deletion, reversal, letter_selection, literal, connector, anagram"
-          ]
-        }
-      ]
     }
   },
   "settings": {
