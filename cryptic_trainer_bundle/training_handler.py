@@ -129,13 +129,13 @@ STEP_TEMPLATES = {
             },
             {
                 "id": "teaching",
-                "actionPrompt": "Continue to next step",
+                "actionPrompt": "Complete training",
                 "panel": {
-                    "title": "PROGRESS CHECK",
-                    "instruction": "{components_display} = {result}. You now have {letters_so_far} of {letters_needed} letters — getting closer!"
+                    "title": "SOLVED!",
+                    "instruction": "{components_display} = {result} ✓"
                 },
                 "inputMode": "none",
-                "button": {"label": "Continue →", "action": "next_step"}
+                "button": {"label": "Complete →", "action": "complete"}
             }
         ]
     },
@@ -144,35 +144,35 @@ STEP_TEMPLATES = {
         "phases": [
             {
                 "id": "fodder",
-                "actionPrompt": "Tap the letters the indicator operates on",
+                "actionPrompt": "Tap the word the indicator operates on",
                 "panel": {
                     "title": "FIND THE FODDER",
-                    "instruction": "'{indicator}' tells you to take alternating letters. Which adjacent letters does it operate on?"
+                    "instruction": "'{indicator}' tells you to take alternating letters. Which word does it operate on?"
                 },
                 "inputMode": "tap_words",
                 "onCorrect": {"highlight": {"color": "BLUE", "role": "fodder"}},
-                "onWrong": {"message": "Hint: Look for letters right next to the indicator."}
+                "onWrong": {"message": "Hint: Look for a word right next to the indicator."}
             },
             {
                 "id": "result",
                 "actionPrompt": "Type the alternating letters",
                 "panel": {
                     "title": "EXTRACT THE LETTERS",
-                    "instruction": "You have {letters_have} letters so far. Take alternating letters from '{fodder}' — which {letters_needed} letters complete {answer}?"
+                    "instruction": "Take alternating letters from '{fodder}'. Which {letters_needed} letters do you get?"
                 },
                 "inputMode": "text",
                 "onCorrect": {"message": "Well done! Alternation is a handy technique to recognize."},
-                "onWrong": {"message": "Hint: Take every other letter from '{fodder}' — try odd positions (1st, 3rd, 5th) or even (2nd, 4th, 6th). Which gives you letters that fit {answer}?"}
+                "onWrong": {"message": "Hint: Take every other letter from '{fodder}' — try odd positions (1st, 3rd) or even (2nd, 4th)."}
             },
             {
                 "id": "teaching",
-                "actionPrompt": "Complete training",
+                "actionPrompt": "Continue to next step",
                 "panel": {
-                    "title": "VERIFIED!",
-                    "instruction": "Alternating letters from {fodder} = {result} ✓ Your hypothesis {answer} is confirmed!"
+                    "title": "ALTERNATION",
+                    "instruction": "'{indicator}' on '{fodder}' = {result}"
                 },
                 "inputMode": "none",
-                "button": {"label": "Complete →", "action": "complete"}
+                "button": {"label": "Continue →", "action": "next_step"}
             }
         ]
     },
@@ -300,8 +300,20 @@ def build_wordplay_overview_phases(step, clue):
     phases = []
 
     # Extract what we know for coaching prompts
-    definition_text = step.get("definition_text", "unknown")
+    # Get definition text from standard_definition step if not in this step
+    definition_text = step.get("definition_text")
+    if not definition_text:
+        steps = clue.get("steps", [])
+        for s in steps:
+            if s.get("type") == "standard_definition":
+                definition_text = s.get("expected", {}).get("text", "unknown")
+                break
+    if not definition_text:
+        definition_text = "unknown"
     answer = clue.get("clue", {}).get("answer", "unknown")
+
+    # Check recommended approach to determine intro text
+    recommended_approach = clue.get("difficulty", {}).get("recommendedApproach", "definition")
 
     # Normalize common_vocabulary to list
     common_vocab = step.get("common_vocabulary", [])
@@ -313,22 +325,39 @@ def build_wordplay_overview_phases(step, clue):
         vocab_num = i + 1
         is_first = i == 0
 
-        # Tap phase
+        # Tap phase - instructions differ based on whether user knows the answer
+        if recommended_approach == "definition":
+            # User has hypothesis - can reference answer
+            if is_first:
+                tap_instruction = f"Which word has a well-known cryptic synonym that might appear in {answer}?"
+            else:
+                tap_instruction = f"Look for another word with a well-known cryptic synonym that might appear in {answer}."
+        else:
+            # User doesn't know answer - can't reference it
+            if is_first:
+                tap_instruction = "Which word has a well-known cryptic synonym?"
+            else:
+                tap_instruction = "Look for another word with a well-known cryptic synonym."
+
         tap_phase = {
             "id": f"vocabulary_tap_{vocab_num}",
             "actionPrompt": "Tap a word with a common cryptic meaning",
             "panel": {
                 "title": "FIND ANCHOR",
-                "instruction": f"Look for another word with a well-known cryptic synonym that might appear in {answer}." if not is_first else f"Which word has a well-known cryptic synonym that might appear in {answer}?"
+                "instruction": tap_instruction
             },
             "inputMode": "tap_words",
             "onCorrect": {"highlight": {"color": "BLUE", "role": f"vocabulary_{vocab_num}"}},
             "onWrong": {"message": f"Hint: Look for common cryptic vocabulary — words like 'fool', 'love', 'nothing' have well-known short synonyms."}
         }
         if is_first:
+            if recommended_approach == "definition":
+                intro_text = f"We have the definition, {definition_text}, and a hypothesis: {answer}. Now let's verify it by scanning the remaining words for anchors — words with obvious cryptic meanings that might support your hypothesis."
+            else:
+                intro_text = f"We have the definition: {definition_text}. Now let's build the answer from the wordplay by finding anchors — words with obvious cryptic meanings."
             tap_phase["intro"] = {
                 "title": "Wordplay Overview",
-                "text": f"We have the definition, {definition_text}, and a hypothesis: {answer}. Now let's verify it by scanning the remaining words for anchors — words with obvious cryptic meanings that might support your hypothesis.",
+                "text": intro_text,
                 "example": ""
             }
         phases.append(tap_phase)
@@ -338,16 +367,24 @@ def build_wordplay_overview_phases(step, clue):
         vocab_meaning = vocab.get("meaning", "")
         meaning_len = len(vocab_meaning) if vocab_meaning else 3
 
+        # Instructions differ based on whether user knows the answer
+        if recommended_approach == "definition":
+            type_instruction = f"Nice work spotting '{vocab_text}' — this appears frequently in cryptic clues. What's its common {meaning_len}-letter synonym? Check if it appears in {answer}."
+            type_wrong_hint = f"Hint: Think of a {meaning_len}-letter word that means '{vocab_text}' and appears in {answer}."
+        else:
+            type_instruction = f"Nice work spotting '{vocab_text}' — this appears frequently in cryptic clues. What's its common {meaning_len}-letter synonym?"
+            type_wrong_hint = f"Hint: Think of a {meaning_len}-letter word that means '{vocab_text}'."
+
         type_phase = {
             "id": f"vocabulary_type_{vocab_num}",
             "actionPrompt": "Type the synonym",
             "panel": {
                 "title": "TYPE SYNONYM",
-                "instruction": f"Nice work spotting '{vocab_text}' — this appears frequently in cryptic clues. What's its common {meaning_len}-letter synonym? Check if it appears in {answer}."
+                "instruction": type_instruction
             },
             "inputMode": "text",
             "onCorrect": {"message": f"That's it! '{vocab_text}' = {vocab_meaning} — a common cryptic pairing worth remembering."},
-            "onWrong": {"message": f"Hint: Think of a {meaning_len}-letter word that means '{vocab_text}' and appears in {answer}."}
+            "onWrong": {"message": type_wrong_hint}
         }
         phases.append(type_phase)
 
@@ -1245,7 +1282,24 @@ def get_all_learnings(clue):
             })
 
         elif step_type == "wordplay_overview":
-            pass  # Skip - already shown in individual breadcrumbs
+            # Add individual ANCHOR and INDICATOR learnings
+            common_vocab = step.get("common_vocabulary", [])
+            if isinstance(common_vocab, dict):
+                common_vocab = [common_vocab]
+            for vocab in common_vocab:
+                vocab_text = vocab.get("text", "")
+                vocab_meaning = vocab.get("meaning", "")
+                learnings.append({
+                    "title": f"ANCHOR: {vocab_text} = {vocab_meaning}"
+                })
+
+            indicators = step.get("expected_indicators", [])
+            for ind in indicators:
+                ind_text = ind.get("text", "")
+                operation = ind.get("operation", "wordplay")
+                learnings.append({
+                    "title": f"INDICATOR: {ind_text} ({operation})"
+                })
 
         elif step_type == "deletion_discover":
             fodder_word = step.get("fodder_word", {}).get("text", "")
@@ -1284,25 +1338,25 @@ def get_all_learnings(clue):
             letters_so_far = step.get("letters_so_far", len(result))
             letters_needed = step.get("letters_needed", parse_enumeration(clue.get("clue", {}).get("enumeration", "0")))
             components_display = " + ".join(components)
-            learnings.append({
-                "title": "CHARADE",
-                "text": f"{components_display} = {result} ({letters_so_far} of {letters_needed} letters)"
-            })
+            # Use SOLVED! if this completes the answer
+            if letters_so_far == letters_needed:
+                learnings.append({
+                    "title": "SOLVED!",
+                    "text": f"{components_display} = {result} ✓"
+                })
+            else:
+                learnings.append({
+                    "title": "CHARADE",
+                    "text": f"{components_display} = {result} ({letters_so_far} of {letters_needed} letters)"
+                })
 
         elif step_type == "alternation_discover":
+            indicator = step.get("indicator", {}).get("text", "")
             fodder = step.get("fodder", {}).get("text", "")
             result = step.get("result", "")
-            charade_result = ""
-            for s in steps:
-                if s.get("type") == "charade_verify":
-                    charade_result = s.get("result", "")
-                    break
-            definition_text = ""
-            if steps and steps[0].get("type") == "standard_definition":
-                definition_text = steps[0].get("expected", {}).get("text", "")
             learnings.append({
                 "title": "ALTERNATION",
-                "text": f"Taking alternate letters from {fodder}: {result}\n{charade_result} + {result} = {answer} ✓\nDefinition: \"{definition_text}\" = {answer} ✓\n\n**Remember:** Alternation indicators (by turns, oddly, evenly, regularly) tell you to take every other letter."
+                "text": f"'{indicator}' on '{fodder}' = {result}"
             })
 
         elif step_type == "double_definition":

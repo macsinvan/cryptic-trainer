@@ -134,7 +134,7 @@
       "id": "times-29439-1d",
       "clue": {
         "number": "1D",
-        "text": "Popular drink, by turns m i l d and short on taste",
+        "text": "Popular drink, by turns mild and short on taste",
         "enumeration": "7",
         "answer": "INSIPID",
         "definition": [
@@ -149,10 +149,7 @@
         "drink",
         "by",
         "turns",
-        "m",
-        "i",
-        "l",
-        "d",
+        "mild",
         "and",
         "short",
         "on",
@@ -163,9 +160,9 @@
           "type": "standard_definition",
           "expected": {
             "indices": [
-              9,
-              10,
-              11
+              6,
+              7,
+              8
             ],
             "text": "short on taste"
           },
@@ -180,12 +177,9 @@
             2,
             3,
             4,
-            5,
-            6,
-            7,
-            8
+            5
           ],
-          "remaining_text": "Popular drink, by turns m i l d and",
+          "remaining_text": "Popular drink, by turns mild and",
           "common_vocabulary": [
             {
               "indices": [
@@ -207,45 +201,41 @@
           "expected_indicators": [
             {
               "indices": [
-                2,
                 3
               ],
-              "text": "by turns",
+              "text": "turns",
               "operation": "alternation"
             }
           ]
         },
         {
-          "type": "charade_verify",
-          "components": [
-            "IN",
-            "SIP"
-          ],
-          "result": "INSIP",
-          "letters_so_far": 5,
-          "letters_needed": 7
-        },
-        {
           "type": "alternation_discover",
           "indicator": {
             "indices": [
-              2,
               3
             ],
-            "text": "by turns"
+            "text": "turns"
           },
           "fodder": {
             "indices": [
-              4,
-              5,
-              6,
-              7
+              4
             ],
-            "text": "m i l d"
+            "text": "mild"
           },
           "result": "ID",
           "letters_needed": 2,
           "pattern": "even"
+        },
+        {
+          "type": "charade_verify",
+          "components": [
+            "IN",
+            "SIP",
+            "ID"
+          ],
+          "result": "INSIPID",
+          "letters_so_far": 7,
+          "letters_needed": 7
         }
       ],
       "metadata": {
