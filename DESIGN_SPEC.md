@@ -702,10 +702,11 @@ Each step's `type` must have a corresponding template in `training_handler.STEP_
 - `hidden`
 - `homophone`
 - `reversal`
+- `literal_phrase`
 
 If a step type has no template, the clue is skipped with an actionable error:
 ```
-steps[0] has type "spoonerism" but no template exists. Available: clue_type_identify, standard_definition, anagram_find, letter_selection, container, anagram_solve, double_definition, synonym, abbreviation, deletion, charade, hidden, homophone, reversal
+steps[0] has type "spoonerism" but no template exists. Available: clue_type_identify, standard_definition, anagram_find, letter_selection, container, anagram_solve, double_definition, synonym, abbreviation, deletion, charade, hidden, homophone, reversal, literal_phrase
 ```
 
 ### Import Log Endpoints
@@ -1353,6 +1354,26 @@ Steps can include a `training.hint` field to override the template's panel instr
   "indicator": {"indices": [0,1], "text": "Travelling west"},
   "fodder": {"indices": [3,4,5,6,7], "text": "Nav arre I s pot"},
   "result": "TOPSIERRAVAN"
+}
+```
+
+### literal_phrase
+
+**Purpose:** Recognize phrases that sound like something else when spoken aloud.
+
+**Phases:**
+1. `fodder` — Tap the phrase that sounds like something else (inputMode: tap_words)
+2. `result` — Type what the phrase sounds like when spoken (inputMode: text)
+3. `teaching` — Shows the spoken interpretation (inputMode: none)
+
+**Clue data:**
+```json
+{
+  "type": "literal_phrase",
+  "fodder": {"indices": [3, 4, 5], "text": "do you mean?"},
+  "result": "ISIT",
+  "letters_needed": 4,
+  "note": "The question 'do you mean?' reads as its spoken equivalent 'IS IT'"
 }
 ```
 
