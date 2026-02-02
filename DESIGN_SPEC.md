@@ -1,6 +1,6 @@
 # Cryptic Trainer — Design Specification
 
-*Last updated: 2026-01-31*
+*Last updated: 2026-02-02*
 
 ---
 
@@ -13,9 +13,10 @@
 5. [Import Flow](#import-flow)
 6. [Training Flow](#training-flow)
 7. [Step Templates](#step-templates)
-8. [Server API](#server-api)
-9. [React Components](#react-components)
-10. [File Inventory](#file-inventory)
+8. [Teaching Hints](#teaching-hints)
+9. [Server API](#server-api)
+10. [React Components](#react-components)
+11. [File Inventory](#file-inventory)
 
 ---
 
@@ -1653,6 +1654,79 @@ Use this as a reference when creating new clue metadata to ensure the flow is pe
 
 ---
 
+## Teaching Hints
+
+### Overview
+
+Teaching hints provide expert-level explanations for cryptic crossword conventions. They explain **why** an abbreviation or synonym works, not just what it is.
+
+**File:** `cryptic_trainer_bundle/teaching_hints.json`
+
+### Schema
+
+```json
+{
+  "abbreviations": {
+    "king": "R = Rex (Latin for king). CR = Charles Rex for the current monarch.",
+    "five": "V is the Roman numeral for 5 — look for it hiding in or being removed from words."
+  },
+  "synonyms": {
+    "factory": "MILL — common cryptic synonym.",
+    "struggle": "VIE — to compete or contend."
+  },
+  "indicators": {
+    "homophone": "'Heard,' 'we hear,' 'by the sounds of it' = find a word that sounds like another.",
+    "heartless": "Remove the middle letter(s) — the 'heart' of the word."
+  },
+  "patterns": {
+    "roman_numerals": "When you see numbers, try Roman numerals: I=1, V=5, X=10, L=50, C=100, D=500, M=1000.",
+    "periodic_table": "Elements are often abbreviated: TIN=SN, GOLD=AU, SILVER=AG, IRON=FE."
+  }
+}
+```
+
+### Categories
+
+| Category | Purpose | Example |
+|----------|---------|---------|
+| `abbreviations` | Standard letter abbreviations | king → R (Rex) |
+| `synonyms` | Non-obvious word equivalences | factory → MILL |
+| `indicators` | What indicator words signal | "heard" → homophone |
+| `patterns` | General solving strategies | Roman numerals, periodic table |
+
+### Hint Lookup Priority
+
+1. **Clue metadata** — `step.hint` field (clue-specific explanation)
+2. **Teaching hints file** — `teaching_hints.json` lookup by fodder word
+3. **Generic fallback** — Default message if no hint found
+
+### Usage in Training
+
+Hints appear in:
+- **Teaching phases** — After user correctly identifies abbreviation/synonym
+- **Learnings view** — Summary shown when training completes or user solves early
+
+### Adding New Hints
+
+Extract hints from expert solving sessions (e.g., Cracking the Cryptic transcripts):
+
+1. Identify reusable patterns (abbreviations, synonyms, indicators)
+2. Write concise explanations focusing on **why** something works
+3. Add to appropriate category in `teaching_hints.json`
+4. Hints are loaded automatically on server restart
+
+### Example: Expert Insight → Hint
+
+**From transcript:**
+> "When you see numbers in cryptic crosswords, very often if you can translate those into a Roman numeral you should always try to do it. So the Roman numeral for the number five is V."
+
+**Extracted hint:**
+```json
+"five": "V is the Roman numeral for 5 — look for it hiding in or being removed from words."
+```
+
+---
+
 ## Server API
 
 ### Authentication
@@ -1995,6 +2069,7 @@ curl -X POST localhost:5001/training/continue \
 | `training_handler.py` | Step templates (STEP_TEMPLATES), session management, render generation, `parse_enumeration()` helper |
 | `cryptic_trainer.py` | Solver engine |
 | `clues_db.json` | Data storage (training_items, import_logs, parser_issues) |
+| `teaching_hints.json` | Reusable teaching hints for abbreviations, synonyms, indicators, and patterns |
 
 ### React UI (root)
 

@@ -11,6 +11,44 @@ Clue data provides only specific values (10%).
 """
 
 import re
+import json
+import os
+
+# =============================================================================
+# TEACHING HINTS - Loaded from teaching_hints.json
+# =============================================================================
+
+TEACHING_HINTS = {}
+
+def _load_teaching_hints():
+    """Load teaching hints from JSON file."""
+    global TEACHING_HINTS
+    hints_path = os.path.join(os.path.dirname(__file__), "teaching_hints.json")
+    try:
+        with open(hints_path, "r") as f:
+            TEACHING_HINTS = json.load(f)
+    except Exception as e:
+        print(f"Warning: Could not load teaching_hints.json: {e}")
+        TEACHING_HINTS = {"abbreviations": {}, "synonyms": {}, "indicators": {}, "patterns": {}}
+
+# Load hints on module import
+_load_teaching_hints()
+
+def get_teaching_hint(category: str, key: str, fallback: str = "") -> str:
+    """
+    Look up a teaching hint by category and key.
+
+    Args:
+        category: One of 'abbreviations', 'synonyms', 'indicators', 'patterns'
+        key: The word/phrase to look up (case-insensitive)
+        fallback: Value to return if not found
+
+    Returns:
+        The hint text, or fallback if not found
+    """
+    hints = TEACHING_HINTS.get(category, {})
+    # Try exact match first, then lowercase
+    return hints.get(key, hints.get(key.lower(), fallback))
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -306,7 +344,7 @@ STEP_TEMPLATES = {
                 "actionPrompt": "Continue to next step",
                 "panel": {
                     "title": "ABBREVIATION",
-                    "instruction": "'{fodder}' = {result}\n\n**Remember:** Build a mental library of common cryptic abbreviations — they appear frequently!"
+                    "instruction": "'{fodder}' = {result}\n\n**Hint:** {hint}"
                 },
                 "inputMode": "none",
                 "button": {"label": "Continue →", "action": "next_step"}
@@ -1135,9 +1173,28 @@ def substitute_variables(text, step, session, clue=None):
 
     # Direct fields
     for key in ["result", "fodder_synonym", "letters_needed", "inner", "outer",
-                "letters_so_far", "pattern", "hint"]:
+                "letters_so_far", "pattern"]:
         if key in step:
             subs[key] = str(step[key])
+
+    # Handle hint with fallback to teaching_hints.json
+    step_type = step.get("type", "")
+    fodder_text = ""
+    if "fodder" in step:
+        f = step["fodder"]
+        fodder_text = f.get("text", "") if isinstance(f, dict) else str(f)
+
+    if "hint" in step and step["hint"]:
+        # Use hint from metadata if provided
+        subs["hint"] = str(step["hint"])
+    elif step_type == "abbreviation" and fodder_text:
+        # Fallback to teaching_hints.json for abbreviations
+        subs["hint"] = get_teaching_hint("abbreviations", fodder_text,
+            "Build a mental library of common cryptic abbreviations — they appear frequently!")
+    elif step_type == "synonym" and fodder_text:
+        # Fallback to teaching_hints.json for synonyms
+        subs["hint"] = get_teaching_hint("synonyms", fodder_text,
+            "Cryptic crosswords often use unexpected synonyms. This pairing is worth remembering!")
 
     # Handle indicator
     if "indicator" in step:
@@ -1979,15 +2036,20 @@ def get_all_learnings(clue):
         elif step_type == "abbreviation":
             fodder = step.get("fodder", {}).get("text", "")
             result = step.get("result", "")
+            # Use metadata hint, or fall back to teaching_hints.json
+            hint = step.get("hint", "") or get_teaching_hint("abbreviations", fodder,
+                "Build a mental library of common cryptic abbreviations — they appear frequently!")
             learnings.append({
                 "title": f"ABBREVIATION: {fodder} → {result}",
-                "text": f"'{fodder}' = {result}\n\n**Remember:** Build a mental library of common cryptic abbreviations — they appear frequently!"
+                "text": f"'{fodder}' = {result}\n\n**Hint:** {hint}"
             })
 
         elif step_type == "synonym":
             fodder = step.get("fodder", {}).get("text", "")
             result = step.get("result", "")
-            hint = step.get("hint", "")
+            # Use metadata hint, or fall back to teaching_hints.json
+            hint = step.get("hint", "") or get_teaching_hint("synonyms", fodder,
+                "Cryptic crosswords often use unexpected synonyms. This pairing is worth remembering!")
             learnings.append({
                 "title": f"SYNONYM: {fodder} → {result}",
                 "text": f"'{fodder}' = {result}\n\n**Hint:** {hint}"
